@@ -1,0 +1,3 @@
+digraph G { rankdir=LR; node [shape=box, style="rounded", fontname="Arial"]; edge [fontname="Arial"];
+In [label="Architecture + Jira + Risk Register"]; Strat [label="One Test Strategy\nstream-specific approaches"]; Plan [label="Test Plan\n29119-based structure"]; H [label="Human Approval\nEntry/Exit criteria decided by Test Lead"]; Mon [label="Monitor execution + metrics"]; Comp [label="Test Completion Report"]; Rec [label="Release Recommendation"]; In->Strat->Plan->H->Mon->Comp->Rec;
+}

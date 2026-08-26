@@ -1,0 +1,4 @@
+digraph G { rankdir=LR; node [shape=box, style="rounded", fontname="Arial"]; edge [fontname="Arial"];
+U [label="User Query"]; API [label="Chat API"]; Emb [label="Embedding"]; V [label="Vector Store\nProducts + Policies"]; Ret [label="Retrieval\nTop-K chunks/items"]; Aug [label="Augmentation\nSystem prompt + query + context"]; LLM [label="LLM Generation"]; Ans [label="Answer + Sources"]; Log [label="RAG Trace\nquery • retrieved IDs/scores • prompt version • model • latency"];
+U->API->Emb->V->Ret->Aug->LLM->Ans; Ret->Log; Aug->Log; LLM->Log;
+}

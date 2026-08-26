@@ -1,0 +1,161 @@
+product_id,name,category,subcategory,price,currency,colors,sizes,waterproof,stock,rating,description
+P-1001,NorthPeak Storm Jacket,Clothing,Jackets,129.99,USD,black|blue,S|M|L|XL,True,18,4.6,Jackets for everyday retail use. Waterproof construction.
+P-1002,UrbanThread City Jacket,Clothing,Jackets,89.99,USD,black,M|L,False,12,4.2,Jackets for everyday retail use. Waterproof construction.
+P-1003,TrailForge Alpine Jacket,Clothing,Jackets,159.99,USD,black|green,L|XL,True,7,4.8,Jackets for everyday retail use. Waterproof construction.
+P-1004,MetroWear Jacket 4,Clothing,Jackets,126.32,USD,grey,M|XL|S|XXL|XS|L,False,14,4.6,Jackets for everyday retail use. Standard weather resistance.
+P-1005,UrbanThread Jacket 5,Clothing,Jackets,217.01,USD,grey|red,S|M|XL|XS,False,17,4.5,Jackets for everyday retail use. Standard weather resistance.
+P-1006,AeroRun Jacket 6,Clothing,Jackets,156.08,USD,red|blue|navy,M|XL|S|XXL|L,True,3,3.6,Jackets for everyday retail use. Waterproof construction.
+P-1007,Luma Jacket 7,Clothing,Jackets,24.48,USD,red,XXL|M|S|XL|L|XS,True,29,3.5,Jackets for everyday retail use. Waterproof construction.
+P-1008,Luma Jacket 8,Clothing,Jackets,46.21,USD,beige|grey|red,S|XXL|L|XS,False,3,4.7,Jackets for everyday retail use. Standard weather resistance.
+P-1009,MetroWear Jacket 9,Clothing,Jackets,48.87,USD,blue|red|beige,L|XL|M|XXL|XS|S,True,34,4.6,Jackets for everyday retail use. Waterproof construction.
+P-1010,Luma Jacket 10,Clothing,Jackets,173.26,USD,green|red,XXL|M,True,32,4.6,Jackets for everyday retail use. Waterproof construction.
+P-1011,Luma Jacket 11,Clothing,Jackets,120.55,USD,red|blue|green,XL|XXL|XS,True,38,3.8,Jackets for everyday retail use. Waterproof construction.
+P-1012,Luma Jacket 12,Clothing,Jackets,21.93,USD,black,XL|XS|XXL,False,31,4.7,Jackets for everyday retail use. Standard weather resistance.
+P-1013,AeroRun T-Shirt 1,Clothing,T-Shirts,215.55,USD,navy,S|M|L|XS|XL|XXL,False,25,5.0,T-Shirts for everyday retail use. Standard weather resistance.
+P-1014,NovaStep T-Shirt 2,Clothing,T-Shirts,149.28,USD,navy|black|blue,XS|M|XXL,False,37,4.2,T-Shirts for everyday retail use. Standard weather resistance.
+P-1015,NorthPeak T-Shirt 3,Clothing,T-Shirts,136.86,USD,black,XS|XXL|M,False,4,4.1,T-Shirts for everyday retail use. Standard weather resistance.
+P-1016,NovaStep T-Shirt 4,Clothing,T-Shirts,74.25,USD,green,XL|L|S|XXL|M|XS,False,6,3.4,T-Shirts for everyday retail use. Standard weather resistance.
+P-1017,MetroWear T-Shirt 5,Clothing,T-Shirts,105.07,USD,navy|beige,XXL|XS,False,3,3.9,T-Shirts for everyday retail use. Standard weather resistance.
+P-1018,UrbanThread T-Shirt 6,Clothing,T-Shirts,86.54,USD,red,XL|L|S,False,27,3.5,T-Shirts for everyday retail use. Standard weather resistance.
+P-1019,UrbanThread T-Shirt 7,Clothing,T-Shirts,111.45,USD,blue|black,XS|XXL|S|XL|L|M,False,30,3.6,T-Shirts for everyday retail use. Standard weather resistance.
+P-1020,NorthPeak T-Shirt 8,Clothing,T-Shirts,99.01,USD,beige,L|M,False,29,3.7,T-Shirts for everyday retail use. Standard weather resistance.
+P-1021,NovaStep T-Shirt 9,Clothing,T-Shirts,158.71,USD,red,S|XS|XL|M,False,20,3.3,T-Shirts for everyday retail use. Standard weather resistance.
+P-1022,AeroRun T-Shirt 10,Clothing,T-Shirts,136.0,USD,blue,XS|XL|XXL,False,15,3.9,T-Shirts for everyday retail use. Standard weather resistance.
+P-1023,Stone&Co T-Shirt 11,Clothing,T-Shirts,208.2,USD,black|grey|navy,XXL|XL|M|S|XS,False,20,3.6,T-Shirts for everyday retail use. Standard weather resistance.
+P-1024,Luma T-Shirt 12,Clothing,T-Shirts,97.95,USD,white|beige,XS|L,False,39,5.0,T-Shirts for everyday retail use. Standard weather resistance.
+P-1025,UrbanThread Hoodie 1,Clothing,Hoodies,219.21,USD,red|grey|green,M|XS|S,False,23,3.7,Hoodies for everyday retail use. Standard weather resistance.
+P-1026,Luma Hoodie 2,Clothing,Hoodies,106.51,USD,black|white|grey,XXL|XS|S|L,False,7,4.8,Hoodies for everyday retail use. Standard weather resistance.
+P-1027,AeroRun Hoodie 3,Clothing,Hoodies,167.97,USD,grey|navy,XXL|M|S,False,40,4.7,Hoodies for everyday retail use. Standard weather resistance.
+P-1028,Luma Hoodie 4,Clothing,Hoodies,120.09,USD,blue,M|XS|XL|S|L,False,40,5.0,Hoodies for everyday retail use. Standard weather resistance.
+P-1029,NovaStep Hoodie 5,Clothing,Hoodies,50.64,USD,beige|grey|black,XS|S,False,34,3.3,Hoodies for everyday retail use. Standard weather resistance.
+P-1030,AeroRun Hoodie 6,Clothing,Hoodies,92.58,USD,green|black,M|XS|XXL|XL,False,15,4.4,Hoodies for everyday retail use. Standard weather resistance.
+P-1031,MetroWear Hoodie 7,Clothing,Hoodies,89.44,USD,green|blue|beige,L|XS|S,False,21,4.6,Hoodies for everyday retail use. Standard weather resistance.
+P-1032,Stone&Co Hoodie 8,Clothing,Hoodies,101.17,USD,green|beige,L|XS,False,30,3.6,Hoodies for everyday retail use. Standard weather resistance.
+P-1033,NovaStep Hoodie 9,Clothing,Hoodies,182.95,USD,grey|beige,S|XS|XXL,False,25,3.8,Hoodies for everyday retail use. Standard weather resistance.
+P-1034,Luma Hoodie 10,Clothing,Hoodies,192.6,USD,beige|white,M|XS|XL|S|L|XXL,False,2,3.4,Hoodies for everyday retail use. Standard weather resistance.
+P-1035,TrailForge Hoodie 11,Clothing,Hoodies,105.78,USD,blue|red,S|M|XS|XL|XXL|L,False,33,4.9,Hoodies for everyday retail use. Standard weather resistance.
+P-1036,Stone&Co Hoodie 12,Clothing,Hoodies,126.77,USD,beige|black,XL|M|XS|XXL,False,19,4.1,Hoodies for everyday retail use. Standard weather resistance.
+P-1037,TrailForge Jean 1,Clothing,Jeans,152.71,USD,grey|navy,S|L|XL,False,11,4.3,Jeans for everyday retail use. Standard weather resistance.
+P-1038,NorthPeak Jean 2,Clothing,Jeans,78.79,USD,grey|blue,XL|XXL|M|S|L,False,28,4.4,Jeans for everyday retail use. Standard weather resistance.
+P-1039,AeroRun Jean 3,Clothing,Jeans,121.26,USD,blue|green|grey,M|XS|S|XXL|L|XL,False,12,3.5,Jeans for everyday retail use. Standard weather resistance.
+P-1040,NovaStep Jean 4,Clothing,Jeans,27.34,USD,blue|red|beige,S|L|XL|XXL|XS|M,False,0,4.8,Jeans for everyday retail use. Standard weather resistance.
+P-1041,UrbanThread Jean 5,Clothing,Jeans,191.81,USD,red|blue,L|XS|S|XL|XXL|M,False,29,4.4,Jeans for everyday retail use. Standard weather resistance.
+P-1042,TrailForge Jean 6,Clothing,Jeans,217.55,USD,beige|navy,L|S|XXL|XL|M|XS,False,40,3.7,Jeans for everyday retail use. Standard weather resistance.
+P-1043,NovaStep Jean 7,Clothing,Jeans,175.09,USD,red|green|navy,XXL|M,False,15,3.7,Jeans for everyday retail use. Standard weather resistance.
+P-1044,UrbanThread Jean 8,Clothing,Jeans,82.58,USD,green,L|S|XL,False,4,3.9,Jeans for everyday retail use. Standard weather resistance.
+P-1045,NovaStep Jean 9,Clothing,Jeans,84.84,USD,black|blue,L|XL|XS|M|S,False,30,3.2,Jeans for everyday retail use. Standard weather resistance.
+P-1046,MetroWear Jean 10,Clothing,Jeans,89.06,USD,red|navy,M|L|XL,False,1,3.9,Jeans for everyday retail use. Standard weather resistance.
+P-1047,MetroWear Jean 11,Clothing,Jeans,153.11,USD,green|beige|red,XL|XXL|XS,False,25,4.3,Jeans for everyday retail use. Standard weather resistance.
+P-1048,UrbanThread Jean 12,Clothing,Jeans,151.93,USD,beige|blue|red,XS|M|L,False,20,3.6,Jeans for everyday retail use. Standard weather resistance.
+P-1049,MetroWear Trouser 1,Clothing,Trousers,84.02,USD,beige|green,L|XS,False,34,3.3,Trousers for everyday retail use. Standard weather resistance.
+P-1050,Stone&Co Trouser 2,Clothing,Trousers,210.29,USD,blue|beige|white,XS|S,False,12,4.7,Trousers for everyday retail use. Standard weather resistance.
+P-1051,Stone&Co Trouser 3,Clothing,Trousers,143.51,USD,navy,XL|S,False,29,4.5,Trousers for everyday retail use. Standard weather resistance.
+P-1052,AeroRun Trouser 4,Clothing,Trousers,172.91,USD,blue|beige|navy,XS|XL|XXL|S,False,36,4.4,Trousers for everyday retail use. Standard weather resistance.
+P-1053,MetroWear Trouser 5,Clothing,Trousers,211.55,USD,red|black|grey,XS|M|XXL,False,36,4.6,Trousers for everyday retail use. Standard weather resistance.
+P-1054,MetroWear Trouser 6,Clothing,Trousers,88.14,USD,white|black|grey,XS|L|XL|XXL,False,27,4.9,Trousers for everyday retail use. Standard weather resistance.
+P-1055,NovaStep Trouser 7,Clothing,Trousers,146.39,USD,green|red|blue,XXL|M|L|S|XL|XS,False,20,4.7,Trousers for everyday retail use. Standard weather resistance.
+P-1056,UrbanThread Trouser 8,Clothing,Trousers,185.81,USD,navy|blue,XL|XXL|L|S|XS,False,31,4.7,Trousers for everyday retail use. Standard weather resistance.
+P-1057,Stone&Co Trouser 9,Clothing,Trousers,54.73,USD,grey|green,XL|M|XS|XXL,False,12,3.4,Trousers for everyday retail use. Standard weather resistance.
+P-1058,NovaStep Trouser 10,Clothing,Trousers,163.46,USD,red|white|navy,L|XS|XL|S|XXL,False,25,4.4,Trousers for everyday retail use. Standard weather resistance.
+P-1059,TrailForge Trouser 11,Clothing,Trousers,79.85,USD,white|red,M|XXL|L|S|XL|XS,False,14,3.4,Trousers for everyday retail use. Standard weather resistance.
+P-1060,UrbanThread Trouser 12,Clothing,Trousers,56.9,USD,green|blue|beige,M|XL|XXL|XS|L,False,18,3.6,Trousers for everyday retail use. Standard weather resistance.
+P-1061,NorthPeak Sneaker 1,Footwear,Sneakers,54.25,USD,green|navy|black,XL|M,False,8,4.3,Sneakers for everyday retail use. Standard weather resistance.
+P-1062,UrbanThread Sneaker 2,Footwear,Sneakers,170.06,USD,grey,L|XXL|M|XS|XL,False,16,4.9,Sneakers for everyday retail use. Standard weather resistance.
+P-1063,UrbanThread Sneaker 3,Footwear,Sneakers,114.5,USD,navy|black,XXL|XS|S|XL|L|M,False,15,3.4,Sneakers for everyday retail use. Standard weather resistance.
+P-1064,Stone&Co Sneaker 4,Footwear,Sneakers,172.42,USD,beige|red|navy,XL|L|M|XXL,False,39,3.3,Sneakers for everyday retail use. Standard weather resistance.
+P-1065,UrbanThread Sneaker 5,Footwear,Sneakers,211.94,USD,red,XXL|XS|S|XL,False,11,4.2,Sneakers for everyday retail use. Standard weather resistance.
+P-1066,MetroWear Sneaker 6,Footwear,Sneakers,49.62,USD,navy|green,S|M,False,18,4.5,Sneakers for everyday retail use. Standard weather resistance.
+P-1067,Stone&Co Sneaker 7,Footwear,Sneakers,109.71,USD,red|navy,XL|S,False,9,4.8,Sneakers for everyday retail use. Standard weather resistance.
+P-1068,UrbanThread Sneaker 8,Footwear,Sneakers,184.98,USD,green,XL|XXL|M|S,False,7,4.0,Sneakers for everyday retail use. Standard weather resistance.
+P-1069,MetroWear Sneaker 9,Footwear,Sneakers,79.43,USD,navy|red,XL|XS,False,27,4.5,Sneakers for everyday retail use. Standard weather resistance.
+P-1070,NorthPeak Sneaker 10,Footwear,Sneakers,139.95,USD,red,XL|XS|M|L|XXL|S,False,30,4.1,Sneakers for everyday retail use. Standard weather resistance.
+P-1071,Luma Sneaker 11,Footwear,Sneakers,107.33,USD,beige,XS|L|M|S|XL,False,20,4.4,Sneakers for everyday retail use. Standard weather resistance.
+P-1072,TrailForge Sneaker 12,Footwear,Sneakers,191.26,USD,navy|green,XL|XS|L|XXL|S,False,16,3.8,Sneakers for everyday retail use. Standard weather resistance.
+P-1073,NorthPeak Boot 1,Footwear,Boots,213.98,USD,navy|red|black,XL|M|L,True,40,4.0,Boots for everyday retail use. Waterproof construction.
+P-1074,AeroRun Boot 2,Footwear,Boots,28.43,USD,navy|white,XS|XXL|S|M|XL,True,19,4.2,Boots for everyday retail use. Waterproof construction.
+P-1075,UrbanThread Boot 3,Footwear,Boots,129.55,USD,blue|white,L|M|XL,True,26,4.7,Boots for everyday retail use. Waterproof construction.
+P-1076,AeroRun Boot 4,Footwear,Boots,216.01,USD,red|grey,XXL|S|XS|XL|M|L,True,32,3.7,Boots for everyday retail use. Waterproof construction.
+P-1077,NovaStep Boot 5,Footwear,Boots,18.52,USD,navy,L|M|XL|XXL|S|XS,False,20,4.8,Boots for everyday retail use. Standard weather resistance.
+P-1078,MetroWear Boot 6,Footwear,Boots,216.12,USD,beige,M|L,True,24,3.9,Boots for everyday retail use. Waterproof construction.
+P-1079,AeroRun Boot 7,Footwear,Boots,152.07,USD,black|blue,XL|M|XS|S|L|XXL,False,0,4.5,Boots for everyday retail use. Standard weather resistance.
+P-1080,AeroRun Boot 8,Footwear,Boots,100.82,USD,navy,M|XL|L|XXL,False,5,4.7,Boots for everyday retail use. Standard weather resistance.
+P-1081,MetroWear Boot 9,Footwear,Boots,190.17,USD,navy|beige,XS|XL|XXL|L|S|M,False,5,4.0,Boots for everyday retail use. Standard weather resistance.
+P-1082,UrbanThread Boot 10,Footwear,Boots,37.89,USD,green|white,XS|XXL|M|XL,True,18,3.8,Boots for everyday retail use. Waterproof construction.
+P-1083,MetroWear Boot 11,Footwear,Boots,105.0,USD,green|blue|beige,XL|L,True,39,4.4,Boots for everyday retail use. Waterproof construction.
+P-1084,Stone&Co Boot 12,Footwear,Boots,118.53,USD,grey|red,XXL|XS|L|S,True,34,3.5,Boots for everyday retail use. Waterproof construction.
+P-1085,TrailForge Running Shoe 1,Footwear,Running Shoes,107.23,USD,grey|white|red,L|M|S|XXL,False,30,3.4,Running Shoes for everyday retail use. Standard weather resistance.
+P-1086,TrailForge Running Shoe 2,Footwear,Running Shoes,95.04,USD,grey|white|green,XXL|L,False,17,3.2,Running Shoes for everyday retail use. Standard weather resistance.
+P-1087,NorthPeak Running Shoe 3,Footwear,Running Shoes,192.74,USD,navy|beige|green,XL|M|S,False,40,3.5,Running Shoes for everyday retail use. Standard weather resistance.
+P-1088,AeroRun Running Shoe 4,Footwear,Running Shoes,68.63,USD,blue|white|beige,M|L,False,2,4.2,Running Shoes for everyday retail use. Standard weather resistance.
+P-1089,UrbanThread Running Shoe 5,Footwear,Running Shoes,165.94,USD,white|navy,S|XXL|XL|M|L,False,33,4.1,Running Shoes for everyday retail use. Standard weather resistance.
+P-1090,AeroRun Running Shoe 6,Footwear,Running Shoes,73.05,USD,navy|beige,XXL|M|XS|S,False,4,3.5,Running Shoes for everyday retail use. Standard weather resistance.
+P-1091,MetroWear Running Shoe 7,Footwear,Running Shoes,213.23,USD,white|black|red,M|XL,False,7,4.0,Running Shoes for everyday retail use. Standard weather resistance.
+P-1092,Luma Running Shoe 8,Footwear,Running Shoes,153.91,USD,beige|navy|white,XS|S|L|XXL,False,39,4.8,Running Shoes for everyday retail use. Standard weather resistance.
+P-1093,Stone&Co Running Shoe 9,Footwear,Running Shoes,131.4,USD,blue|white|red,XXL|L|XS|XL,False,2,4.9,Running Shoes for everyday retail use. Standard weather resistance.
+P-1094,NovaStep Running Shoe 10,Footwear,Running Shoes,79.48,USD,blue,XL|S|L,False,29,3.9,Running Shoes for everyday retail use. Standard weather resistance.
+P-1095,MetroWear Running Shoe 11,Footwear,Running Shoes,209.77,USD,green|red|white,L|XL,False,26,4.9,Running Shoes for everyday retail use. Standard weather resistance.
+P-1096,TrailForge Running Shoe 12,Footwear,Running Shoes,74.51,USD,navy,S|M|XS|XL|XXL,False,34,4.8,Running Shoes for everyday retail use. Standard weather resistance.
+P-1097,NorthPeak Sandal 1,Footwear,Sandals,148.26,USD,grey|blue,L|XS,False,13,4.4,Sandals for everyday retail use. Standard weather resistance.
+P-1098,NorthPeak Sandal 2,Footwear,Sandals,138.62,USD,white,S|XL|XXL,False,4,4.7,Sandals for everyday retail use. Standard weather resistance.
+P-1099,Stone&Co Sandal 3,Footwear,Sandals,129.95,USD,white,XL|XS|M,False,9,5.0,Sandals for everyday retail use. Standard weather resistance.
+P-1100,AeroRun Sandal 4,Footwear,Sandals,127.12,USD,black,XS|M|S,False,37,3.8,Sandals for everyday retail use. Standard weather resistance.
+P-1101,NorthPeak Sandal 5,Footwear,Sandals,53.2,USD,beige,XS|XXL|L|S|M|XL,False,28,4.1,Sandals for everyday retail use. Standard weather resistance.
+P-1102,NorthPeak Sandal 6,Footwear,Sandals,208.97,USD,grey|red|white,XS|L,False,25,4.0,Sandals for everyday retail use. Standard weather resistance.
+P-1103,NovaStep Sandal 7,Footwear,Sandals,39.81,USD,blue,XL|S|XS|L,False,17,4.3,Sandals for everyday retail use. Standard weather resistance.
+P-1104,TrailForge Sandal 8,Footwear,Sandals,136.24,USD,grey|red,XL|L|XS|M|XXL|S,False,27,4.0,Sandals for everyday retail use. Standard weather resistance.
+P-1105,TrailForge Sandal 9,Footwear,Sandals,64.16,USD,beige|red,M|L,False,20,4.4,Sandals for everyday retail use. Standard weather resistance.
+P-1106,AeroRun Sandal 10,Footwear,Sandals,93.61,USD,navy|black|beige,XS|L,False,6,4.5,Sandals for everyday retail use. Standard weather resistance.
+P-1107,AeroRun Sandal 11,Footwear,Sandals,93.27,USD,black|grey|beige,M|XS|L|S|XXL|XL,False,18,4.3,Sandals for everyday retail use. Standard weather resistance.
+P-1108,Stone&Co Sandal 12,Footwear,Sandals,89.03,USD,navy,XS|M|XL,False,7,4.6,Sandals for everyday retail use. Standard weather resistance.
+P-1109,NorthPeak Backpack 1,Accessories,Backpacks,133.97,USD,grey|black|blue,ONE,False,17,4.5,Backpacks for everyday retail use. Standard weather resistance.
+P-1110,NorthPeak Backpack 2,Accessories,Backpacks,80.41,USD,green,ONE,True,36,4.4,Backpacks for everyday retail use. Waterproof construction.
+P-1111,NorthPeak Backpack 3,Accessories,Backpacks,32.06,USD,red,ONE,False,24,4.0,Backpacks for everyday retail use. Standard weather resistance.
+P-1112,TrailForge Backpack 4,Accessories,Backpacks,86.86,USD,blue|black|navy,ONE,True,10,4.6,Backpacks for everyday retail use. Waterproof construction.
+P-1113,NovaStep Backpack 5,Accessories,Backpacks,28.05,USD,beige|red|grey,ONE,True,28,3.9,Backpacks for everyday retail use. Waterproof construction.
+P-1114,TrailForge Backpack 6,Accessories,Backpacks,61.54,USD,blue|green,ONE,True,37,4.1,Backpacks for everyday retail use. Waterproof construction.
+P-1115,MetroWear Backpack 7,Accessories,Backpacks,152.76,USD,black|navy|blue,ONE,True,19,4.9,Backpacks for everyday retail use. Waterproof construction.
+P-1116,Luma Backpack 8,Accessories,Backpacks,173.0,USD,blue|black,ONE,False,31,4.5,Backpacks for everyday retail use. Standard weather resistance.
+P-1117,Stone&Co Backpack 9,Accessories,Backpacks,53.49,USD,white|black|red,ONE,True,2,4.0,Backpacks for everyday retail use. Waterproof construction.
+P-1118,TrailForge Backpack 10,Accessories,Backpacks,110.87,USD,beige|grey|red,ONE,True,40,4.0,Backpacks for everyday retail use. Waterproof construction.
+P-1119,TrailForge Backpack 11,Accessories,Backpacks,41.27,USD,navy,ONE,True,23,3.4,Backpacks for everyday retail use. Waterproof construction.
+P-1120,MetroWear Backpack 12,Accessories,Backpacks,188.59,USD,blue|red|green,ONE,True,21,3.6,Backpacks for everyday retail use. Waterproof construction.
+P-1121,UrbanThread Belt 1,Accessories,Belts,175.38,USD,blue|grey|beige,ONE,False,12,4.8,Belts for everyday retail use. Standard weather resistance.
+P-1122,AeroRun Belt 2,Accessories,Belts,88.57,USD,blue,ONE,False,9,3.7,Belts for everyday retail use. Standard weather resistance.
+P-1123,AeroRun Belt 3,Accessories,Belts,53.05,USD,blue|navy|white,ONE,False,31,4.0,Belts for everyday retail use. Standard weather resistance.
+P-1124,NovaStep Belt 4,Accessories,Belts,131.87,USD,white|beige|navy,ONE,False,20,3.5,Belts for everyday retail use. Standard weather resistance.
+P-1125,NovaStep Belt 5,Accessories,Belts,31.79,USD,grey|beige|green,ONE,False,37,3.3,Belts for everyday retail use. Standard weather resistance.
+P-1126,Luma Belt 6,Accessories,Belts,120.48,USD,navy|black,ONE,False,3,3.9,Belts for everyday retail use. Standard weather resistance.
+P-1127,UrbanThread Belt 7,Accessories,Belts,75.99,USD,beige|red|grey,ONE,False,35,4.9,Belts for everyday retail use. Standard weather resistance.
+P-1128,NorthPeak Belt 8,Accessories,Belts,167.26,USD,red|green,ONE,False,38,4.1,Belts for everyday retail use. Standard weather resistance.
+P-1129,NorthPeak Belt 9,Accessories,Belts,48.47,USD,blue|beige,ONE,False,21,5.0,Belts for everyday retail use. Standard weather resistance.
+P-1130,AeroRun Belt 10,Accessories,Belts,35.03,USD,red,ONE,False,28,5.0,Belts for everyday retail use. Standard weather resistance.
+P-1131,AeroRun Belt 11,Accessories,Belts,123.86,USD,white|green,ONE,False,24,3.9,Belts for everyday retail use. Standard weather resistance.
+P-1132,NorthPeak Belt 12,Accessories,Belts,86.35,USD,white|black|green,ONE,False,6,4.2,Belts for everyday retail use. Standard weather resistance.
+P-1133,Luma Cap 1,Accessories,Caps,96.09,USD,green|navy|black,ONE,False,37,4.4,Caps for everyday retail use. Standard weather resistance.
+P-1134,Luma Cap 2,Accessories,Caps,203.18,USD,beige|blue|grey,ONE,False,5,3.8,Caps for everyday retail use. Standard weather resistance.
+P-1135,TrailForge Cap 3,Accessories,Caps,94.09,USD,blue,ONE,False,27,4.1,Caps for everyday retail use. Standard weather resistance.
+P-1136,Luma Cap 4,Accessories,Caps,21.68,USD,red,ONE,False,21,4.9,Caps for everyday retail use. Standard weather resistance.
+P-1137,Stone&Co Cap 5,Accessories,Caps,116.23,USD,green,ONE,False,4,3.7,Caps for everyday retail use. Standard weather resistance.
+P-1138,NorthPeak Cap 6,Accessories,Caps,177.2,USD,white|beige|grey,ONE,False,8,4.3,Caps for everyday retail use. Standard weather resistance.
+P-1139,AeroRun Cap 7,Accessories,Caps,49.16,USD,green|white|red,ONE,False,2,3.9,Caps for everyday retail use. Standard weather resistance.
+P-1140,Stone&Co Cap 8,Accessories,Caps,154.63,USD,grey|beige,ONE,False,28,3.6,Caps for everyday retail use. Standard weather resistance.
+P-1141,NovaStep Cap 9,Accessories,Caps,66.31,USD,white,ONE,False,36,5.0,Caps for everyday retail use. Standard weather resistance.
+P-1142,Luma Cap 10,Accessories,Caps,111.26,USD,beige|blue,ONE,False,12,4.6,Caps for everyday retail use. Standard weather resistance.
+P-1143,Luma Cap 11,Accessories,Caps,45.96,USD,navy,ONE,False,23,4.2,Caps for everyday retail use. Standard weather resistance.
+P-1144,UrbanThread Cap 12,Accessories,Caps,38.72,USD,blue|beige,ONE,False,10,3.7,Caps for everyday retail use. Standard weather resistance.
+P-1145,AeroRun Scarve 1,Accessories,Scarves,200.87,USD,blue|navy,ONE,False,28,4.8,Scarves for everyday retail use. Standard weather resistance.
+P-1146,MetroWear Scarve 2,Accessories,Scarves,205.96,USD,beige,ONE,False,32,3.9,Scarves for everyday retail use. Standard weather resistance.
+P-1147,UrbanThread Scarve 3,Accessories,Scarves,96.01,USD,red|black,ONE,False,20,4.9,Scarves for everyday retail use. Standard weather resistance.
+P-1148,TrailForge Scarve 4,Accessories,Scarves,187.51,USD,green,ONE,False,2,3.7,Scarves for everyday retail use. Standard weather resistance.
+P-1149,AeroRun Scarve 5,Accessories,Scarves,185.61,USD,navy|red|grey,ONE,False,0,4.8,Scarves for everyday retail use. Standard weather resistance.
+P-1150,Stone&Co Scarve 6,Accessories,Scarves,21.84,USD,beige,ONE,False,7,4.6,Scarves for everyday retail use. Standard weather resistance.
+P-1151,UrbanThread Scarve 7,Accessories,Scarves,66.0,USD,red,ONE,False,26,4.4,Scarves for everyday retail use. Standard weather resistance.
+P-1152,UrbanThread Scarve 8,Accessories,Scarves,143.81,USD,navy,ONE,False,38,4.2,Scarves for everyday retail use. Standard weather resistance.
+P-1153,Stone&Co Scarve 9,Accessories,Scarves,145.65,USD,green|navy|red,ONE,False,0,4.3,Scarves for everyday retail use. Standard weather resistance.
+P-1154,MetroWear Scarve 10,Accessories,Scarves,66.59,USD,blue,ONE,False,33,5.0,Scarves for everyday retail use. Standard weather resistance.
+P-1155,NorthPeak Scarve 11,Accessories,Scarves,31.67,USD,navy|black,ONE,False,40,3.9,Scarves for everyday retail use. Standard weather resistance.
+P-1156,NorthPeak Scarve 12,Accessories,Scarves,93.41,USD,blue|green,ONE,False,15,4.5,Scarves for everyday retail use. Standard weather resistance.
+P-1157,TrailForge Sunglasse 1,Accessories,Sunglasses,144.91,USD,black,ONE,False,22,4.2,Sunglasses for everyday retail use. Standard weather resistance.
+P-1158,AeroRun Sunglasse 2,Accessories,Sunglasses,182.33,USD,navy|white|red,ONE,False,40,3.5,Sunglasses for everyday retail use. Standard weather resistance.
+P-1159,NovaStep Sunglasse 3,Accessories,Sunglasses,45.24,USD,grey,ONE,False,12,3.3,Sunglasses for everyday retail use. Standard weather resistance.
+P-1160,NorthPeak Sunglasse 4,Accessories,Sunglasses,58.29,USD,grey|navy,ONE,False,25,5.0,Sunglasses for everyday retail use. Standard weather resistance.

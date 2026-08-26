@@ -1,0 +1,3359 @@
+[
+  {
+    "product_id": "P-1001",
+    "name": "NorthPeak Storm Jacket",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 129.99,
+    "currency": "USD",
+    "colors": [
+      "black",
+      "blue"
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XL"
+    ],
+    "waterproof": true,
+    "stock": 18,
+    "rating": 4.6,
+    "description": "Jackets for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1002",
+    "name": "UrbanThread City Jacket",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 89.99,
+    "currency": "USD",
+    "colors": [
+      "black"
+    ],
+    "sizes": [
+      "M",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 12,
+    "rating": 4.2,
+    "description": "Jackets for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1003",
+    "name": "TrailForge Alpine Jacket",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 159.99,
+    "currency": "USD",
+    "colors": [
+      "black",
+      "green"
+    ],
+    "sizes": [
+      "L",
+      "XL"
+    ],
+    "waterproof": true,
+    "stock": 7,
+    "rating": 4.8,
+    "description": "Jackets for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1004",
+    "name": "MetroWear Jacket 4",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 126.32,
+    "currency": "USD",
+    "colors": [
+      "grey"
+    ],
+    "sizes": [
+      "M",
+      "XL",
+      "S",
+      "XXL",
+      "XS",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 14,
+    "rating": 4.6,
+    "description": "Jackets for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1005",
+    "name": "UrbanThread Jacket 5",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 217.01,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "red"
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "XL",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 17,
+    "rating": 4.5,
+    "description": "Jackets for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1006",
+    "name": "AeroRun Jacket 6",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 156.08,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "blue",
+      "navy"
+    ],
+    "sizes": [
+      "M",
+      "XL",
+      "S",
+      "XXL",
+      "L"
+    ],
+    "waterproof": true,
+    "stock": 3,
+    "rating": 3.6,
+    "description": "Jackets for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1007",
+    "name": "Luma Jacket 7",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 24.48,
+    "currency": "USD",
+    "colors": [
+      "red"
+    ],
+    "sizes": [
+      "XXL",
+      "M",
+      "S",
+      "XL",
+      "L",
+      "XS"
+    ],
+    "waterproof": true,
+    "stock": 29,
+    "rating": 3.5,
+    "description": "Jackets for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1008",
+    "name": "Luma Jacket 8",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 46.21,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "grey",
+      "red"
+    ],
+    "sizes": [
+      "S",
+      "XXL",
+      "L",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 3,
+    "rating": 4.7,
+    "description": "Jackets for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1009",
+    "name": "MetroWear Jacket 9",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 48.87,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "red",
+      "beige"
+    ],
+    "sizes": [
+      "L",
+      "XL",
+      "M",
+      "XXL",
+      "XS",
+      "S"
+    ],
+    "waterproof": true,
+    "stock": 34,
+    "rating": 4.6,
+    "description": "Jackets for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1010",
+    "name": "Luma Jacket 10",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 173.26,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "red"
+    ],
+    "sizes": [
+      "XXL",
+      "M"
+    ],
+    "waterproof": true,
+    "stock": 32,
+    "rating": 4.6,
+    "description": "Jackets for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1011",
+    "name": "Luma Jacket 11",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 120.55,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "blue",
+      "green"
+    ],
+    "sizes": [
+      "XL",
+      "XXL",
+      "XS"
+    ],
+    "waterproof": true,
+    "stock": 38,
+    "rating": 3.8,
+    "description": "Jackets for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1012",
+    "name": "Luma Jacket 12",
+    "category": "Clothing",
+    "subcategory": "Jackets",
+    "price": 21.93,
+    "currency": "USD",
+    "colors": [
+      "black"
+    ],
+    "sizes": [
+      "XL",
+      "XS",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 31,
+    "rating": 4.7,
+    "description": "Jackets for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1013",
+    "name": "AeroRun T-Shirt 1",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 215.55,
+    "currency": "USD",
+    "colors": [
+      "navy"
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "L",
+      "XS",
+      "XL",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 25,
+    "rating": 5.0,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1014",
+    "name": "NovaStep T-Shirt 2",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 149.28,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "black",
+      "blue"
+    ],
+    "sizes": [
+      "XS",
+      "M",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 37,
+    "rating": 4.2,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1015",
+    "name": "NorthPeak T-Shirt 3",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 136.86,
+    "currency": "USD",
+    "colors": [
+      "black"
+    ],
+    "sizes": [
+      "XS",
+      "XXL",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 4,
+    "rating": 4.1,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1016",
+    "name": "NovaStep T-Shirt 4",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 74.25,
+    "currency": "USD",
+    "colors": [
+      "green"
+    ],
+    "sizes": [
+      "XL",
+      "L",
+      "S",
+      "XXL",
+      "M",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 6,
+    "rating": 3.4,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1017",
+    "name": "MetroWear T-Shirt 5",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 105.07,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "beige"
+    ],
+    "sizes": [
+      "XXL",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 3,
+    "rating": 3.9,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1018",
+    "name": "UrbanThread T-Shirt 6",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 86.54,
+    "currency": "USD",
+    "colors": [
+      "red"
+    ],
+    "sizes": [
+      "XL",
+      "L",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 27,
+    "rating": 3.5,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1019",
+    "name": "UrbanThread T-Shirt 7",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 111.45,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "black"
+    ],
+    "sizes": [
+      "XS",
+      "XXL",
+      "S",
+      "XL",
+      "L",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 30,
+    "rating": 3.6,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1020",
+    "name": "NorthPeak T-Shirt 8",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 99.01,
+    "currency": "USD",
+    "colors": [
+      "beige"
+    ],
+    "sizes": [
+      "L",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 29,
+    "rating": 3.7,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1021",
+    "name": "NovaStep T-Shirt 9",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 158.71,
+    "currency": "USD",
+    "colors": [
+      "red"
+    ],
+    "sizes": [
+      "S",
+      "XS",
+      "XL",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 20,
+    "rating": 3.3,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1022",
+    "name": "AeroRun T-Shirt 10",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 136.0,
+    "currency": "USD",
+    "colors": [
+      "blue"
+    ],
+    "sizes": [
+      "XS",
+      "XL",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 15,
+    "rating": 3.9,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1023",
+    "name": "Stone&Co T-Shirt 11",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 208.2,
+    "currency": "USD",
+    "colors": [
+      "black",
+      "grey",
+      "navy"
+    ],
+    "sizes": [
+      "XXL",
+      "XL",
+      "M",
+      "S",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 20,
+    "rating": 3.6,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1024",
+    "name": "Luma T-Shirt 12",
+    "category": "Clothing",
+    "subcategory": "T-Shirts",
+    "price": 97.95,
+    "currency": "USD",
+    "colors": [
+      "white",
+      "beige"
+    ],
+    "sizes": [
+      "XS",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 39,
+    "rating": 5.0,
+    "description": "T-Shirts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1025",
+    "name": "UrbanThread Hoodie 1",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 219.21,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "grey",
+      "green"
+    ],
+    "sizes": [
+      "M",
+      "XS",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 23,
+    "rating": 3.7,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1026",
+    "name": "Luma Hoodie 2",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 106.51,
+    "currency": "USD",
+    "colors": [
+      "black",
+      "white",
+      "grey"
+    ],
+    "sizes": [
+      "XXL",
+      "XS",
+      "S",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 7,
+    "rating": 4.8,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1027",
+    "name": "AeroRun Hoodie 3",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 167.97,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "navy"
+    ],
+    "sizes": [
+      "XXL",
+      "M",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 40,
+    "rating": 4.7,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1028",
+    "name": "Luma Hoodie 4",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 120.09,
+    "currency": "USD",
+    "colors": [
+      "blue"
+    ],
+    "sizes": [
+      "M",
+      "XS",
+      "XL",
+      "S",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 40,
+    "rating": 5.0,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1029",
+    "name": "NovaStep Hoodie 5",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 50.64,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "grey",
+      "black"
+    ],
+    "sizes": [
+      "XS",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 34,
+    "rating": 3.3,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1030",
+    "name": "AeroRun Hoodie 6",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 92.58,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "black"
+    ],
+    "sizes": [
+      "M",
+      "XS",
+      "XXL",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 15,
+    "rating": 4.4,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1031",
+    "name": "MetroWear Hoodie 7",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 89.44,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "blue",
+      "beige"
+    ],
+    "sizes": [
+      "L",
+      "XS",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 21,
+    "rating": 4.6,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1032",
+    "name": "Stone&Co Hoodie 8",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 101.17,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "beige"
+    ],
+    "sizes": [
+      "L",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 30,
+    "rating": 3.6,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1033",
+    "name": "NovaStep Hoodie 9",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 182.95,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "beige"
+    ],
+    "sizes": [
+      "S",
+      "XS",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 25,
+    "rating": 3.8,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1034",
+    "name": "Luma Hoodie 10",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 192.6,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "white"
+    ],
+    "sizes": [
+      "M",
+      "XS",
+      "XL",
+      "S",
+      "L",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 2,
+    "rating": 3.4,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1035",
+    "name": "TrailForge Hoodie 11",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 105.78,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "red"
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "XS",
+      "XL",
+      "XXL",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 33,
+    "rating": 4.9,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1036",
+    "name": "Stone&Co Hoodie 12",
+    "category": "Clothing",
+    "subcategory": "Hoodies",
+    "price": 126.77,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "black"
+    ],
+    "sizes": [
+      "XL",
+      "M",
+      "XS",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 19,
+    "rating": 4.1,
+    "description": "Hoodies for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1037",
+    "name": "TrailForge Jean 1",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 152.71,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "navy"
+    ],
+    "sizes": [
+      "S",
+      "L",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 11,
+    "rating": 4.3,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1038",
+    "name": "NorthPeak Jean 2",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 78.79,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "blue"
+    ],
+    "sizes": [
+      "XL",
+      "XXL",
+      "M",
+      "S",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 28,
+    "rating": 4.4,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1039",
+    "name": "AeroRun Jean 3",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 121.26,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "green",
+      "grey"
+    ],
+    "sizes": [
+      "M",
+      "XS",
+      "S",
+      "XXL",
+      "L",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 12,
+    "rating": 3.5,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1040",
+    "name": "NovaStep Jean 4",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 27.34,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "red",
+      "beige"
+    ],
+    "sizes": [
+      "S",
+      "L",
+      "XL",
+      "XXL",
+      "XS",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 0,
+    "rating": 4.8,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1041",
+    "name": "UrbanThread Jean 5",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 191.81,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "blue"
+    ],
+    "sizes": [
+      "L",
+      "XS",
+      "S",
+      "XL",
+      "XXL",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 29,
+    "rating": 4.4,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1042",
+    "name": "TrailForge Jean 6",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 217.55,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "navy"
+    ],
+    "sizes": [
+      "L",
+      "S",
+      "XXL",
+      "XL",
+      "M",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 40,
+    "rating": 3.7,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1043",
+    "name": "NovaStep Jean 7",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 175.09,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "green",
+      "navy"
+    ],
+    "sizes": [
+      "XXL",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 15,
+    "rating": 3.7,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1044",
+    "name": "UrbanThread Jean 8",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 82.58,
+    "currency": "USD",
+    "colors": [
+      "green"
+    ],
+    "sizes": [
+      "L",
+      "S",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 4,
+    "rating": 3.9,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1045",
+    "name": "NovaStep Jean 9",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 84.84,
+    "currency": "USD",
+    "colors": [
+      "black",
+      "blue"
+    ],
+    "sizes": [
+      "L",
+      "XL",
+      "XS",
+      "M",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 30,
+    "rating": 3.2,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1046",
+    "name": "MetroWear Jean 10",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 89.06,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "navy"
+    ],
+    "sizes": [
+      "M",
+      "L",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 1,
+    "rating": 3.9,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1047",
+    "name": "MetroWear Jean 11",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 153.11,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "beige",
+      "red"
+    ],
+    "sizes": [
+      "XL",
+      "XXL",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 25,
+    "rating": 4.3,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1048",
+    "name": "UrbanThread Jean 12",
+    "category": "Clothing",
+    "subcategory": "Jeans",
+    "price": 151.93,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "blue",
+      "red"
+    ],
+    "sizes": [
+      "XS",
+      "M",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 20,
+    "rating": 3.6,
+    "description": "Jeans for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1049",
+    "name": "MetroWear Trouser 1",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 84.02,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "green"
+    ],
+    "sizes": [
+      "L",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 34,
+    "rating": 3.3,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1050",
+    "name": "Stone&Co Trouser 2",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 210.29,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "beige",
+      "white"
+    ],
+    "sizes": [
+      "XS",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 12,
+    "rating": 4.7,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1051",
+    "name": "Stone&Co Trouser 3",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 143.51,
+    "currency": "USD",
+    "colors": [
+      "navy"
+    ],
+    "sizes": [
+      "XL",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 29,
+    "rating": 4.5,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1052",
+    "name": "AeroRun Trouser 4",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 172.91,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "beige",
+      "navy"
+    ],
+    "sizes": [
+      "XS",
+      "XL",
+      "XXL",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 36,
+    "rating": 4.4,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1053",
+    "name": "MetroWear Trouser 5",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 211.55,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "black",
+      "grey"
+    ],
+    "sizes": [
+      "XS",
+      "M",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 36,
+    "rating": 4.6,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1054",
+    "name": "MetroWear Trouser 6",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 88.14,
+    "currency": "USD",
+    "colors": [
+      "white",
+      "black",
+      "grey"
+    ],
+    "sizes": [
+      "XS",
+      "L",
+      "XL",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 27,
+    "rating": 4.9,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1055",
+    "name": "NovaStep Trouser 7",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 146.39,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "red",
+      "blue"
+    ],
+    "sizes": [
+      "XXL",
+      "M",
+      "L",
+      "S",
+      "XL",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 20,
+    "rating": 4.7,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1056",
+    "name": "UrbanThread Trouser 8",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 185.81,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "blue"
+    ],
+    "sizes": [
+      "XL",
+      "XXL",
+      "L",
+      "S",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 31,
+    "rating": 4.7,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1057",
+    "name": "Stone&Co Trouser 9",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 54.73,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "green"
+    ],
+    "sizes": [
+      "XL",
+      "M",
+      "XS",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 12,
+    "rating": 3.4,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1058",
+    "name": "NovaStep Trouser 10",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 163.46,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "white",
+      "navy"
+    ],
+    "sizes": [
+      "L",
+      "XS",
+      "XL",
+      "S",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 25,
+    "rating": 4.4,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1059",
+    "name": "TrailForge Trouser 11",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 79.85,
+    "currency": "USD",
+    "colors": [
+      "white",
+      "red"
+    ],
+    "sizes": [
+      "M",
+      "XXL",
+      "L",
+      "S",
+      "XL",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 14,
+    "rating": 3.4,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1060",
+    "name": "UrbanThread Trouser 12",
+    "category": "Clothing",
+    "subcategory": "Trousers",
+    "price": 56.9,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "blue",
+      "beige"
+    ],
+    "sizes": [
+      "M",
+      "XL",
+      "XXL",
+      "XS",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 18,
+    "rating": 3.6,
+    "description": "Trousers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1061",
+    "name": "NorthPeak Sneaker 1",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 54.25,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "navy",
+      "black"
+    ],
+    "sizes": [
+      "XL",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 8,
+    "rating": 4.3,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1062",
+    "name": "UrbanThread Sneaker 2",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 170.06,
+    "currency": "USD",
+    "colors": [
+      "grey"
+    ],
+    "sizes": [
+      "L",
+      "XXL",
+      "M",
+      "XS",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 16,
+    "rating": 4.9,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1063",
+    "name": "UrbanThread Sneaker 3",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 114.5,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "black"
+    ],
+    "sizes": [
+      "XXL",
+      "XS",
+      "S",
+      "XL",
+      "L",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 15,
+    "rating": 3.4,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1064",
+    "name": "Stone&Co Sneaker 4",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 172.42,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "red",
+      "navy"
+    ],
+    "sizes": [
+      "XL",
+      "L",
+      "M",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 39,
+    "rating": 3.3,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1065",
+    "name": "UrbanThread Sneaker 5",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 211.94,
+    "currency": "USD",
+    "colors": [
+      "red"
+    ],
+    "sizes": [
+      "XXL",
+      "XS",
+      "S",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 11,
+    "rating": 4.2,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1066",
+    "name": "MetroWear Sneaker 6",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 49.62,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "green"
+    ],
+    "sizes": [
+      "S",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 18,
+    "rating": 4.5,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1067",
+    "name": "Stone&Co Sneaker 7",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 109.71,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "navy"
+    ],
+    "sizes": [
+      "XL",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 9,
+    "rating": 4.8,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1068",
+    "name": "UrbanThread Sneaker 8",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 184.98,
+    "currency": "USD",
+    "colors": [
+      "green"
+    ],
+    "sizes": [
+      "XL",
+      "XXL",
+      "M",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 7,
+    "rating": 4.0,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1069",
+    "name": "MetroWear Sneaker 9",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 79.43,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "red"
+    ],
+    "sizes": [
+      "XL",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 27,
+    "rating": 4.5,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1070",
+    "name": "NorthPeak Sneaker 10",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 139.95,
+    "currency": "USD",
+    "colors": [
+      "red"
+    ],
+    "sizes": [
+      "XL",
+      "XS",
+      "M",
+      "L",
+      "XXL",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 30,
+    "rating": 4.1,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1071",
+    "name": "Luma Sneaker 11",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 107.33,
+    "currency": "USD",
+    "colors": [
+      "beige"
+    ],
+    "sizes": [
+      "XS",
+      "L",
+      "M",
+      "S",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 20,
+    "rating": 4.4,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1072",
+    "name": "TrailForge Sneaker 12",
+    "category": "Footwear",
+    "subcategory": "Sneakers",
+    "price": 191.26,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "green"
+    ],
+    "sizes": [
+      "XL",
+      "XS",
+      "L",
+      "XXL",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 16,
+    "rating": 3.8,
+    "description": "Sneakers for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1073",
+    "name": "NorthPeak Boot 1",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 213.98,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "red",
+      "black"
+    ],
+    "sizes": [
+      "XL",
+      "M",
+      "L"
+    ],
+    "waterproof": true,
+    "stock": 40,
+    "rating": 4.0,
+    "description": "Boots for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1074",
+    "name": "AeroRun Boot 2",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 28.43,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "white"
+    ],
+    "sizes": [
+      "XS",
+      "XXL",
+      "S",
+      "M",
+      "XL"
+    ],
+    "waterproof": true,
+    "stock": 19,
+    "rating": 4.2,
+    "description": "Boots for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1075",
+    "name": "UrbanThread Boot 3",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 129.55,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "white"
+    ],
+    "sizes": [
+      "L",
+      "M",
+      "XL"
+    ],
+    "waterproof": true,
+    "stock": 26,
+    "rating": 4.7,
+    "description": "Boots for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1076",
+    "name": "AeroRun Boot 4",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 216.01,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "grey"
+    ],
+    "sizes": [
+      "XXL",
+      "S",
+      "XS",
+      "XL",
+      "M",
+      "L"
+    ],
+    "waterproof": true,
+    "stock": 32,
+    "rating": 3.7,
+    "description": "Boots for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1077",
+    "name": "NovaStep Boot 5",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 18.52,
+    "currency": "USD",
+    "colors": [
+      "navy"
+    ],
+    "sizes": [
+      "L",
+      "M",
+      "XL",
+      "XXL",
+      "S",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 20,
+    "rating": 4.8,
+    "description": "Boots for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1078",
+    "name": "MetroWear Boot 6",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 216.12,
+    "currency": "USD",
+    "colors": [
+      "beige"
+    ],
+    "sizes": [
+      "M",
+      "L"
+    ],
+    "waterproof": true,
+    "stock": 24,
+    "rating": 3.9,
+    "description": "Boots for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1079",
+    "name": "AeroRun Boot 7",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 152.07,
+    "currency": "USD",
+    "colors": [
+      "black",
+      "blue"
+    ],
+    "sizes": [
+      "XL",
+      "M",
+      "XS",
+      "S",
+      "L",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 0,
+    "rating": 4.5,
+    "description": "Boots for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1080",
+    "name": "AeroRun Boot 8",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 100.82,
+    "currency": "USD",
+    "colors": [
+      "navy"
+    ],
+    "sizes": [
+      "M",
+      "XL",
+      "L",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 5,
+    "rating": 4.7,
+    "description": "Boots for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1081",
+    "name": "MetroWear Boot 9",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 190.17,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "beige"
+    ],
+    "sizes": [
+      "XS",
+      "XL",
+      "XXL",
+      "L",
+      "S",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 5,
+    "rating": 4.0,
+    "description": "Boots for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1082",
+    "name": "UrbanThread Boot 10",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 37.89,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "white"
+    ],
+    "sizes": [
+      "XS",
+      "XXL",
+      "M",
+      "XL"
+    ],
+    "waterproof": true,
+    "stock": 18,
+    "rating": 3.8,
+    "description": "Boots for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1083",
+    "name": "MetroWear Boot 11",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 105.0,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "blue",
+      "beige"
+    ],
+    "sizes": [
+      "XL",
+      "L"
+    ],
+    "waterproof": true,
+    "stock": 39,
+    "rating": 4.4,
+    "description": "Boots for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1084",
+    "name": "Stone&Co Boot 12",
+    "category": "Footwear",
+    "subcategory": "Boots",
+    "price": 118.53,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "red"
+    ],
+    "sizes": [
+      "XXL",
+      "XS",
+      "L",
+      "S"
+    ],
+    "waterproof": true,
+    "stock": 34,
+    "rating": 3.5,
+    "description": "Boots for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1085",
+    "name": "TrailForge Running Shoe 1",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 107.23,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "white",
+      "red"
+    ],
+    "sizes": [
+      "L",
+      "M",
+      "S",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 30,
+    "rating": 3.4,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1086",
+    "name": "TrailForge Running Shoe 2",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 95.04,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "white",
+      "green"
+    ],
+    "sizes": [
+      "XXL",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 17,
+    "rating": 3.2,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1087",
+    "name": "NorthPeak Running Shoe 3",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 192.74,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "beige",
+      "green"
+    ],
+    "sizes": [
+      "XL",
+      "M",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 40,
+    "rating": 3.5,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1088",
+    "name": "AeroRun Running Shoe 4",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 68.63,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "white",
+      "beige"
+    ],
+    "sizes": [
+      "M",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 2,
+    "rating": 4.2,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1089",
+    "name": "UrbanThread Running Shoe 5",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 165.94,
+    "currency": "USD",
+    "colors": [
+      "white",
+      "navy"
+    ],
+    "sizes": [
+      "S",
+      "XXL",
+      "XL",
+      "M",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 33,
+    "rating": 4.1,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1090",
+    "name": "AeroRun Running Shoe 6",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 73.05,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "beige"
+    ],
+    "sizes": [
+      "XXL",
+      "M",
+      "XS",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 4,
+    "rating": 3.5,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1091",
+    "name": "MetroWear Running Shoe 7",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 213.23,
+    "currency": "USD",
+    "colors": [
+      "white",
+      "black",
+      "red"
+    ],
+    "sizes": [
+      "M",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 7,
+    "rating": 4.0,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1092",
+    "name": "Luma Running Shoe 8",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 153.91,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "navy",
+      "white"
+    ],
+    "sizes": [
+      "XS",
+      "S",
+      "L",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 39,
+    "rating": 4.8,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1093",
+    "name": "Stone&Co Running Shoe 9",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 131.4,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "white",
+      "red"
+    ],
+    "sizes": [
+      "XXL",
+      "L",
+      "XS",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 2,
+    "rating": 4.9,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1094",
+    "name": "NovaStep Running Shoe 10",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 79.48,
+    "currency": "USD",
+    "colors": [
+      "blue"
+    ],
+    "sizes": [
+      "XL",
+      "S",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 29,
+    "rating": 3.9,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1095",
+    "name": "MetroWear Running Shoe 11",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 209.77,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "red",
+      "white"
+    ],
+    "sizes": [
+      "L",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 26,
+    "rating": 4.9,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1096",
+    "name": "TrailForge Running Shoe 12",
+    "category": "Footwear",
+    "subcategory": "Running Shoes",
+    "price": 74.51,
+    "currency": "USD",
+    "colors": [
+      "navy"
+    ],
+    "sizes": [
+      "S",
+      "M",
+      "XS",
+      "XL",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 34,
+    "rating": 4.8,
+    "description": "Running Shoes for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1097",
+    "name": "NorthPeak Sandal 1",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 148.26,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "blue"
+    ],
+    "sizes": [
+      "L",
+      "XS"
+    ],
+    "waterproof": false,
+    "stock": 13,
+    "rating": 4.4,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1098",
+    "name": "NorthPeak Sandal 2",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 138.62,
+    "currency": "USD",
+    "colors": [
+      "white"
+    ],
+    "sizes": [
+      "S",
+      "XL",
+      "XXL"
+    ],
+    "waterproof": false,
+    "stock": 4,
+    "rating": 4.7,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1099",
+    "name": "Stone&Co Sandal 3",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 129.95,
+    "currency": "USD",
+    "colors": [
+      "white"
+    ],
+    "sizes": [
+      "XL",
+      "XS",
+      "M"
+    ],
+    "waterproof": false,
+    "stock": 9,
+    "rating": 5.0,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1100",
+    "name": "AeroRun Sandal 4",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 127.12,
+    "currency": "USD",
+    "colors": [
+      "black"
+    ],
+    "sizes": [
+      "XS",
+      "M",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 37,
+    "rating": 3.8,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1101",
+    "name": "NorthPeak Sandal 5",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 53.2,
+    "currency": "USD",
+    "colors": [
+      "beige"
+    ],
+    "sizes": [
+      "XS",
+      "XXL",
+      "L",
+      "S",
+      "M",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 28,
+    "rating": 4.1,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1102",
+    "name": "NorthPeak Sandal 6",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 208.97,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "red",
+      "white"
+    ],
+    "sizes": [
+      "XS",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 25,
+    "rating": 4.0,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1103",
+    "name": "NovaStep Sandal 7",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 39.81,
+    "currency": "USD",
+    "colors": [
+      "blue"
+    ],
+    "sizes": [
+      "XL",
+      "S",
+      "XS",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 17,
+    "rating": 4.3,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1104",
+    "name": "TrailForge Sandal 8",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 136.24,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "red"
+    ],
+    "sizes": [
+      "XL",
+      "L",
+      "XS",
+      "M",
+      "XXL",
+      "S"
+    ],
+    "waterproof": false,
+    "stock": 27,
+    "rating": 4.0,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1105",
+    "name": "TrailForge Sandal 9",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 64.16,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "red"
+    ],
+    "sizes": [
+      "M",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 20,
+    "rating": 4.4,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1106",
+    "name": "AeroRun Sandal 10",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 93.61,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "black",
+      "beige"
+    ],
+    "sizes": [
+      "XS",
+      "L"
+    ],
+    "waterproof": false,
+    "stock": 6,
+    "rating": 4.5,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1107",
+    "name": "AeroRun Sandal 11",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 93.27,
+    "currency": "USD",
+    "colors": [
+      "black",
+      "grey",
+      "beige"
+    ],
+    "sizes": [
+      "M",
+      "XS",
+      "L",
+      "S",
+      "XXL",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 18,
+    "rating": 4.3,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1108",
+    "name": "Stone&Co Sandal 12",
+    "category": "Footwear",
+    "subcategory": "Sandals",
+    "price": 89.03,
+    "currency": "USD",
+    "colors": [
+      "navy"
+    ],
+    "sizes": [
+      "XS",
+      "M",
+      "XL"
+    ],
+    "waterproof": false,
+    "stock": 7,
+    "rating": 4.6,
+    "description": "Sandals for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1109",
+    "name": "NorthPeak Backpack 1",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 133.97,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "black",
+      "blue"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 17,
+    "rating": 4.5,
+    "description": "Backpacks for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1110",
+    "name": "NorthPeak Backpack 2",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 80.41,
+    "currency": "USD",
+    "colors": [
+      "green"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": true,
+    "stock": 36,
+    "rating": 4.4,
+    "description": "Backpacks for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1111",
+    "name": "NorthPeak Backpack 3",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 32.06,
+    "currency": "USD",
+    "colors": [
+      "red"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 24,
+    "rating": 4.0,
+    "description": "Backpacks for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1112",
+    "name": "TrailForge Backpack 4",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 86.86,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "black",
+      "navy"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": true,
+    "stock": 10,
+    "rating": 4.6,
+    "description": "Backpacks for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1113",
+    "name": "NovaStep Backpack 5",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 28.05,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "red",
+      "grey"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": true,
+    "stock": 28,
+    "rating": 3.9,
+    "description": "Backpacks for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1114",
+    "name": "TrailForge Backpack 6",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 61.54,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "green"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": true,
+    "stock": 37,
+    "rating": 4.1,
+    "description": "Backpacks for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1115",
+    "name": "MetroWear Backpack 7",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 152.76,
+    "currency": "USD",
+    "colors": [
+      "black",
+      "navy",
+      "blue"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": true,
+    "stock": 19,
+    "rating": 4.9,
+    "description": "Backpacks for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1116",
+    "name": "Luma Backpack 8",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 173.0,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "black"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 31,
+    "rating": 4.5,
+    "description": "Backpacks for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1117",
+    "name": "Stone&Co Backpack 9",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 53.49,
+    "currency": "USD",
+    "colors": [
+      "white",
+      "black",
+      "red"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": true,
+    "stock": 2,
+    "rating": 4.0,
+    "description": "Backpacks for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1118",
+    "name": "TrailForge Backpack 10",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 110.87,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "grey",
+      "red"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": true,
+    "stock": 40,
+    "rating": 4.0,
+    "description": "Backpacks for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1119",
+    "name": "TrailForge Backpack 11",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 41.27,
+    "currency": "USD",
+    "colors": [
+      "navy"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": true,
+    "stock": 23,
+    "rating": 3.4,
+    "description": "Backpacks for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1120",
+    "name": "MetroWear Backpack 12",
+    "category": "Accessories",
+    "subcategory": "Backpacks",
+    "price": 188.59,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "red",
+      "green"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": true,
+    "stock": 21,
+    "rating": 3.6,
+    "description": "Backpacks for everyday retail use. Waterproof construction."
+  },
+  {
+    "product_id": "P-1121",
+    "name": "UrbanThread Belt 1",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 175.38,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "grey",
+      "beige"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 12,
+    "rating": 4.8,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1122",
+    "name": "AeroRun Belt 2",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 88.57,
+    "currency": "USD",
+    "colors": [
+      "blue"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 9,
+    "rating": 3.7,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1123",
+    "name": "AeroRun Belt 3",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 53.05,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "navy",
+      "white"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 31,
+    "rating": 4.0,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1124",
+    "name": "NovaStep Belt 4",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 131.87,
+    "currency": "USD",
+    "colors": [
+      "white",
+      "beige",
+      "navy"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 20,
+    "rating": 3.5,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1125",
+    "name": "NovaStep Belt 5",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 31.79,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "beige",
+      "green"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 37,
+    "rating": 3.3,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1126",
+    "name": "Luma Belt 6",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 120.48,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "black"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 3,
+    "rating": 3.9,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1127",
+    "name": "UrbanThread Belt 7",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 75.99,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "red",
+      "grey"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 35,
+    "rating": 4.9,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1128",
+    "name": "NorthPeak Belt 8",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 167.26,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "green"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 38,
+    "rating": 4.1,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1129",
+    "name": "NorthPeak Belt 9",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 48.47,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "beige"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 21,
+    "rating": 5.0,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1130",
+    "name": "AeroRun Belt 10",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 35.03,
+    "currency": "USD",
+    "colors": [
+      "red"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 28,
+    "rating": 5.0,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1131",
+    "name": "AeroRun Belt 11",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 123.86,
+    "currency": "USD",
+    "colors": [
+      "white",
+      "green"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 24,
+    "rating": 3.9,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1132",
+    "name": "NorthPeak Belt 12",
+    "category": "Accessories",
+    "subcategory": "Belts",
+    "price": 86.35,
+    "currency": "USD",
+    "colors": [
+      "white",
+      "black",
+      "green"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 6,
+    "rating": 4.2,
+    "description": "Belts for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1133",
+    "name": "Luma Cap 1",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 96.09,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "navy",
+      "black"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 37,
+    "rating": 4.4,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1134",
+    "name": "Luma Cap 2",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 203.18,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "blue",
+      "grey"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 5,
+    "rating": 3.8,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1135",
+    "name": "TrailForge Cap 3",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 94.09,
+    "currency": "USD",
+    "colors": [
+      "blue"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 27,
+    "rating": 4.1,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1136",
+    "name": "Luma Cap 4",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 21.68,
+    "currency": "USD",
+    "colors": [
+      "red"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 21,
+    "rating": 4.9,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1137",
+    "name": "Stone&Co Cap 5",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 116.23,
+    "currency": "USD",
+    "colors": [
+      "green"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 4,
+    "rating": 3.7,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1138",
+    "name": "NorthPeak Cap 6",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 177.2,
+    "currency": "USD",
+    "colors": [
+      "white",
+      "beige",
+      "grey"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 8,
+    "rating": 4.3,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1139",
+    "name": "AeroRun Cap 7",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 49.16,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "white",
+      "red"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 2,
+    "rating": 3.9,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1140",
+    "name": "Stone&Co Cap 8",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 154.63,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "beige"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 28,
+    "rating": 3.6,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1141",
+    "name": "NovaStep Cap 9",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 66.31,
+    "currency": "USD",
+    "colors": [
+      "white"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 36,
+    "rating": 5.0,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1142",
+    "name": "Luma Cap 10",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 111.26,
+    "currency": "USD",
+    "colors": [
+      "beige",
+      "blue"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 12,
+    "rating": 4.6,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1143",
+    "name": "Luma Cap 11",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 45.96,
+    "currency": "USD",
+    "colors": [
+      "navy"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 23,
+    "rating": 4.2,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1144",
+    "name": "UrbanThread Cap 12",
+    "category": "Accessories",
+    "subcategory": "Caps",
+    "price": 38.72,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "beige"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 10,
+    "rating": 3.7,
+    "description": "Caps for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1145",
+    "name": "AeroRun Scarve 1",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 200.87,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "navy"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 28,
+    "rating": 4.8,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1146",
+    "name": "MetroWear Scarve 2",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 205.96,
+    "currency": "USD",
+    "colors": [
+      "beige"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 32,
+    "rating": 3.9,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1147",
+    "name": "UrbanThread Scarve 3",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 96.01,
+    "currency": "USD",
+    "colors": [
+      "red",
+      "black"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 20,
+    "rating": 4.9,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1148",
+    "name": "TrailForge Scarve 4",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 187.51,
+    "currency": "USD",
+    "colors": [
+      "green"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 2,
+    "rating": 3.7,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1149",
+    "name": "AeroRun Scarve 5",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 185.61,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "red",
+      "grey"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 0,
+    "rating": 4.8,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1150",
+    "name": "Stone&Co Scarve 6",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 21.84,
+    "currency": "USD",
+    "colors": [
+      "beige"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 7,
+    "rating": 4.6,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1151",
+    "name": "UrbanThread Scarve 7",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 66.0,
+    "currency": "USD",
+    "colors": [
+      "red"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 26,
+    "rating": 4.4,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1152",
+    "name": "UrbanThread Scarve 8",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 143.81,
+    "currency": "USD",
+    "colors": [
+      "navy"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 38,
+    "rating": 4.2,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1153",
+    "name": "Stone&Co Scarve 9",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 145.65,
+    "currency": "USD",
+    "colors": [
+      "green",
+      "navy",
+      "red"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 0,
+    "rating": 4.3,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1154",
+    "name": "MetroWear Scarve 10",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 66.59,
+    "currency": "USD",
+    "colors": [
+      "blue"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 33,
+    "rating": 5.0,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1155",
+    "name": "NorthPeak Scarve 11",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 31.67,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "black"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 40,
+    "rating": 3.9,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1156",
+    "name": "NorthPeak Scarve 12",
+    "category": "Accessories",
+    "subcategory": "Scarves",
+    "price": 93.41,
+    "currency": "USD",
+    "colors": [
+      "blue",
+      "green"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 15,
+    "rating": 4.5,
+    "description": "Scarves for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1157",
+    "name": "TrailForge Sunglasse 1",
+    "category": "Accessories",
+    "subcategory": "Sunglasses",
+    "price": 144.91,
+    "currency": "USD",
+    "colors": [
+      "black"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 22,
+    "rating": 4.2,
+    "description": "Sunglasses for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1158",
+    "name": "AeroRun Sunglasse 2",
+    "category": "Accessories",
+    "subcategory": "Sunglasses",
+    "price": 182.33,
+    "currency": "USD",
+    "colors": [
+      "navy",
+      "white",
+      "red"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 40,
+    "rating": 3.5,
+    "description": "Sunglasses for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1159",
+    "name": "NovaStep Sunglasse 3",
+    "category": "Accessories",
+    "subcategory": "Sunglasses",
+    "price": 45.24,
+    "currency": "USD",
+    "colors": [
+      "grey"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 12,
+    "rating": 3.3,
+    "description": "Sunglasses for everyday retail use. Standard weather resistance."
+  },
+  {
+    "product_id": "P-1160",
+    "name": "NorthPeak Sunglasse 4",
+    "category": "Accessories",
+    "subcategory": "Sunglasses",
+    "price": 58.29,
+    "currency": "USD",
+    "colors": [
+      "grey",
+      "navy"
+    ],
+    "sizes": [
+      "ONE"
+    ],
+    "waterproof": false,
+    "stock": 25,
+    "rating": 5.0,
+    "description": "Sunglasses for everyday retail use. Standard weather resistance."
+  }
+]

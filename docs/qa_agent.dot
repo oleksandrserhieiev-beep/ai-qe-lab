@@ -1,0 +1,4 @@
+digraph G { rankdir=LR; node [shape=box, style="rounded", fontname="Arial"]; edge [fontname="Arial"];
+J [label="Jira Story + AC"]; R [label="Requirements Review"]; Risk [label="Risk Analysis"]; Gen [label="Test Generation"]; H [label="Human Approval"]; Exec [label="Execute / Trigger Tests"]; Ana [label="Failure Analysis"]; Def [label="Create Jira Defect"]; Tr [label="Agent Trace\ntool calls • inputs • outputs • approvals"];
+J->R->Risk->Gen->H->Exec->Ana->Def; R->Tr; Risk->Tr; Gen->Tr; H->Tr; Exec->Tr; Ana->Tr; Def->Tr;
+}

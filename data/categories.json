@@ -1,0 +1,22 @@
+{
+  "Clothing": [
+    "Jackets",
+    "T-Shirts",
+    "Hoodies",
+    "Jeans",
+    "Trousers"
+  ],
+  "Footwear": [
+    "Sneakers",
+    "Boots",
+    "Running Shoes",
+    "Sandals"
+  ],
+  "Accessories": [
+    "Backpacks",
+    "Belts",
+    "Caps",
+    "Scarves",
+    "Sunglasses"
+  ]
+}
