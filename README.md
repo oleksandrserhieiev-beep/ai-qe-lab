@@ -16,3 +16,4 @@ Purpose: build and test three AI workstreams: (1) Shopping RAG Assistant, (2) QA
 - Start with low API spend limits.
 - Keep Jira agents read-only until Human-in-the-loop is working.
 - Enable writes only for a dedicated lab Jira project.
+CI trigger test 
