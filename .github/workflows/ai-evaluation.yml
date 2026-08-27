@@ -26,6 +26,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
 
       - name: Install dependencies
         run: |
@@ -41,10 +43,14 @@ jobs:
 
       - name: Evaluate Golden Dataset
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
         run: |
           python src/evaluator.py
+
+      - name: Quality Gate
+        run: |
+          python src/quality_gate.py
 
       - name: Upload evaluation reports
         if: always()
