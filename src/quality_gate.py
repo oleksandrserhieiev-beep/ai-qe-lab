@@ -5,7 +5,7 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-REPORT_FILE = BASE_DIR / "reports" / "golden_evaluated.json"
+REPORT_FILE = BASE_DIR / "reports" / "pr_evaluated.json"
 
 MIN_CORRECTNESS = 95.0
 MIN_GROUNDEDNESS = 95.0
