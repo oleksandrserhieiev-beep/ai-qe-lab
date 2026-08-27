@@ -1,0 +1,54 @@
+name: AI QE Evaluation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - "data/**"
+      - "datasets/**"
+      - "tests/**"
+      - ".github/workflows/ai-evaluation.yml"
+      - "requirements.txt"
+
+  workflow_dispatch:
+
+jobs:
+  ai-evaluation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Golden Dataset
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+        run: |
+          python src/evaluation_runner.py
+
+      - name: Evaluate Golden Dataset
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+        run: |
+          python src/evaluator.py
+
+      - name: Upload evaluation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-evaluation-reports
+          path: reports/
