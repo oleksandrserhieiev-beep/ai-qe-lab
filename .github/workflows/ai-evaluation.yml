@@ -34,7 +34,7 @@ jobs:
 
       - name: Run Golden Dataset
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
         run: |
           python src/evaluation_runner.py
