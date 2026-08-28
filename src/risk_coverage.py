@@ -12,6 +12,8 @@ SUITES = {
     "nightly": BASE_DIR / "datasets" / "evaluation_dataset.json",
 }
 
+# Compatibility aliases for EXPLICIT Risk metadata only.
+# Segment is a test-design dimension and must not be silently treated as AI Risk.
 CANONICAL_RISK_MAP = {
     "retrieval_quality": ["retrieval_quality"],
     "constraint_adherence": ["constraint_adherence"],
@@ -20,34 +22,24 @@ CANONICAL_RISK_MAP = {
     "out_of_domain_abstention": ["out_of_domain_abstention"],
     "robustness": ["robustness"],
     "negative_behavior": ["negative_behavior"],
-    "retrieval_and_constraints": ["retrieval_quality", "constraint_adherence"],
-    "privacy_and_safety": ["sensitive_data_handling"],
-    "out_of_domain": ["out_of_domain_abstention"],
     "hallucination": ["hallucination"],
-    "policy_constraint": ["policy_grounding", "constraint_adherence"],
-    "hallucination_and_policy": ["hallucination", "policy_grounding"],
-    "multi_constraint": ["retrieval_quality", "constraint_adherence"],
     "prompt_injection": ["prompt_injection"],
     "groundedness": ["groundedness"],
     "conflicting_data": ["conflicting_data"],
+    "missing_information": ["missing_information"],
+    "ambiguity": ["ambiguity"],
+    # Historical aliases used by existing datasets.
+    "retrieval_and_constraints": ["retrieval_quality", "constraint_adherence"],
+    "privacy_and_safety": ["sensitive_data_handling"],
+    "out_of_domain": ["out_of_domain_abstention"],
+    "policy_constraint": ["policy_grounding", "constraint_adherence"],
+    "hallucination_and_policy": ["hallucination", "policy_grounding"],
+    "multi_constraint": ["retrieval_quality", "constraint_adherence"],
     "long_query_and_multi_constraint": [
         "robustness",
         "retrieval_quality",
         "constraint_adherence",
     ],
-}
-
-SEGMENT_RISK_MAP = {
-    "normal": ["baseline_behavior"],
-    "ambiguous": ["ambiguity"],
-    "negative": ["negative_behavior", "hallucination"],
-    "multi_constraint": ["retrieval_quality", "constraint_adherence"],
-    "out_of_domain": ["out_of_domain_abstention"],
-    "missing_info": ["missing_information", "hallucination"],
-    "conflict": ["conflicting_data", "policy_grounding"],
-    "adversarial": ["prompt_injection"],
-    "paraphrase": ["robustness", "policy_grounding"],
-    "long_query": ["robustness", "retrieval_quality", "constraint_adherence"],
 }
 
 
@@ -81,6 +73,13 @@ def normalize_list(value):
 
 
 def canonicalize_case_risks(case):
+    """Return canonical risks from explicit Risk metadata only.
+
+    Segment is intentionally ignored. A segment describes test design/behavioral
+    shape (for example long_query or paraphrase) and is not automatically an
+    AI risk. Missing Risk metadata is reported as unclassified instead of being
+    inferred heuristically.
+    """
     explicit_risks = normalize_list(case.get("Risk"))
     canonical = []
 
@@ -89,14 +88,6 @@ def canonicalize_case_risks(case):
         for item in mapped:
             if item not in canonical:
                 canonical.append(item)
-
-    if canonical:
-        return canonical
-
-    segment = case.get("Segment")
-    for item in SEGMENT_RISK_MAP.get(segment, []):
-        if item not in canonical:
-            canonical.append(item)
 
     return canonical
 
@@ -135,18 +126,21 @@ def build_coverage_matrix(suites=None):
             suite: len(matrix[risk].get(suite, []))
             for suite in all_suites
         }
-        total = sum(counts.values())
+        total_memberships = sum(counts.values())
         covered_suites = sum(1 for count in counts.values() if count > 0)
 
-        status = "covered"
-        if covered_suites == 1 or total <= 2:
-            status = "low"
+        if covered_suites == len(all_suites):
+            status = "full"
+        elif covered_suites == 2:
+            status = "partial"
+        else:
+            status = "single_suite"
 
         rows.append(
             {
                 "risk": risk,
                 "coverage": counts,
-                "total_case_memberships": total,
+                "total_case_memberships": total_memberships,
                 "covered_suites": covered_suites,
                 "status": status,
                 "case_ids": {
@@ -163,8 +157,11 @@ def build_coverage_matrix(suites=None):
         "unclassified": dict(unclassified),
         "unclassified_count": sum(len(ids) for ids in unclassified.values()),
         "gap_summary": {
-            "low": [row["risk"] for row in rows if row["status"] == "low"],
-            "covered": [row["risk"] for row in rows if row["status"] == "covered"],
+            "full": [row["risk"] for row in rows if row["status"] == "full"],
+            "partial": [row["risk"] for row in rows if row["status"] == "partial"],
+            "single_suite": [
+                row["risk"] for row in rows if row["status"] == "single_suite"
+            ],
         },
     }
 
@@ -172,7 +169,7 @@ def build_coverage_matrix(suites=None):
 def print_matrix(report):
     print("AI Risk Coverage Matrix")
     print("-----------------------")
-    print("Risk | Critical | Regression | Nightly | Total | Status")
+    print("Risk | Critical | Regression | Nightly | Case memberships | Status")
 
     for row in report["matrix"]:
         coverage = row["coverage"]
@@ -185,10 +182,19 @@ def print_matrix(report):
             f"{row['status'].upper()}"
         )
 
-    print("\nRisk Gap Summary")
-    print("----------------")
-    print(f"Low coverage: {', '.join(report['gap_summary']['low']) or 'none'}")
+    print("\nRisk Coverage Gaps")
+    print("------------------")
+    print(f"Full (3 suites): {', '.join(report['gap_summary']['full']) or 'none'}")
+    print(f"Partial (2 suites): {', '.join(report['gap_summary']['partial']) or 'none'}")
+    print(
+        "Single-suite only: "
+        f"{', '.join(report['gap_summary']['single_suite']) or 'none'}"
+    )
     print(f"Unclassified cases: {report['unclassified_count']}")
+
+    for suite, case_ids in sorted(report.get("unclassified", {}).items()):
+        if case_ids:
+            print(f"  {suite}: {len(case_ids)}")
 
 
 def main():
