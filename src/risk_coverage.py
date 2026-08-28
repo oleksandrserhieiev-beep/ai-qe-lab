@@ -12,6 +12,10 @@ SUITES = {
     "nightly": BASE_DIR / "datasets" / "evaluation_dataset.json",
 }
 
+NIGHTLY_RISK_METADATA = (
+    BASE_DIR / "datasets" / "evaluation_risk_metadata.json"
+)
+
 # Compatibility aliases for EXPLICIT Risk metadata only.
 # Segment is a test-design dimension and must not be silently treated as AI Risk.
 CANONICAL_RISK_MAP = {
@@ -72,18 +76,10 @@ def normalize_list(value):
     return [str(item).strip() for item in value if str(item).strip()]
 
 
-def canonicalize_case_risks(case):
-    """Return canonical risks from explicit Risk metadata only.
-
-    Segment is intentionally ignored. A segment describes test design/behavioral
-    shape (for example long_query or paraphrase) and is not automatically an
-    AI risk. Missing Risk metadata is reported as unclassified instead of being
-    inferred heuristically.
-    """
-    explicit_risks = normalize_list(case.get("Risk"))
+def canonicalize_risks(value):
     canonical = []
 
-    for risk in explicit_risks:
+    for risk in normalize_list(value):
         mapped = CANONICAL_RISK_MAP.get(risk, [risk])
         for item in mapped:
             if item not in canonical:
@@ -92,9 +88,24 @@ def canonicalize_case_risks(case):
     return canonical
 
 
+def canonicalize_case_risks(case):
+    """Return canonical risks from explicit Risk metadata only.
+
+    Segment is intentionally ignored. A segment describes test design/behavioral
+    shape (for example long_query or paraphrase) and is not automatically an
+    AI risk. Missing Risk metadata is reported as unclassified instead of being
+    inferred heuristically.
+    """
+    return canonicalize_risks(case.get("Risk"))
+
+
 def load_dataset(path):
     with open(path, "r", encoding="utf-8") as file:
         return json.load(file)
+
+
+def load_nightly_risk_metadata():
+    return load_dataset(NIGHTLY_RISK_METADATA)
 
 
 def build_coverage_matrix(suites=None):
@@ -102,6 +113,7 @@ def build_coverage_matrix(suites=None):
     matrix = defaultdict(lambda: defaultdict(list))
     unclassified = defaultdict(list)
     suite_totals = {}
+    nightly_risk_metadata = load_nightly_risk_metadata()
 
     for suite_name, dataset_path in suites.items():
         cases = load_dataset(dataset_path)
@@ -109,7 +121,13 @@ def build_coverage_matrix(suites=None):
 
         for case in cases:
             case_id = case.get("ID", "UNKNOWN")
-            risks = canonicalize_case_risks(case)
+
+            if suite_name == "nightly":
+                risks = canonicalize_risks(
+                    nightly_risk_metadata.get(case_id)
+                )
+            else:
+                risks = canonicalize_case_risks(case)
 
             if not risks:
                 unclassified[suite_name].append(case_id)
