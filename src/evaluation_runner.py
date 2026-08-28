@@ -8,6 +8,7 @@ from llm_client import generate_answer
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+NIGHTLY_RISK_METADATA = BASE_DIR / "datasets" / "evaluation_risk_metadata.json"
 
 
 def parse_args():
@@ -28,8 +29,16 @@ def load_dataset(dataset_file):
         return json.load(file)
 
 
+def load_risk_metadata(dataset_file):
+    if dataset_file.name != "evaluation_dataset.json":
+        return {}
+    with open(NIGHTLY_RISK_METADATA, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
 def run_evaluation(dataset_file, results_file, top_k=5):
     dataset = load_dataset(dataset_file)
+    risk_metadata = load_risk_metadata(dataset_file)
     print(f"Dataset: {dataset_file}")
     print(f"Cases loaded: {len(dataset)}")
     print(f"Top-K: {top_k}")
@@ -52,6 +61,10 @@ def run_evaluation(dataset_file, results_file, top_k=5):
         final_context = build_context(query=query, results=retrieved)
         answer, telemetry = generate_answer(final_context)
 
+        explicit_risk = case.get("Risk")
+        if explicit_risk is None:
+            explicit_risk = risk_metadata.get(case_id)
+
         results.append({
             "case_id": case_id,
             "intent": case.get("Intent"),
@@ -62,7 +75,8 @@ def run_evaluation(dataset_file, results_file, top_k=5):
             "expected_source": case.get("Expected Source"),
             "criticality": case.get("Criticality"),
             "why_golden": case.get("Why Golden"),
-            "risk": case.get("Risk") or case.get("Segment"),
+            "risk": explicit_risk,
+            "segment": case.get("Segment"),
             "actual_answer": answer,
             "retrieved_context": evidence,
             "final_context": final_context,
