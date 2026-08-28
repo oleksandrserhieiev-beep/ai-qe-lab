@@ -4,28 +4,41 @@ import time
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
+from context_builder import SYSTEM_INSTRUCTION
+
 
 load_dotenv()
 
-LLM_API_KEY = os.getenv("LLM_API_KEY")
-SUT_MODEL = os.getenv("SUT_MODEL")
 
-if not SUT_MODEL:
-    raise ValueError("SUT_MODEL is missing")
+def _configuration():
+    api_key = os.getenv("LLM_API_KEY")
+    model = os.getenv("SUT_MODEL")
+    if not model:
+        raise ValueError("SUT_MODEL is missing")
+    if not api_key:
+        raise ValueError("LLM_API_KEY is missing in .env")
+    return api_key, model
 
-if not LLM_API_KEY:
-    raise ValueError("LLM_API_KEY is missing in .env")
 
-
-client = Anthropic(api_key=LLM_API_KEY)
+def _usage_value(usage, name):
+    return int(getattr(usage, name, 0) or 0)
 
 
 def generate_answer(final_context):
+    api_key, model = _configuration()
+    client = Anthropic(api_key=api_key)
     start_time = time.perf_counter()
 
     response = client.messages.create(
-        model=SUT_MODEL,
-        max_tokens=1000,
+        model=model,
+        max_tokens=700,
+        system=[
+            {
+                "type": "text",
+                "text": SYSTEM_INSTRUCTION,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
         messages=[
             {
                 "role": "user",
@@ -44,8 +57,14 @@ def generate_answer(final_context):
 
     telemetry = {
         "model": response.model,
-        "input_tokens": response.usage.input_tokens,
-        "output_tokens": response.usage.output_tokens,
+        "input_tokens": _usage_value(response.usage, "input_tokens"),
+        "output_tokens": _usage_value(response.usage, "output_tokens"),
+        "cache_creation_input_tokens": _usage_value(
+            response.usage, "cache_creation_input_tokens"
+        ),
+        "cache_read_input_tokens": _usage_value(
+            response.usage, "cache_read_input_tokens"
+        ),
         "latency_ms": round(latency_ms, 2),
         "stop_reason": response.stop_reason,
     }
