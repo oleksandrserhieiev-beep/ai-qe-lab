@@ -7,17 +7,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-LLM_API_KEY = os.getenv("LLM_API_KEY")
-JUDGE_MODEL = os.getenv("JUDGE_MODEL")
 
-if not LLM_API_KEY:
-    raise ValueError("LLM_API_KEY is missing in .env")
+def get_judge_configuration():
+    api_key = os.getenv("LLM_API_KEY")
+    judge_model = os.getenv("JUDGE_MODEL")
 
-if not JUDGE_MODEL:
-    raise ValueError("JUDGE_MODEL is missing")
+    if not api_key:
+        raise ValueError("LLM_API_KEY is missing in .env")
 
+    if not judge_model:
+        raise ValueError("JUDGE_MODEL is missing")
 
-client = Anthropic(api_key=LLM_API_KEY)
+    return api_key, judge_model
 
 
 def evaluate_ai_response(
@@ -26,6 +27,9 @@ def evaluate_ai_response(
     actual_answer,
     retrieved_context,
 ):
+    api_key, judge_model = get_judge_configuration()
+    client = Anthropic(api_key=api_key)
+
     prompt = f"""
 You are an AI quality evaluator.
 
@@ -82,7 +86,7 @@ Return ONLY valid JSON:
 """
 
     response = client.messages.create(
-        model=JUDGE_MODEL,
+        model=judge_model,
         max_tokens=1000,
         thinking={"type": "disabled"},
         messages=[
