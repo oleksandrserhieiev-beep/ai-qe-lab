@@ -8,13 +8,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 LLM_API_KEY = os.getenv("LLM_API_KEY")
-LLM_MODEL = os.getenv("LLM_MODEL")
+SUT_MODEL = os.getenv("SUT_MODEL")
+
+if not SUT_MODEL:
+    raise ValueError("SUT_MODEL is missing")
 
 if not LLM_API_KEY:
     raise ValueError("LLM_API_KEY is missing in .env")
-
-if not LLM_MODEL:
-    raise ValueError("LLM_MODEL is missing in .env")
 
 
 client = Anthropic(api_key=LLM_API_KEY)
@@ -24,7 +24,7 @@ def generate_answer(final_context):
     start_time = time.perf_counter()
 
     response = client.messages.create(
-        model=LLM_MODEL,
+        model=SUT_MODEL,
         max_tokens=1000,
         messages=[
             {
