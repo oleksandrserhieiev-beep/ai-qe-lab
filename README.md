@@ -387,115 +387,277 @@ The target CI/CD execution strategy is:
 This separates fast developer feedback from broader AI risk evaluation.
 
 ---
+## Nightly Evaluation Baseline
+
+The first full Nightly Evaluation executed 80 evaluation cases across the broader AI risk surface.
+
+| Metric | Result |
+|---|---:|
+| Total Cases | 80 |
+| Passed | 40 |
+| Failed | 40 |
+| Overall Pass Rate | 50.00% |
+| Retrieval Hit Rate | 50.00% |
+| Correctness Rate | 100.00% |
+| Groundedness Rate | 98.75% |
+| Constraint Adherence Rate | 100.00% |
+| Hallucination Rate | 1.25% |
+| Average Latency | 2914.25 ms |
+| P95 Latency | 5110.67 ms |
+| Total Input Tokens | 70,984 |
+| Total Output Tokens | 13,573 |
+
+The 50% overall pass rate must not currently be interpreted as 50% product quality.
+
+The result is under root-cause analysis because the Overall Pass Rate exactly matches the 50% Retrieval Hit Rate while Correctness remains at 100%, Groundedness at 98.75%, Constraint Adherence at 100%, and Hallucination at 1.25%.
+
+Nightly failures will therefore be classified before corrective action as:
+
+- SUT defect;
+- RAG / retrieval defect;
+- dataset defect;
+- expected-result / oracle defect;
+- evaluator defect;
+- non-deterministic / flaky AI behaviour.
+
+Evaluation infrastructure defects must be separated from actual product-quality defects before thresholds, prompts, retrieval logic or datasets are changed.
+
 
 ## Next Implementation Steps
 
-The next planned engineering tasks are:
-
-1. Separate the **System Under Test model** from the **LLM Judge model**.
-2. Add Hugging Face/model caching to CI.
-3. Establish the Regression Dataset and regression baseline.
-4. Add regression execution after changes to `main`.
-5. Add scheduled full Evaluation Dataset execution.
-6. Expand AI risk coverage for stale data, conflicting data, missing information, prompt injection, adversarial inputs, robustness, and bias/fairness.
-7. Capture evidence-based RAG defects.
-8. Integrate the lab with Jira.
-9. Build and evaluate the QA Agent.
-10. Build and evaluate the Test Management Lifecycle Agent.
-11. Add end-to-end quality reporting, traceability, residual-risk assessment, and release governance.
+1. Analyze and classify the 80-case Nightly Evaluation failures.
+2. Correct dataset, oracle, evaluator or retrieval defects identified during Nightly analysis.
+3. Add Context Coverage measurement to validate whether retrieved context contains the evidence required to answer the query.
+4. Add structured Priority, AI Risk and Execution Suite metadata to evaluation cases.
+5. Expand risk-based AI evaluation coverage.
+6. Implement the Defect → Regression mechanism so fixed AI defects become permanent regression cases.
+7. Create sample Jira User Stories representing different AI risk profiles.
+8. Build the Requirements / AI Risk / Test Design Agent.
+9. Implement the Requirements Readiness / Entry Gate.
+10. Implement AI Risk identification against a controlled project risk taxonomy.
+11. Implement classical and AI-specific test-design technique selection.
+12. Generate functional test coverage from eligible requirements.
+13. Generate AI evaluation cases from eligible requirements and identified risks.
+14. Implement semantic duplicate detection against existing evaluation coverage.
+15. Recommend PR Critical, Regression or Nightly execution classification.
+16. Generate and maintain the Excel-based evaluation repository for stakeholder review.
+17. Add Human-in-the-Loop approval before executable dataset creation.
+18. Implement approved Excel → JSON dataset export.
+19. Build the Release Validation pipeline using Golden, Regression and repeated Critical coverage.
+20. Add aggregated reporting across PR Critical, Regression and Nightly Evaluation.
+21. Add historical metric and baseline comparison for quality, latency and token consumption.
+22. Integrate Jira traceability, defect creation and evaluation evidence.
+23. Build dedicated Golden and Evaluation datasets for testing the QA Agent itself.
+24. Evaluate the QA Agent for correctness, hallucination, risk identification and test-generation quality.
+25. Build the Test Management Lifecycle Agent.
+26. Connect requirements, risks, tests, datasets, executions, defects and evidence into end-to-end traceability.
+27. Add residual-risk reporting and GO / NO-GO release recommendations.
+28. Update architecture diagrams, Test Strategy and project documentation as the lifecycle evolves.
+29. Produce the final AI Quality Engineering case study / article.
 
 ---
-
 ## Future QA Agent
 
-The planned QA Agent will support:
+The next major extension of the AI QE Lab is a Requirements, Risk and Test Design Agent that connects requirement analysis with executable AI evaluation.
 
-```text
-Jira Requirement
-      ↓
+The target lifecycle is:
+
+Jira User Story
+    ↓
 Requirements Review
-      ↓
-Risk Identification
-      ↓
-Test Generation
-      ↓
-Human Approval
-      ↓
-Execution Analysis
-      ↓
-Defect Draft
-```
-
-Agent evaluation will cover both expected and prohibited actions, including tool usage and Human-in-the-Loop controls.
-
----
-
-## Future Test Management Lifecycle Agent
-
-The planned Test Management Agent will consume:
-
-* Requirements
-* Architecture
-* Risks
-* Tests
-* Executions
-* Defects
-* AI evaluation metrics
-* Agent metrics
-
-It will support:
-
-* Test Strategy generation
-* Test Planning
-* Entry/Exit Criteria
-* Test progress monitoring
-* Test Completion Reporting
-* GO / NO-GO recommendations
-
-Final release accountability remains with the human Test Lead.
-
----
-
-## Security and Cost Controls
-
-* Never commit API keys or `.env`.
-* Store CI credentials using GitHub Secrets.
-* Use risk-based PR subsets to control LLM execution cost.
-* Use dependency/model caching to reduce CI execution time.
-* Keep future Jira agents read-only until Human-in-the-Loop controls are validated.
-* Enable write operations only against a dedicated lab environment.
-* Preserve case-level evidence for AI quality decisions.
-
----
-
-## Project Goal
-
-The final lab is intended to demonstrate an end-to-end AI Quality Engineering lifecycle:
-
-```text
-Requirements
     ↓
-Risk Analysis
-    ↓
-AI System
-    ↓
-RAG / LLM Testing
-    ↓
-Automated Evaluation
-    ↓
-CI/CD Quality Gates
-    ↓
-Regression
-    ↓
-Agent Testing
-    ↓
-Traceability
-    ↓
-Metrics
-    ↓
-Residual Risk
-    ↓
-Release Decision
-```
+Entry / Readiness Gate
+    ├── FAIL → Missing Information Report → STOP
+    └── PASS
+            ↓
+AI Risk Identification
+            ↓
+Test Design Technique Selection
+    ├── Equivalence Partitioning
+    ├── Boundary Value Analysis
+    ├── Pairwise / Combinatorial Testing
+    ├── Negative Testing
+    └── AI-specific Test Techniques
+            ↓
+Functional Test Generation
+            +
+AI Evaluation Case Generation
+            ↓
+Existing Dataset Review
+            ↓
+Duplicate / Similarity Detection
+            ↓
+Risk + Priority Classification
+            ↓
+Execution Suite Recommendation
+    ├── PR Critical
+    ├── Regression
+    └── Nightly Evaluation
+            ↓
+Human Review / Approval
+            ↓
+Excel Test & Evaluation Repository
+            ↓
+Approved Dataset
+            ↓
+JSON Export
+            ↓
+Automated AI Evaluation Pipeline
 
-The objective is not merely to build an AI assistant, but to demonstrate how AI-enabled software can be **tested, measured, traced, governed, and released using an engineering-grade quality process**.
+### Requirements Readiness Gate
+
+The agent must not generate tests or evaluation datasets from requirements that do not contain enough information to establish expected behaviour.
+
+The readiness review checks:
+
+- requirement description;
+- acceptance criteria;
+- identifiable expected behaviour;
+- business constraints;
+- data dependencies;
+- source-of-truth information;
+- negative and failure behaviour;
+- AI-specific behaviour where applicable.
+
+If the requirement is not ready, the agent produces a missing-information report and stops test generation.
+
+This prevents the test-generation agent from inventing requirements that were never defined by the product team.
+
+### AI Risk Analysis
+
+For eligible requirements, the agent maps the requirement against the project's controlled AI risk taxonomy.
+
+Example risks include:
+
+- hallucination;
+- retrieval failure;
+- groundedness;
+- constraint adherence;
+- prompt injection;
+- ambiguity;
+- conflicting data;
+- stale data;
+- robustness;
+- non-determinism;
+- privacy and safety;
+- bias and fairness where applicable.
+
+Not every risk must apply to every requirement.
+
+The purpose of the analysis is to identify the risks that are relevant to the specific user story or feature.
+
+### Test Design
+
+The agent selects appropriate classical and AI-specific test-design techniques.
+
+Examples:
+
+- Equivalence Partitioning for large input domains;
+- Boundary Value Analysis for numeric constraints;
+- Pairwise / combinatorial testing for multiple interacting constraints;
+- Negative testing for invalid or unavailable conditions;
+- adversarial testing for prompt injection;
+- paraphrase and metamorphic testing for robustness;
+- groundedness and retrieval evaluation for RAG behaviour.
+
+Classical test-design techniques remain applicable to AI-enabled functionality and are combined with AI-specific risk-based evaluation.
+
+### Functional Tests and AI Evaluation Cases
+
+The agent produces two complementary forms of coverage.
+
+Functional tests validate deterministic business behaviour.
+
+AI evaluation cases validate probabilistic and AI-specific behaviour such as retrieval quality, hallucination, groundedness, robustness and constraint adherence.
+
+A single Jira Story may therefore produce multiple functional tests and multiple AI evaluation cases.
+
+### Dataset Design and Governance
+
+The reviewable evaluation repository is maintained in Excel before becoming executable JSON.
+
+Each evaluation case should contain traceability and governance metadata such as:
+
+- Case ID;
+- Jira Story / Requirement;
+- AI Risk;
+- Input / Question;
+- Expected Behaviour;
+- Expected Product or Source where applicable;
+- Test Design Technique;
+- Priority;
+- Execution Suite;
+- Approval Status.
+
+Excel acts as the human-readable design and review layer.
+
+JSON acts as the machine-executable representation used by the automated evaluation pipeline.
+
+### Duplicate Detection
+
+Before proposing a new evaluation case, the agent reviews existing Critical, Regression and Nightly coverage.
+
+Duplicate detection must consider more than exact text matching.
+
+The comparison should consider:
+
+- requirement;
+- test intent;
+- AI risk;
+- expected behaviour;
+- semantic similarity.
+
+For example:
+
+"Find a waterproof black jacket under $150"
+
+and
+
+"Recommend a black waterproof jacket costing no more than $150"
+
+may represent the same test intent.
+
+The agent should identify the existing case and recommend reuse or additional requirement traceability instead of unnecessarily duplicating coverage.
+
+### Risk-Based Execution Classification
+
+Priority and AI Risk are separate dimensions.
+
+Priority answers:
+
+"How urgently and frequently should this behaviour be validated?"
+
+AI Risk answers:
+
+"What AI failure mode does this case mitigate?"
+
+The agent recommends an execution suite for each approved evaluation case:
+
+- PR Critical — fast, high-risk merge-blocking coverage;
+- Regression — stable behaviour and previously fixed defects used to validate main;
+- Nightly Evaluation — broad AI risk, adversarial, robustness, ambiguity, conflicting-data and extended coverage.
+
+After human approval, Excel cases can be exported into the corresponding executable JSON datasets.
+
+### Target End-to-End Lifecycle
+
+Requirement
+→ Requirements Review
+→ Readiness Gate
+→ AI Risk Analysis
+→ Test Design
+→ Functional Tests + AI Evaluation Cases
+→ Duplicate Detection
+→ Priority and Suite Classification
+→ Human Approval
+→ Excel Repository
+→ JSON Export
+→ Evaluation Runner
+→ RAG
+→ SUT
+→ Evaluator
+→ Quality Gate
+→ Defect / Evidence
+→ Regression Coverage
+
+
