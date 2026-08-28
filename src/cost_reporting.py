@@ -16,6 +16,13 @@ def _price(model, direction):
     return DEFAULT_PRICING.get(model, {}).get(direction)
 
 
+def _flag_enabled(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def estimate_cost(model, input_tokens=0, output_tokens=0):
     input_price = _price(model, "input")
     output_price = _price(model, "output")
@@ -69,18 +76,36 @@ def summarize_usage(cases):
 
 
 def print_usage_summary(summary):
+    show_cost_usd = _flag_enabled("SHOW_COST_USD", default=False)
+
     print("\nToken / Cost Metrics")
     print("--------------------")
-    print("Layer | Input | Output | Total | Estimated cost (USD)")
+
+    if show_cost_usd:
+        print("Layer | Input | Output | Total | Estimated cost (USD)")
+    else:
+        print("Layer | Input | Output | Total")
+
     for name in ("sut", "judge"):
         item = summary[name]
-        print(
+        line = (
             f"{name.upper():5} | {item['input_tokens']:5} | {item['output_tokens']:6} | "
-            f"{item['total_tokens']:5} | ${item['cost_usd']:.6f}"
+            f"{item['total_tokens']:5}"
         )
+        if show_cost_usd:
+            line += f" | ${item['cost_usd']:.6f}"
+        print(line)
+
     total = summary["total"]
-    print(
+    total_line = (
         f"TOTAL | {total['input_tokens']:5} | {total['output_tokens']:6} | "
-        f"{total['total_tokens']:5} | ${total['cost_usd']:.6f}"
+        f"{total['total_tokens']:5}"
     )
-    print(f"Cost / case: ${total['cost_per_case_usd']:.6f}")
+    if show_cost_usd:
+        total_line += f" | ${total['cost_usd']:.6f}"
+    print(total_line)
+
+    if show_cost_usd:
+        print(f"Cost / case: ${total['cost_per_case_usd']:.6f}")
+    else:
+        print("Estimated USD cost: hidden (set SHOW_COST_USD=true to display)")
