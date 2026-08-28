@@ -169,17 +169,32 @@ def build_coverage_matrix(suites=None):
 def print_matrix(report):
     print("AI Risk Coverage Matrix")
     print("-----------------------")
-    print("Risk | Critical | Regression | Nightly | Case memberships | Status")
+
+    risk_width = max(
+        len("Risk"),
+        *(len(row["risk"]) for row in report["matrix"]),
+    )
+
+    header = (
+        f"{'Risk':<{risk_width}} | "
+        f"{'Critical':>8} | "
+        f"{'Regression':>10} | "
+        f"{'Nightly':>7} | "
+        f"{'Case memberships':>16} | "
+        f"{'Status':<12}"
+    )
+    print(header)
+    print("-" * len(header))
 
     for row in report["matrix"]:
         coverage = row["coverage"]
         print(
-            f"{row['risk']} | "
-            f"{coverage.get('critical', 0)} | "
-            f"{coverage.get('regression', 0)} | "
-            f"{coverage.get('nightly', 0)} | "
-            f"{row['total_case_memberships']} | "
-            f"{row['status'].upper()}"
+            f"{row['risk']:<{risk_width}} | "
+            f"{coverage.get('critical', 0):>8} | "
+            f"{coverage.get('regression', 0):>10} | "
+            f"{coverage.get('nightly', 0):>7} | "
+            f"{row['total_case_memberships']:>16} | "
+            f"{row['status'].upper():<12}"
         )
 
     print("\nRisk Coverage Gaps")
