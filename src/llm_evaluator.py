@@ -7,18 +7,39 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+JUDGE_SYSTEM = """You are an AI quality evaluator for a Shopping Assistant.
+Return only valid JSON. Evaluate only semantic qualities that require model judgment.
+Metrics: correctness, groundedness, hallucination, constraint_adherence, context_coverage (0-100), context_sufficient.
+For abstention/refusal/out-of-domain cases, context may be sufficient when evidence justifies abstention.
+Set reason to null when all checks pass. When any check fails, provide one short diagnostic reason.
+Do not restate the query, evidence, answer, rubric, or JSON schema outside the JSON object."""
 
-def get_judge_configuration():
+HIGH_RISK_LABELS = {
+    "hallucination",
+    "prompt_injection",
+    "sensitive_data_handling",
+    "conflicting_data",
+    "policy_grounding",
+}
+
+
+def get_judge_configuration(risk=None):
     api_key = os.getenv("LLM_API_KEY")
-    judge_model = os.getenv("JUDGE_MODEL")
+    primary_model = os.getenv("JUDGE_MODEL")
+    light_model = os.getenv("JUDGE_MODEL_LIGHT")
 
     if not api_key:
         raise ValueError("LLM_API_KEY is missing in .env")
-
-    if not judge_model:
+    if not primary_model:
         raise ValueError("JUDGE_MODEL is missing")
 
-    return api_key, judge_model
+    risks = risk if isinstance(risk, list) else [risk] if risk else []
+    use_primary = not light_model or any(item in HIGH_RISK_LABELS for item in risks)
+    return api_key, primary_model if use_primary else light_model
+
+
+def _usage_value(usage, name):
+    return int(getattr(usage, name, 0) or 0)
 
 
 def evaluate_ai_response(
@@ -26,118 +47,78 @@ def evaluate_ai_response(
     expected_behavior,
     actual_answer,
     retrieved_context,
+    risk=None,
 ):
-    api_key, judge_model = get_judge_configuration()
+    api_key, judge_model = get_judge_configuration(risk=risk)
     client = Anthropic(api_key=api_key)
 
-    prompt = f"""
-You are an AI quality evaluator.
-
-Evaluate the Shopping Assistant response.
-
-USER QUERY:
+    prompt = f"""QUERY:
 {query}
 
-EXPECTED BEHAVIOR:
+EXPECTED:
 {expected_behavior}
 
-RETRIEVED CONTEXT:
+EVIDENCE:
 {retrieved_context}
 
-ACTUAL ANSWER:
+ANSWER:
 {actual_answer}
 
-Evaluate these dimensions:
-
-1. correctness
-Does the answer satisfy the expected behavior?
-
-2. groundedness
-Are the factual claims in the answer supported by the retrieved context?
-
-3. hallucination
-Does the answer contain factual claims unsupported by the retrieved context?
-
-4. constraint_adherence
-Does the answer respect the constraints in the user query and expected behavior?
-
-5. context_coverage
-Estimate how much of the information required to satisfy the EXPECTED BEHAVIOR is available in the RETRIEVED CONTEXT itself.
-Return an integer from 0 to 100.
-100 means the context contains all information needed for the expected behavior.
-0 means the context contains none of the required information.
-For abstention, refusal, or out-of-domain cases, return 100 when the context/system evidence is sufficient to justify the expected abstention or refusal.
-Do not judge the quality of the ACTUAL ANSWER when scoring context_coverage.
-
-6. context_sufficient
-Return true when the retrieved context is sufficient to produce the expected behavior without inventing missing facts.
-
-Return ONLY valid JSON:
-
-{{
-  "correctness": true,
-  "groundedness": true,
-  "hallucination": false,
-  "constraint_adherence": true,
-  "context_coverage": 100,
-  "context_sufficient": true,
-  "reason": "short explanation"
-}}
-"""
+Return exactly:
+{{"correctness":true,"groundedness":true,"hallucination":false,"constraint_adherence":true,"context_coverage":100,"context_sufficient":true,"reason":null}}"""
 
     response = client.messages.create(
         model=judge_model,
-        max_tokens=1000,
+        max_tokens=350,
         thinking={"type": "disabled"},
-        messages=[
+        system=[
             {
-                "role": "user",
-                "content": prompt,
+                "type": "text",
+                "text": JUDGE_SYSTEM,
+                "cache_control": {"type": "ephemeral"},
             }
         ],
+        messages=[{"role": "user", "content": prompt}],
     )
 
     text = "".join(
-        block.text
-        for block in response.content
-        if block.type == "text"
-    )
-
-    text = text.strip()
+        block.text for block in response.content if block.type == "text"
+    ).strip()
 
     if not text:
         raise ValueError(
-            f"Judge returned no text. "
-            f"model={response.model}, "
+            f"Judge returned no text. model={response.model}, "
             f"stop_reason={response.stop_reason}, "
             f"content_types={[block.type for block in response.content]}"
         )
 
     if text.startswith("```json"):
         text = text[7:]
-
     if text.startswith("```"):
         text = text[3:]
-
     if text.endswith("```"):
         text = text[:-3]
 
     result = json.loads(text.strip())
 
-    coverage = result.get("context_coverage", 0)
-
     try:
-        coverage = int(round(float(coverage)))
+        coverage = int(round(float(result.get("context_coverage", 0))))
     except (TypeError, ValueError):
         coverage = 0
 
-    result["context_coverage"] = max(
-        0,
-        min(100, coverage),
-    )
-
-    result["context_sufficient"] = bool(
-        result.get("context_sufficient", False)
-    )
-
+    result["context_coverage"] = max(0, min(100, coverage))
+    result["context_sufficient"] = bool(result.get("context_sufficient", False))
+    result["reason"] = result.get("reason") or None
+    result["_telemetry"] = {
+        "model": response.model,
+        "input_tokens": _usage_value(response.usage, "input_tokens"),
+        "output_tokens": _usage_value(response.usage, "output_tokens"),
+        "cache_creation_input_tokens": _usage_value(
+            response.usage, "cache_creation_input_tokens"
+        ),
+        "cache_read_input_tokens": _usage_value(
+            response.usage, "cache_read_input_tokens"
+        ),
+        "stop_reason": response.stop_reason,
+    }
     return result
