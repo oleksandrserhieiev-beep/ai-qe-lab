@@ -64,7 +64,7 @@ jobs:
 
       - name: Quality Gate
         run: |
-          python src/quality_gate.py
+          python src/quality_gate.py --report reports/pr_evaluated.json
 
       - name: Upload evaluation reports
         if: always()
