@@ -48,7 +48,7 @@ jobs:
         run: |
           python src/pr_evaluator.py
 
-       - name: Hallucination Retry Policy
+      - name: Hallucination Retry Policy
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           SUT_MODEL: ${{ vars.SUT_MODEL }}
