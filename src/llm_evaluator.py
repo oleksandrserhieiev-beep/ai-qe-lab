@@ -8,12 +8,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-JUDGE_SYSTEM = """You are an AI quality evaluator for a Shopping Assistant.
-Return only valid JSON. Evaluate only semantic qualities that require model judgment.
-Metrics: correctness, groundedness, hallucination, constraint_adherence, context_coverage (0-100), context_sufficient.
-For abstention/refusal/out-of-domain cases, context may be sufficient when evidence justifies abstention.
-Set reason to null when all checks pass. When any check fails, provide one short diagnostic reason.
-Do not restate the query, evidence, answer, rubric, or JSON schema outside the JSON object."""
+# Keep the stable rubric compact. Dynamic query/evidence/answer content stays in the user message.
+JUDGE_SYSTEM = """Evaluate a Shopping Assistant using only supplied evidence.
+Return JSON only with: correctness, groundedness, hallucination, constraint_adherence, context_coverage (0-100), context_sufficient, reason.
+For abstention/refusal/out-of-domain, evidence can be sufficient when it supports abstention.
+Use reason=null when all checks pass; otherwise one short reason."""
 
 HIGH_RISK_LABELS = {
     "hallucination",
@@ -26,6 +25,7 @@ HIGH_RISK_LABELS = {
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504, 529}
 JUDGE_MAX_ATTEMPTS = int(os.getenv("JUDGE_MAX_ATTEMPTS", "4"))
 JUDGE_RETRY_BASE_SECONDS = float(os.getenv("JUDGE_RETRY_BASE_SECONDS", "2"))
+JUDGE_MAX_TOKENS = int(os.getenv("JUDGE_MAX_TOKENS", "180"))
 
 
 def get_judge_configuration(risk=None):
@@ -79,28 +79,23 @@ def evaluate_ai_response(
     risk=None,
 ):
     api_key, judge_model = get_judge_configuration(risk=risk)
-    # Use one explicit retry policy here so CI behavior is observable and bounded.
     client = Anthropic(api_key=api_key, max_retries=0)
 
-    prompt = f"""QUERY:
-{query}
-
-EXPECTED:
-{expected_behavior}
-
-EVIDENCE:
-{retrieved_context}
-
-ANSWER:
-{actual_answer}
-
-Return exactly:
-{{"correctness":true,"groundedness":true,"hallucination":false,"constraint_adherence":true,"context_coverage":100,"context_sufficient":true,"reason":null}}"""
+    # Compact field labels reduce repeated Judge input while preserving the same semantic evidence.
+    prompt = (
+        f"Q:{query}\n"
+        f"X:{expected_behavior}\n"
+        f"E:{retrieved_context}\n"
+        f"A:{actual_answer}\n"
+        'JSON:{"correctness":true,"groundedness":true,"hallucination":false,'
+        '"constraint_adherence":true,"context_coverage":100,'
+        '"context_sufficient":true,"reason":null}'
+    )
 
     response, attempts = _create_judge_response(
         client,
         model=judge_model,
-        max_tokens=350,
+        max_tokens=JUDGE_MAX_TOKENS,
         thinking={"type": "disabled"},
         system=[
             {
