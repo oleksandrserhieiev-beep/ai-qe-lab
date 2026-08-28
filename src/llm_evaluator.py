@@ -57,6 +57,17 @@ Does the answer contain factual claims unsupported by the retrieved context?
 4. constraint_adherence
 Does the answer respect the constraints in the user query and expected behavior?
 
+5. context_coverage
+Estimate how much of the information required to satisfy the EXPECTED BEHAVIOR is available in the RETRIEVED CONTEXT itself.
+Return an integer from 0 to 100.
+100 means the context contains all information needed for the expected behavior.
+0 means the context contains none of the required information.
+For abstention, refusal, or out-of-domain cases, return 100 when the context/system evidence is sufficient to justify the expected abstention or refusal.
+Do not judge the quality of the ACTUAL ANSWER when scoring context_coverage.
+
+6. context_sufficient
+Return true when the retrieved context is sufficient to produce the expected behavior without inventing missing facts.
+
 Return ONLY valid JSON:
 
 {{
@@ -64,6 +75,8 @@ Return ONLY valid JSON:
   "groundedness": true,
   "hallucination": false,
   "constraint_adherence": true,
+  "context_coverage": 100,
+  "context_sufficient": true,
   "reason": "short explanation"
 }}
 """
@@ -105,4 +118,22 @@ Return ONLY valid JSON:
     if text.endswith("```"):
         text = text[:-3]
 
-    return json.loads(text.strip())
+    result = json.loads(text.strip())
+
+    coverage = result.get("context_coverage", 0)
+
+    try:
+        coverage = int(round(float(coverage)))
+    except (TypeError, ValueError):
+        coverage = 0
+
+    result["context_coverage"] = max(
+        0,
+        min(100, coverage),
+    )
+
+    result["context_sufficient"] = bool(
+        result.get("context_sufficient", False)
+    )
+
+    return result
