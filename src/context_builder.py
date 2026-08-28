@@ -8,10 +8,13 @@ Rules:
 - If the context does not contain enough information, say that you do not have enough information.
 - Respect product constraints from the user's query.
 - Prefer factual answers grounded in the retrieved context.
+- Reproduce discrete product attributes exactly as provided in the retrieved context.
+- Do not convert discrete lists such as sizes or colors into ranges and do not infer missing intermediate values.
+- For example, if sizes are XS, S, M, XL, keep XS, S, M, XL; never rewrite them as XS-XL because that would imply size L is available.
 """.strip()
 
 
-PROMPT_VERSION = "shopping-assistant-v1"
+PROMPT_VERSION = "shopping-assistant-v2"
 
 
 def build_context(query, results):
