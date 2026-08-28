@@ -48,6 +48,14 @@ jobs:
         run: |
           python src/pr_evaluator.py
 
+       - name: Hallucination Retry Policy
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          SUT_MODEL: ${{ vars.SUT_MODEL }}
+          JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
+        run: |
+          python src/hallucination_retry.py
+
       - name: Quality Gate
         run: |
           python src/quality_gate.py
