@@ -1,3 +1,4 @@
+import argparse
 import json
 from pathlib import Path
 
@@ -12,19 +13,62 @@ from llm_client import generate_answer
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-DATASET_FILE = BASE_DIR / "datasets" / "golden_dataset.json"
-RESULTS_FILE = BASE_DIR / "reports" / "golden_results.json"
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Run AI/RAG evaluation against a dataset."
+    )
+
+    parser.add_argument(
+        "--dataset",
+        required=True,
+        help="Path to dataset JSON file.",
+    )
+
+    parser.add_argument(
+        "--output",
+        required=True,
+        help="Path to results JSON file.",
+    )
+
+    parser.add_argument(
+        "--top-k",
+        type=int,
+        default=5,
+        help="Number of retrieved documents. Default: 5.",
+    )
+
+    return parser.parse_args()
 
 
-def load_dataset():
-    with open(DATASET_FILE, "r", encoding="utf-8") as file:
+def resolve_path(path_value):
+    path = Path(path_value)
+
+    if not path.is_absolute():
+        path = BASE_DIR / path
+
+    return path
+
+
+def load_dataset(dataset_file):
+    with open(
+        dataset_file,
+        "r",
+        encoding="utf-8",
+    ) as file:
         return json.load(file)
 
 
-def run_evaluation():
-    dataset = load_dataset()
+def run_evaluation(
+    dataset_file,
+    results_file,
+    top_k=5,
+):
+    dataset = load_dataset(dataset_file)
 
-    print(f"Golden cases loaded: {len(dataset)}")
+    print(f"Dataset: {dataset_file}")
+    print(f"Cases loaded: {len(dataset)}")
+    print(f"Top-K: {top_k}")
     print("Initializing RAG...")
 
     documents = build_documents()
@@ -32,15 +76,24 @@ def run_evaluation():
 
     results = []
 
-    for number, case in enumerate(dataset, start=1):
+    for number, case in enumerate(
+        dataset,
+        start=1,
+    ):
         case_id = case.get("ID")
         query = case.get("Query")
 
         if not query:
-            print(f"Skipping {case_id}: no query")
+            print(
+                f"Skipping {case_id}: "
+                "no query"
+            )
             continue
 
-        print(f"\n[{number}/{len(dataset)}] Running {case_id}")
+        print(
+            f"\n[{number}/{len(dataset)}] "
+            f"Running {case_id}"
+        )
         print(f"Query: {query}")
 
         # 1. Retrieval
@@ -49,7 +102,7 @@ def run_evaluation():
             model=model,
             index=index,
             documents=documents,
-            top_k=5,
+            top_k=top_k,
         )
 
         # 2. Augmentation
@@ -69,21 +122,39 @@ def run_evaluation():
             "intent": case.get("Intent"),
             "query": query,
 
-            "expected_product": case.get("Expected Product"),
+            "expected_product": case.get(
+                "Expected Product"
+            ),
+
             "expected_retrieved_product": case.get(
                 "Expected Retrieved Product"
             ),
+
             "expected_facts_behavior": case.get(
                 "Expected Facts/Behavior"
             ),
-            "expected_source": case.get("Expected Source"),
-            "criticality": case.get("Criticality"),
-            "why_golden": case.get("Why Golden"),
+
+            "expected_source": case.get(
+                "Expected Source"
+            ),
+
+            "criticality": case.get(
+                "Criticality"
+            ),
+
+            "why_golden": case.get(
+                "Why Golden"
+            ),
+
+            "risk": case.get(
+                "Risk"
+            ),
 
             "actual_answer": answer,
 
             # Exact augmented context supplied to Claude.
-            # Needed later for groundedness/hallucination evaluation.
+            # Needed later for groundedness /
+            # hallucination evaluation.
             "final_context": final_context,
 
             "retrieval": [
@@ -97,6 +168,7 @@ def run_evaluation():
             ],
 
             "prompt_version": PROMPT_VERSION,
+            "top_k": top_k,
             "telemetry": telemetry,
         }
 
@@ -106,13 +178,13 @@ def run_evaluation():
         print(answer)
 
     # 5. Save all case-level results
-    RESULTS_FILE.parent.mkdir(
+    results_file.parent.mkdir(
         parents=True,
         exist_ok=True,
     )
 
     with open(
-        RESULTS_FILE,
+        results_file,
         "w",
         encoding="utf-8",
     ) as file:
@@ -125,8 +197,22 @@ def run_evaluation():
 
     print("\nEvaluation complete.")
     print(f"Executed cases: {len(results)}")
-    print(f"Results saved to: {RESULTS_FILE}")
+    print(f"Results saved to: {results_file}")
 
 
 if __name__ == "__main__":
-    run_evaluation()
+    args = parse_args()
+
+    dataset_file = resolve_path(
+        args.dataset
+    )
+
+    results_file = resolve_path(
+        args.output
+    )
+
+    run_evaluation(
+        dataset_file=dataset_file,
+        results_file=results_file,
+        top_k=args.top_k,
+    )
