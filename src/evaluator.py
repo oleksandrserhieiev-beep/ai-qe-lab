@@ -44,10 +44,11 @@ def evaluate_retrieval(case):
     expected_source = case.get(
         "expected_source"
     )
+    retrieval = case.get("retrieval", [])
 
     retrieved_ids = [
         item["id"]
-        for item in case.get("retrieval", [])
+        for item in retrieval
     ]
 
     if expected_product:
@@ -57,6 +58,16 @@ def evaluate_retrieval(case):
         expected_source
         and expected_source.lower() != "none"
     ):
+        # Product documents are indexed as individual P-* records, so the
+        # source file name itself never appears as a retrieval ID. Treat
+        # products.json as a source-type expectation and require at least
+        # one product document to have been retrieved.
+        if expected_source.lower() == "products.json":
+            return any(
+                item.get("type") == "product"
+                for item in retrieval
+            )
+
         return expected_source in retrieved_ids
 
     return True
