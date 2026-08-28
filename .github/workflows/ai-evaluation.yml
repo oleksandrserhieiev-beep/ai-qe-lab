@@ -13,10 +13,18 @@ on:
       - "requirements.txt"
 
   workflow_dispatch:
+    inputs:
+      show_cost_usd:
+        description: "Show estimated USD cost in console output"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   ai-evaluation:
     runs-on: ubuntu-latest
+    env:
+      SHOW_COST_USD: ${{ inputs.show_cost_usd }}
 
     steps:
       - name: Checkout repository
