@@ -163,6 +163,7 @@ def run_evaluation(
                     "type": item["type"],
                     "rank": item["rank"],
                     "similarity_score": item["score"],
+                    "metadata": item.get("metadata", {}),
                 }
                 for item in retrieved
             ],
