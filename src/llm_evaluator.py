@@ -1,7 +1,8 @@
 import json
 import os
+import time
 
-from anthropic import Anthropic
+from anthropic import Anthropic, APIStatusError
 from dotenv import load_dotenv
 
 
@@ -21,6 +22,10 @@ HIGH_RISK_LABELS = {
     "conflicting_data",
     "policy_grounding",
 }
+
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504, 529}
+JUDGE_MAX_ATTEMPTS = int(os.getenv("JUDGE_MAX_ATTEMPTS", "4"))
+JUDGE_RETRY_BASE_SECONDS = float(os.getenv("JUDGE_RETRY_BASE_SECONDS", "2"))
 
 
 def get_judge_configuration(risk=None):
@@ -42,6 +47,30 @@ def _usage_value(usage, name):
     return int(getattr(usage, name, 0) or 0)
 
 
+def _create_judge_response(client, **kwargs):
+    last_error = None
+
+    for attempt in range(1, JUDGE_MAX_ATTEMPTS + 1):
+        try:
+            return client.messages.create(**kwargs), attempt
+        except APIStatusError as exc:
+            last_error = exc
+            status_code = getattr(exc, "status_code", None)
+            retryable = status_code in RETRYABLE_STATUS_CODES
+
+            if not retryable or attempt >= JUDGE_MAX_ATTEMPTS:
+                raise
+
+            delay = JUDGE_RETRY_BASE_SECONDS * (2 ** (attempt - 1))
+            print(
+                f"Judge API transient error {status_code}; "
+                f"retry {attempt}/{JUDGE_MAX_ATTEMPTS} in {delay:.1f}s"
+            )
+            time.sleep(delay)
+
+    raise last_error
+
+
 def evaluate_ai_response(
     query,
     expected_behavior,
@@ -50,7 +79,8 @@ def evaluate_ai_response(
     risk=None,
 ):
     api_key, judge_model = get_judge_configuration(risk=risk)
-    client = Anthropic(api_key=api_key)
+    # Use one explicit retry policy here so CI behavior is observable and bounded.
+    client = Anthropic(api_key=api_key, max_retries=0)
 
     prompt = f"""QUERY:
 {query}
@@ -67,7 +97,8 @@ ANSWER:
 Return exactly:
 {{"correctness":true,"groundedness":true,"hallucination":false,"constraint_adherence":true,"context_coverage":100,"context_sufficient":true,"reason":null}}"""
 
-    response = client.messages.create(
+    response, attempts = _create_judge_response(
+        client,
         model=judge_model,
         max_tokens=350,
         thinking={"type": "disabled"},
@@ -120,5 +151,6 @@ Return exactly:
             response.usage, "cache_read_input_tokens"
         ),
         "stop_reason": response.stop_reason,
+        "api_attempts": attempts,
     }
     return result
