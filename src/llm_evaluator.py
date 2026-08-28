@@ -70,7 +70,8 @@ Return ONLY valid JSON:
 
     response = client.messages.create(
         model=JUDGE_MODEL,
-        max_tokens=500,
+        max_tokens=1000,
+        thinking={"type": "disabled"},
         messages=[
             {
                 "role": "user",
@@ -86,6 +87,14 @@ Return ONLY valid JSON:
     )
 
     text = text.strip()
+
+    if not text:
+        raise ValueError(
+            f"Judge returned no text. "
+            f"model={response.model}, "
+            f"stop_reason={response.stop_reason}, "
+            f"content_types={[block.type for block in response.content]}"
+        )
 
     if text.startswith("```json"):
         text = text[7:]
