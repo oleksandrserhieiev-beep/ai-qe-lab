@@ -17,12 +17,9 @@ class RiskCoverageTests(unittest.TestCase):
             ["retrieval_quality", "constraint_adherence"],
         )
 
-    def test_segment_maps_when_explicit_risk_missing(self):
+    def test_segment_is_not_treated_as_risk(self):
         case = {"Segment": "adversarial"}
-        self.assertEqual(
-            canonicalize_case_risks(case),
-            ["prompt_injection"],
-        )
+        self.assertEqual(canonicalize_case_risks(case), [])
 
     def test_explicit_multi_risk_is_preserved(self):
         case = {"Risk": ["policy_grounding", "robustness"]}
@@ -31,7 +28,7 @@ class RiskCoverageTests(unittest.TestCase):
             ["policy_grounding", "robustness"],
         )
 
-    def test_matrix_counts_suite_coverage_and_unclassified(self):
+    def test_matrix_counts_explicit_risk_coverage_and_unclassified(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             base = Path(temp_dir)
             critical = base / "critical.json"
@@ -70,14 +67,15 @@ class RiskCoverageTests(unittest.TestCase):
 
             self.assertEqual(
                 rows["retrieval_quality"]["coverage"],
-                {"critical": 1, "regression": 1, "nightly": 1},
+                {"critical": 1, "regression": 1, "nightly": 0},
             )
             self.assertEqual(
                 rows["constraint_adherence"]["coverage"],
-                {"critical": 0, "regression": 1, "nightly": 1},
+                {"critical": 0, "regression": 1, "nightly": 0},
             )
-            self.assertEqual(report["unclassified_count"], 1)
+            self.assertEqual(report["unclassified_count"], 2)
             self.assertEqual(report["unclassified"]["regression"], ["R-2"])
+            self.assertEqual(report["unclassified"]["nightly"], ["N-1"])
 
 
 if __name__ == "__main__":
