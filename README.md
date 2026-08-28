@@ -1,646 +1,446 @@
 # AI QE Lab
 
-Practical AI Quality Engineering lab for building, testing, evaluating, and governing AI-enabled systems.
+Practical AI Quality Engineering lab for building, testing, evaluating, observing, and governing AI-enabled systems.
 
-The project currently focuses on three workstreams:
+## Objective
 
-1. **Shopping RAG Assistant** — implemented
-2. **QA Agent** — planned
-3. **Test Management Lifecycle Agent** — planned
+The objective of this repository is to provide a reproducible, engineering-focused example of how an AI-enabled application can be quality-controlled as a real software system rather than tested only through manual prompting.
 
-The current implementation demonstrates a working RAG application together with an automated AI evaluation and CI/CD quality-control pipeline.
+It demonstrates how teams can combine controlled datasets, RAG observability, deterministic Python checks, LLM-as-a-Judge evaluation, AI risk metadata, CI quality gates, operational telemetry, failure localization, and human governance into one traceable AI QE workflow.
+
+The repository is intended to give engineers a practical reference for:
+
+- designing AI evaluation datasets;
+- separating deterministic checks from semantic LLM evaluation;
+- validating RAG retrieval, context quality, and generated answers;
+- mapping tests to explicit AI risks;
+- running risk-based PR, regression, and nightly evaluation;
+- enforcing merge/release quality gates;
+- tracking latency and token usage;
+- localizing failures to retrieval, context, generation, evaluation, or infrastructure;
+- evolving fixed AI defects into permanent regression coverage;
+- extending the same governance model toward requirements, risk, test-design, and test-management agents.
 
 ---
 
-## Current Architecture
+## Project Workstreams
+
+The project currently focuses on three workstreams:
+
+1. **Shopping RAG Assistant** — implemented and used as the current System Under Test (SUT).
+2. **QA Agent** — planned; requirements review, readiness gating, AI-risk identification, test design, and dataset generation.
+3. **Test Management Lifecycle Agent** — planned; programme-level test planning, monitoring, evidence, residual-risk, and release-governance support.
+
+The current executable implementation is deliberately centered on the first workstream so that the AI evaluation framework can be built and validated against a concrete SUT before agent orchestration is added.
+
+---
+
+## Current Implemented Architecture
+
+```mermaid
+flowchart TD
+    A[User or Evaluation Dataset] --> B[Constraint Extraction / Filtering]
+    B --> C[Embedding: all-MiniLM-L6-v2]
+    C --> D[FAISS Vector Search]
+    D --> E[Top-K Retrieval]
+    E --> F[Adaptive Context Selection]
+    F --> G[Context Builder]
+    G --> H[Claude SUT]
+    H --> I[Generated Answer]
+
+    E --> J[Deterministic Retrieval Metrics]
+    F --> K[Retrieved Evidence]
+    I --> L[LLM Judge]
+    K --> L
+
+    J --> M[Evaluation Aggregation]
+    L --> M
+    M --> N[AI Risk Reporting]
+    N --> O[Quality Gate]
+    O --> P[GitHub Actions PASS / FAIL]
+
+    H --> Q[LLM Telemetry]
+    E --> R[Retrieval Telemetry]
+    F --> S[Context Telemetry]
+    Q --> M
+    R --> M
+    S --> M
+```
+
+### Important architectural distinction
+
+The evaluation pipeline intentionally separates **retrieval diagnostics**, **context diagnostics**, and **generation diagnostics**:
 
 ```text
-User / Evaluation Dataset
-        ↓
-Shopping AI Assistant
-        ↓
-Constraint Filtering
-        ↓
-Query Embedding
-        ↓
-FAISS Vector Search
-        ↓
-Top-K Retrieval
-        ↓
-Context Augmentation
-        ↓
-Claude LLM
-        ↓
-Generated Answer
-        ↓
-AI Evaluator
-        ↓
-Quality Metrics
-        ↓
-Quality Gate
-        ↓
-GitHub Actions
-        ↓
-PR PASS / FAIL
+Retrieval Hit
+    ↓
+Constraint Match / Precision@K
+    ↓
+Context Coverage / Sufficiency
+    ↓
+Correctness / Groundedness / Hallucination / Constraint Adherence
 ```
+
+This helps distinguish a retrieval defect from a context-building defect or an LLM-generation defect.
+
+See [`docs/architecture.md`](docs/architecture.md) for the detailed architecture and lifecycle model.
 
 ---
 
 ## Shopping RAG Assistant
 
-The Shopping AI Assistant uses product and policy data as its controlled knowledge base.
+The Shopping AI Assistant uses controlled product and policy data as its knowledge base.
 
-Current capabilities include:
+Implemented capabilities include:
 
-* Product catalogue retrieval
-* Policy retrieval
-* Semantic vector search
-* Structured product constraint filtering
-* Configurable Top-K retrieval
-* Context augmentation
-* Claude-based answer generation
-* Out-of-domain abstention
-* Retrieval tracing
-* Context logging
-* LLM telemetry
+- product catalogue retrieval;
+- policy retrieval;
+- semantic vector search;
+- structured constraint extraction and filtering;
+- configurable retrieval Top-K;
+- adaptive context selection so retrieval depth and LLM context depth can differ;
+- context augmentation;
+- Claude-based answer generation;
+- out-of-domain abstention;
+- exact handling of discrete product attributes;
+- retrieval, context, and LLM telemetry.
 
-The current local vector implementation uses:
+Current retrieval stack:
 
-* `sentence-transformers`
-* `all-MiniLM-L6-v2`
-* FAISS
+- `sentence-transformers`;
+- `all-MiniLM-L6-v2`;
+- FAISS `IndexFlatIP` with normalized embeddings.
+
+The embedding model is used only for semantic retrieval. It does not generate answers and does not calculate semantic quality metrics.
 
 ---
 
 ## AI Evaluation Framework
 
-The repository contains an automated evaluation framework for validating RAG and LLM quality.
+The evaluation framework runs the SUT against controlled cases and combines deterministic metrics with semantic LLM evaluation.
 
-The evaluation pipeline is:
-
-```text
-Dataset
-   ↓
-Evaluation Runner
-   ↓
-RAG + LLM
-   ↓
-Case-Level Results
-   ↓
-LLM Evaluator
-   ↓
-Metrics
-   ↓
-Quality Gate
+```mermaid
+flowchart LR
+    D[Dataset Case] --> R[Evaluation Runner]
+    R --> S[SUT: RAG + Claude]
+    S --> T[Case Evidence + Telemetry]
+    T --> P[Python Deterministic Metrics]
+    T --> J[Claude Judge]
+    P --> A[Aggregation]
+    J --> A
+    A --> G[Quality Gate]
 ```
 
-Every evaluation retains case-level evidence rather than only aggregate percentages.
+### Python-computed metrics and telemetry
 
-### Current AI Quality Metrics
+Python calculates or aggregates:
 
-The framework currently measures:
+- Retrieval Hit Rate;
+- Constraint Match Score;
+- Constraint Precision@K;
+- latency and P95 latency;
+- SUT/Judge token usage from Anthropic API usage counters;
+- cache-token telemetry;
+- estimated cost metrics;
+- risk coverage inventory;
+- pass rates and quality-gate thresholds.
 
-* Overall Pass Rate
-* Retrieval Hit Rate
-* Correctness
-* Groundedness
-* Constraint Adherence
-* Hallucination Rate
-* Average Latency
-* P95 Latency
-* Input Token Usage
-* Output Token Usage
+### LLM Judge metrics
+
+The Judge evaluates semantic qualities that require model judgment:
+
+- Correctness;
+- Groundedness;
+- Hallucination;
+- Constraint Adherence;
+- Context Coverage;
+- Context Sufficiency.
+
+The Judge receives retrieved evidence rather than the complete augmented SUT prompt to reduce duplicated context and evaluation cost.
 
 ---
 
-## Golden Dataset
+## Dataset Model
 
-The Golden Dataset contains canonical and business-critical expected behaviours.
+The datasets are defined by **purpose**, not by a parent-child hierarchy. Overlap between datasets is expected.
 
-It is used to establish a stable quality baseline for the AI system.
+| Dataset | Purpose | Typical execution |
+|---|---|---|
+| **Golden** | Trusted reference behaviour and baseline validation | model/prompt/retrieval changes, release validation |
+| **PR Critical** | Fast risk-based merge-blocking subset | pull request |
+| **Regression** | Stable behaviour plus previously fixed defects | `main` health / post-merge |
+| **Evaluation / Nightly** | Broad AI-risk surface, robustness, adversarial and edge coverage | nightly |
 
-A full Golden run currently contains **35 cases** covering areas including:
+Current inventories include:
 
-* Product retrieval
-* Multi-constraint product search
-* Returns policy
-* Delivery policy
-* Warranty policy
-* Payment safety
-* Out-of-domain behaviour
-* Policy paraphrases
+- Golden Dataset — 35 cases;
+- PR Critical Dataset — 10 cases;
+- Regression Dataset — 15 cases;
+- Nightly Evaluation Dataset — 80 cases.
 
-The established Golden baseline has achieved:
-
-```text
-Total cases: 35
-Passed: 35
-Failed: 0
-
-Overall Pass Rate: 100%
-Retrieval Hit Rate: 100%
-Correctness Rate: 100%
-Groundedness Rate: 100%
-Constraint Adherence Rate: 100%
-Hallucination Rate: 0%
-```
-
-Baseline performance is tracked separately because latency and token consumption can vary between executions and configurations.
+The Nightly suite keeps `Segment` as a test-design dimension and uses explicit canonical AI-risk metadata through `datasets/evaluation_risk_metadata.json`.
 
 ---
 
-## PR Critical Dataset
+## Dataset Governance
 
-Pull Requests do not execute the complete Golden Dataset.
+[`AI_QE_Lab_Datasets_and_Governance.xlsx`](AI_QE_Lab_Datasets_and_Governance.xlsx) is the human-readable dataset-design and governance workbook.
 
-A smaller risk-based PR Critical Dataset currently contains **10 critical/high-risk cases**.
-
-This provides faster and cheaper feedback while retaining coverage of important AI behaviours.
-
-Current PR evaluation flow:
+It represents the review/governance layer rather than the runtime execution format. The intended model is:
 
 ```text
-Pull Request
-      ↓
-Path Filter
-      ↓
-10 Critical AI Cases
-      ↓
-RAG + LLM
-      ↓
-LLM Evaluation
-      ↓
-Quality Gate
-      ↓
-PASS / FAIL
+Requirement / Risk / Test Intent
+        ↓
+Human-readable governance repository
+        ↓
+Review and approval
+        ↓
+Executable JSON datasets
+        ↓
+Automated evaluation
 ```
 
-The current PR Critical baseline is:
+The workbook remains useful as the stakeholder-facing layer for risk, priority, expected behaviour, execution-suite classification, approval, and traceability. JSON remains the machine-executable representation used by CI.
 
-```text
-Total cases: 10
-Passed: 10
-Failed: 0
+---
 
-Overall Pass Rate: 100%
-Retrieval Hit Rate: 100%
-Correctness Rate: 100%
-Groundedness Rate: 100%
-Constraint Adherence Rate: 100%
-Hallucination Rate: 0%
-```
+## AI Risk Coverage
+
+Evaluation cases carry explicit AI-risk metadata. The project builds an **AI Risk Coverage Matrix** across Critical, Regression, and Nightly inventories.
+
+Example canonical risks include:
+
+- hallucination;
+- groundedness;
+- retrieval quality;
+- constraint adherence;
+- policy grounding;
+- prompt injection;
+- missing information;
+- ambiguity;
+- conflicting data;
+- robustness;
+- out-of-domain abstention;
+- sensitive-data handling;
+- negative behaviour.
+
+`FULL`, `PARTIAL`, and `SINGLE_SUITE` describe how a risk is distributed across dataset inventories. They are not pass/fail results and do not by themselves prove adequate test depth.
 
 ---
 
 ## Quality Gates
 
-AI evaluation is integrated into GitHub Actions.
-
-The Quality Gate evaluates generated metrics against defined thresholds.
+GitHub Actions enforces merge-blocking quality criteria for the PR Critical suite.
 
 Current gate dimensions include:
 
-* Critical-case failures
-* Correctness
-* Groundedness
-* Retrieval Hit Rate
-* Constraint Adherence
-* Hallucination Rate
+- critical-case failure;
+- Correctness;
+- Groundedness;
+- Retrieval Hit Rate;
+- Constraint Adherence;
+- Hallucination Rate.
 
-A Quality Gate failure returns a non-zero process exit code and causes the GitHub Actions check to fail.
-
-The intended governance model is:
+Current threshold model:
 
 ```text
-AI quality acceptable
-        ↓
-Quality Gate PASS
-        ↓
-PR GREEN
-
-AI quality regression
-        ↓
-Quality Gate FAIL
-        ↓
-PR RED
+Correctness           >= 95%
+Groundedness          >= 95%
+Retrieval Hit Rate    >= 95%
+Constraint Adherence  >= 95%
+Hallucination Rate    <= 2%
 ```
+
+A failing quality gate returns a non-zero exit code and makes the GitHub Actions check fail.
 
 ---
 
-## CI/CD
+## Hallucination Retry vs API Retry
 
-GitHub Actions is used as the CI execution environment.
+The project intentionally separates two different retry mechanisms.
 
-The current Pull Request workflow performs:
+**Provider/API retry** handles transient external-service failures such as HTTP 429/5xx/529. Judge requests use bounded retry/backoff so an Anthropic overload does not automatically become an AI-quality defect.
+
+**Hallucination retry** investigates stochastic quality. When hallucination exceeds the configured tolerance, the Critical suite can be repeated to determine whether the failure is reproducible or flaky.
+
+Infrastructure resilience and AI-quality investigation are therefore treated as separate concerns.
+
+---
+
+## CI/CD Execution Model
+
+```mermaid
+flowchart TD
+    PR[Pull Request] --> C[PR Critical: merge gate]
+    MAIN[Merge to main] --> R[Regression: main health gate]
+    NIGHT[Nightly schedule] --> N[Full Evaluation: broad AI-risk signal]
+    REL[Release validation] --> V[Golden + Regression + repeated Critical]
+```
+
+Current PR workflow includes:
 
 ```text
-Checkout Repository
-        ↓
-Set Up Python
-        ↓
-Restore pip Cache
-        ↓
-Install Dependencies
-        ↓
+Checkout
+    ↓
+Python + pip cache
+    ↓
+Hugging Face model cache
+    ↓
+Install dependencies
+    ↓
+Build AI Risk Coverage Matrix
+    ↓
 Run PR Critical Dataset
-        ↓
-Evaluate PR Critical Dataset
-        ↓
+    ↓
+Evaluate SUT + Judge
+    ↓
+Hallucination Retry Policy
+    ↓
 Quality Gate
-        ↓
-Upload Evaluation Reports
+    ↓
+Upload Reports
 ```
 
-### Path Filtering
-
-AI evaluation is triggered only when relevant project areas change.
-
-Current monitored paths include:
-
-```text
-src/**
-data/**
-datasets/**
-tests/**
-.github/workflows/ai-evaluation.yml
-requirements.txt
-```
-
-Documentation-only changes such as `README.md` therefore do not consume unnecessary LLM evaluation resources.
+Documentation-only changes do not trigger the PR Critical evaluation because the workflow uses path filtering.
 
 ---
 
-## RAG Experiments
+## Operational Telemetry and Cost Engineering
 
-The project is also used for controlled RAG experiments.
-
-A Top-K experiment compared `K=5` and `K=10`.
-
-Observed result:
-
-```text
-K=5 Retrieval Hit Rate:   97.14%
-K=10 Retrieval Hit Rate: 100.00%
-```
-
-However, increasing K substantially increased input-token consumption.
-
-This demonstrated an important RAG engineering trade-off:
-
-```text
-Higher retrieval coverage
-        ↕
-Larger context / higher cost
-```
-
-Structured constraint filtering was subsequently introduced rather than relying only on increasing Top-K.
-
----
-
-## Observability
-
-The system records evidence across the RAG/LLM pipeline.
+The project records operational signals alongside semantic quality metrics.
 
 Current telemetry includes:
 
-### Retrieval
+- average and P95 latency;
+- SUT input/output tokens;
+- Judge input/output tokens;
+- Anthropic prompt-cache creation/read tokens;
+- model identifiers;
+- API attempt count;
+- estimated cost and cost per case.
 
-* Retrieved document ID
-* Document type
-* Rank
-* Similarity score
+Cost optimization is treated as an engineering concern only when quality remains unchanged. Optimizations already explored include:
 
-### Augmentation
+- shorter Judge prompts;
+- compact Judge output;
+- raw retrieved evidence instead of full SUT context;
+- lower Judge output budget;
+- prompt-cache instrumentation;
+- separation of Retrieval-K from Context-K;
+- adaptive context selection;
+- optional risk-aware Judge model routing.
 
-* User query
-* Retrieved context
-* Final context supplied to the LLM
-* Prompt version
+Token usage and latency may vary between executions, so optimization evidence should use controlled BEFORE/AFTER comparisons rather than isolated runs.
 
-### Generation
+---
 
-* Model
-* Token usage
-* Response latency
-* Generated answer
+## Failure Localization
 
-This allows failures to be localized to:
+A failed evaluation should be classified before changing the model or thresholds.
 
 ```text
+Query
+  ↓
 Retrieval
-→ Augmentation
-→ Generation
-→ Evaluation
+  ↓
+Context
+  ↓
+Generation
+  ↓
+Evaluation
+  ↓
+Quality Gate
 ```
 
-rather than treating every incorrect AI response as a generic LLM failure.
+Typical signals:
+
+| Signal | Probable layer |
+|---|---|
+| Retrieval Hit fails | retrieval / oracle |
+| Constraint Match or Precision@K weak | retrieval / filtering |
+| Context Coverage or Sufficiency weak | augmentation / context construction |
+| Correctness fails with sufficient context | generation |
+| Groundedness or hallucination fails | generation / prompt |
+| Provider 529/5xx | infrastructure / external dependency |
+| Quality evaluator misclassifies expected source | evaluator / dataset contract |
+
+The first 80-case Nightly run exposed this distinction directly: many apparent failures were traced to an evaluator/oracle contract issue rather than product-quality defects. The corrected full Nightly baseline subsequently achieved 80/80 passing cases while still exposing retrieval precision as an observational improvement area.
 
 ---
 
 ## Repository Structure
 
 ```text
-.github/workflows/    GitHub Actions CI workflows
-
-data/                 Product and knowledge-source data
-datasets/             Golden, evaluation and PR datasets
-docs/                 Architecture and project documentation
-logs/                 RAG and LLM execution traces
-policies/             Approved and experimental policy sources
-reports/              Evaluation outputs and baselines
-src/                  RAG, LLM and evaluation implementation
-tests/                Automated software tests
+.github/workflows/    GitHub Actions workflows
+config/               Runtime configuration examples
+data/                 Product catalogue and source data
+datasets/             Golden, Critical, Regression and Evaluation datasets
+docs/                 Architecture and design documentation
+logs/                 Retrieval/context/LLM traces
+policies/             Policy knowledge sources
+reports/              Evaluation outputs and coverage reports
+src/                  RAG, evaluation, reporting and gate implementation
+tests/                Software-level tests
 ```
 
 Important implementation components include:
 
 ```text
-vector_store.py             Retrieval and vector search
-constraint_filter.py        Structured constraint filtering
-context_builder.py          RAG augmentation
-llm_client.py               LLM integration
-
-evaluation_runner.py        Full Golden execution
-evaluator.py                AI evaluation
-pr_evaluation_runner.py     PR critical execution
-pr_evaluator.py             PR AI evaluation
-quality_gate.py             CI quality-gate enforcement
-
-retrieval_logger.py         Retrieval telemetry
-context_logger.py           Context telemetry
-llm_logger.py               LLM telemetry
+vector_store.py             embeddings + FAISS retrieval
+constraint_filter.py        structured query constraints
+context_builder.py          retrieved evidence + SUT context
+llm_client.py               SUT Claude integration
+retrieval_metrics.py        deterministic retrieval diagnostics
+llm_evaluator.py            semantic Judge + API retry
+risk_reporting.py           per-risk execution reporting
+risk_coverage.py            cross-suite AI-risk inventory
+cost_reporting.py           SUT/Judge token and cost aggregation
+pr_evaluation_runner.py     PR Critical execution
+pr_evaluator.py             PR Critical evaluation
+hallucination_retry.py      stochastic hallucination retry policy
+quality_gate.py             CI blocking thresholds
 ```
 
 ---
 
-## Planned Execution Model
+## Current State vs Planned Extensions
 
-The target CI/CD execution strategy is:
+### Implemented
 
-| Trigger         | Evaluation Scope                                   |
-| --------------- | -------------------------------------------------- |
-| Pull Request    | Critical AI subset                                 |
-| Merge to `main` | Regression Dataset                                 |
-| Nightly         | Full Evaluation Dataset                            |
-| Release         | Golden + Regression + repeated critical evaluation |
+- Shopping RAG SUT;
+- structured constraint filtering;
+- FAISS retrieval and telemetry;
+- Golden / Critical / Regression / Nightly datasets;
+- deterministic retrieval metrics;
+- semantic Judge metrics;
+- canonical AI-risk metadata and coverage matrix;
+- PR quality gate;
+- hallucination retry;
+- external Judge API retry/backoff;
+- SUT/Judge token telemetry and cost reporting;
+- evaluation cost/context optimization.
 
-This separates fast developer feedback from broader AI risk evaluation.
+### Planned
 
----
-## Nightly Evaluation Baseline
+- Defect → Regression automation;
+- Jira traceability and defect workflow;
+- Requirements Readiness Agent;
+- AI Risk Analysis Agent;
+- classical + AI-specific Test Design Agent;
+- duplicate detection against existing coverage;
+- human approval workflow;
+- Excel → JSON approved dataset export;
+- QA Agent evaluation datasets;
+- Test Management Lifecycle Agent;
+- programme-level residual-risk and GO / NO-GO reporting.
 
-The first full Nightly Evaluation executed 80 evaluation cases across the broader AI risk surface.
-
-| Metric | Result |
-|---|---:|
-| Total Cases | 80 |
-| Passed | 40 |
-| Failed | 40 |
-| Overall Pass Rate | 50.00% |
-| Retrieval Hit Rate | 50.00% |
-| Correctness Rate | 100.00% |
-| Groundedness Rate | 98.75% |
-| Constraint Adherence Rate | 100.00% |
-| Hallucination Rate | 1.25% |
-| Average Latency | 2914.25 ms |
-| P95 Latency | 5110.67 ms |
-| Total Input Tokens | 70,984 |
-| Total Output Tokens | 13,573 |
-
-The 50% overall pass rate must not currently be interpreted as 50% product quality.
-
-The result is under root-cause analysis because the Overall Pass Rate exactly matches the 50% Retrieval Hit Rate while Correctness remains at 100%, Groundedness at 98.75%, Constraint Adherence at 100%, and Hallucination at 1.25%.
-
-Nightly failures will therefore be classified before corrective action as:
-
-- SUT defect;
-- RAG / retrieval defect;
-- dataset defect;
-- expected-result / oracle defect;
-- evaluator defect;
-- non-deterministic / flaky AI behaviour.
-
-Evaluation infrastructure defects must be separated from actual product-quality defects before thresholds, prompts, retrieval logic or datasets are changed.
-
-
-## Next Implementation Steps
-
-1. Analyze and classify the 80-case Nightly Evaluation failures.
-2. Correct dataset, oracle, evaluator or retrieval defects identified during Nightly analysis.
-3. Add Context Coverage measurement to validate whether retrieved context contains the evidence required to answer the query.
-4. Add structured Priority, AI Risk and Execution Suite metadata to evaluation cases.
-5. Expand risk-based AI evaluation coverage.
-6. Implement the Defect → Regression mechanism so fixed AI defects become permanent regression cases.
-7. Create sample Jira User Stories representing different AI risk profiles.
-8. Build the Requirements / AI Risk / Test Design Agent.
-9. Implement the Requirements Readiness / Entry Gate.
-10. Implement AI Risk identification against a controlled project risk taxonomy.
-11. Implement classical and AI-specific test-design technique selection.
-12. Generate functional test coverage from eligible requirements.
-13. Generate AI evaluation cases from eligible requirements and identified risks.
-14. Implement semantic duplicate detection against existing evaluation coverage.
-15. Recommend PR Critical, Regression or Nightly execution classification.
-16. Generate and maintain the Excel-based evaluation repository for stakeholder review.
-17. Add Human-in-the-Loop approval before executable dataset creation.
-18. Implement approved Excel → JSON dataset export.
-19. Build the Release Validation pipeline using Golden, Regression and repeated Critical coverage.
-20. Add aggregated reporting across PR Critical, Regression and Nightly Evaluation.
-21. Add historical metric and baseline comparison for quality, latency and token consumption.
-22. Integrate Jira traceability, defect creation and evaluation evidence.
-23. Build dedicated Golden and Evaluation datasets for testing the QA Agent itself.
-24. Evaluate the QA Agent for correctness, hallucination, risk identification and test-generation quality.
-25. Build the Test Management Lifecycle Agent.
-26. Connect requirements, risks, tests, datasets, executions, defects and evidence into end-to-end traceability.
-27. Add residual-risk reporting and GO / NO-GO release recommendations.
-28. Update architecture diagrams, Test Strategy and project documentation as the lifecycle evolves.
-29. Produce the final AI Quality Engineering case study / article.
+The planned agents are extensions of the existing QE framework; they are not presented as already implemented functionality.
 
 ---
-## Future QA Agent
 
-The next major extension of the AI QE Lab is a Requirements, Risk and Test Design Agent that connects requirement analysis with executable AI evaluation.
+## Target Lifecycle
 
-The target lifecycle is:
-
-Jira User Story
-    ↓
-Requirements Review
-    ↓
-Entry / Readiness Gate
-    ├── FAIL → Missing Information Report → STOP
-    └── PASS
-            ↓
-AI Risk Identification
-            ↓
-Test Design Technique Selection
-    ├── Equivalence Partitioning
-    ├── Boundary Value Analysis
-    ├── Pairwise / Combinatorial Testing
-    ├── Negative Testing
-    └── AI-specific Test Techniques
-            ↓
-Functional Test Generation
-            +
-AI Evaluation Case Generation
-            ↓
-Existing Dataset Review
-            ↓
-Duplicate / Similarity Detection
-            ↓
-Risk + Priority Classification
-            ↓
-Execution Suite Recommendation
-    ├── PR Critical
-    ├── Regression
-    └── Nightly Evaluation
-            ↓
-Human Review / Approval
-            ↓
-Excel Test & Evaluation Repository
-            ↓
-Approved Dataset
-            ↓
-JSON Export
-            ↓
-Automated AI Evaluation Pipeline
-
-### Requirements Readiness Gate
-
-The agent must not generate tests or evaluation datasets from requirements that do not contain enough information to establish expected behaviour.
-
-The readiness review checks:
-
-- requirement description;
-- acceptance criteria;
-- identifiable expected behaviour;
-- business constraints;
-- data dependencies;
-- source-of-truth information;
-- negative and failure behaviour;
-- AI-specific behaviour where applicable.
-
-If the requirement is not ready, the agent produces a missing-information report and stops test generation.
-
-This prevents the test-generation agent from inventing requirements that were never defined by the product team.
-
-### AI Risk Analysis
-
-For eligible requirements, the agent maps the requirement against the project's controlled AI risk taxonomy.
-
-Example risks include:
-
-- hallucination;
-- retrieval failure;
-- groundedness;
-- constraint adherence;
-- prompt injection;
-- ambiguity;
-- conflicting data;
-- stale data;
-- robustness;
-- non-determinism;
-- privacy and safety;
-- bias and fairness where applicable.
-
-Not every risk must apply to every requirement.
-
-The purpose of the analysis is to identify the risks that are relevant to the specific user story or feature.
-
-### Test Design
-
-The agent selects appropriate classical and AI-specific test-design techniques.
-
-Examples:
-
-- Equivalence Partitioning for large input domains;
-- Boundary Value Analysis for numeric constraints;
-- Pairwise / combinatorial testing for multiple interacting constraints;
-- Negative testing for invalid or unavailable conditions;
-- adversarial testing for prompt injection;
-- paraphrase and metamorphic testing for robustness;
-- groundedness and retrieval evaluation for RAG behaviour.
-
-Classical test-design techniques remain applicable to AI-enabled functionality and are combined with AI-specific risk-based evaluation.
-
-### Functional Tests and AI Evaluation Cases
-
-The agent produces two complementary forms of coverage.
-
-Functional tests validate deterministic business behaviour.
-
-AI evaluation cases validate probabilistic and AI-specific behaviour such as retrieval quality, hallucination, groundedness, robustness and constraint adherence.
-
-A single Jira Story may therefore produce multiple functional tests and multiple AI evaluation cases.
-
-### Dataset Design and Governance
-
-The reviewable evaluation repository is maintained in Excel before becoming executable JSON.
-
-Each evaluation case should contain traceability and governance metadata such as:
-
-- Case ID;
-- Jira Story / Requirement;
-- AI Risk;
-- Input / Question;
-- Expected Behaviour;
-- Expected Product or Source where applicable;
-- Test Design Technique;
-- Priority;
-- Execution Suite;
-- Approval Status.
-
-Excel acts as the human-readable design and review layer.
-
-JSON acts as the machine-executable representation used by the automated evaluation pipeline.
-
-### Duplicate Detection
-
-Before proposing a new evaluation case, the agent reviews existing Critical, Regression and Nightly coverage.
-
-Duplicate detection must consider more than exact text matching.
-
-The comparison should consider:
-
-- requirement;
-- test intent;
-- AI risk;
-- expected behaviour;
-- semantic similarity.
-
-For example:
-
-"Find a waterproof black jacket under $150"
-
-and
-
-"Recommend a black waterproof jacket costing no more than $150"
-
-may represent the same test intent.
-
-The agent should identify the existing case and recommend reuse or additional requirement traceability instead of unnecessarily duplicating coverage.
-
-### Risk-Based Execution Classification
-
-Priority and AI Risk are separate dimensions.
-
-Priority answers:
-
-"How urgently and frequently should this behaviour be validated?"
-
-AI Risk answers:
-
-"What AI failure mode does this case mitigate?"
-
-The agent recommends an execution suite for each approved evaluation case:
-
-- PR Critical — fast, high-risk merge-blocking coverage;
-- Regression — stable behaviour and previously fixed defects used to validate main;
-- Nightly Evaluation — broad AI risk, adversarial, robustness, ambiguity, conflicting-data and extended coverage.
-
-After human approval, Excel cases can be exported into the corresponding executable JSON datasets.
-
-### Target End-to-End Lifecycle
-
+```text
 Requirement
 → Requirements Review
 → Readiness Gate
@@ -648,16 +448,28 @@ Requirement
 → Test Design
 → Functional Tests + AI Evaluation Cases
 → Duplicate Detection
-→ Priority and Suite Classification
+→ Priority / Suite Classification
 → Human Approval
-→ Excel Repository
-→ JSON Export
-→ Evaluation Runner
-→ RAG
-→ SUT
-→ Evaluator
+→ Governance Repository
+→ JSON Dataset
+→ CI Evaluation
+→ Retrieval / Context / Generation Metrics
 → Quality Gate
 → Defect / Evidence
 → Regression Coverage
+→ Residual Risk / Release Decision
+```
 
+The central design principle is traceability:
 
+```text
+Requirement
+→ AI Risk
+→ Test / Evaluation Case
+→ Dataset
+→ CI Level
+→ Metric
+→ Threshold
+→ Evidence
+→ Residual Risk
+```

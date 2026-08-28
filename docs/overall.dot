@@ -1,13 +1,37 @@
-digraph G { rankdir=TB; graph [fontname="Arial", bgcolor="white", pad="0.3"]; node [shape=box, style="rounded", fontname="Arial"]; edge [fontname="Arial"];
-Jira [label="Jira\nEpics • Stories • AC • Defects"];
-Shop [label="Stream 1\nShopping AI Assistant\nRAG + LLM"];
-QA [label="Stream 2\nQA Agent\nReq Review • Risks • Tests • Defects"];
-TM [label="Stream 3\nTest Management Lifecycle Agent\nStrategy • Plan • Monitor • Completion"];
-Eval [label="Evaluation & Automation\npytest • AI evals • agent evals"];
-Data [label="Datasets\nGolden • Evaluation • Regression"];
-Trace [label="Observability\nRAG traces • Agent traces • Telemetry"];
-Report [label="Reporting Pipeline\nSDLC + AI + Agent metrics"];
-Excel [label="Excel Quality Workbook"];
-HITL [label="Human-in-the-loop\nTest Lead approval"];
-Jira -> QA; Jira -> TM; QA -> Shop [label="generated tests / scenarios"]; Shop -> Eval; QA -> Eval; TM -> Eval; Data -> Eval; Shop -> Trace; QA -> Trace; TM -> Trace; Eval -> Report; Trace -> Report; Report -> Excel; Report -> Jira [label="defects / status"]; HITL -> QA; HITL -> TM;
+digraph G {
+  rankdir=TB;
+  graph [fontname="Arial", bgcolor="white", pad="0.3"];
+  node [shape=box, style="rounded", fontname="Arial"];
+  edge [fontname="Arial"];
+
+  Dataset [label="User / Evaluation Dataset"];
+  Constraints [label="Constraint Extraction / Filtering"];
+  Embed [label="Embedding\nall-MiniLM-L6-v2"];
+  Vector [label="FAISS Vector Store"];
+  Retrieval [label="Top-K Retrieval"];
+  ContextK [label="Adaptive Context-K"];
+  Context [label="Context Builder"];
+  SUT [label="Claude SUT\nShopping Assistant"];
+  Answer [label="Generated Answer"];
+
+  Py [label="Deterministic Python Metrics\nRetrieval Hit • Constraint Match • Precision@K"];
+  Judge [label="Claude Judge\nCorrectness • Groundedness • Hallucination\nConstraint Adherence • Context Coverage/Sufficiency"];
+  Risk [label="AI Risk Reporting + Coverage Matrix"];
+  Gate [label="Quality Gate"];
+  CI [label="GitHub Actions\nPR PASS / FAIL"];
+  Telemetry [label="Observability\nRetrieval • Context • LLM • Latency • Tokens"];
+  Governance [label="Dataset Governance\nExcel review layer → JSON execution"];
+
+  Dataset -> Constraints -> Embed -> Vector -> Retrieval -> ContextK -> Context -> SUT -> Answer;
+  Retrieval -> Py;
+  ContextK -> Judge [label="retrieved evidence"];
+  Answer -> Judge;
+  Py -> Risk;
+  Judge -> Risk;
+  Risk -> Gate -> CI;
+  Retrieval -> Telemetry;
+  Context -> Telemetry;
+  SUT -> Telemetry;
+  Telemetry -> Risk;
+  Governance -> Dataset;
 }

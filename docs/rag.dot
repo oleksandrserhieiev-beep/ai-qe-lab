@@ -1,4 +1,25 @@
-digraph G { rankdir=LR; node [shape=box, style="rounded", fontname="Arial"]; edge [fontname="Arial"];
-U [label="User Query"]; API [label="Chat API"]; Emb [label="Embedding"]; V [label="Vector Store\nProducts + Policies"]; Ret [label="Retrieval\nTop-K chunks/items"]; Aug [label="Augmentation\nSystem prompt + query + context"]; LLM [label="LLM Generation"]; Ans [label="Answer + Sources"]; Log [label="RAG Trace\nquery • retrieved IDs/scores • prompt version • model • latency"];
-U->API->Emb->V->Ret->Aug->LLM->Ans; Ret->Log; Aug->Log; LLM->Log;
+digraph G {
+  rankdir=LR;
+  node [shape=box, style="rounded", fontname="Arial"];
+  edge [fontname="Arial"];
+
+  Q [label="Query"];
+  C [label="Constraint Extraction"];
+  E [label="Embedding\nall-MiniLM-L6-v2"];
+  V [label="FAISS Vector Store\nProducts + Policies"];
+  R [label="Retrieval Top-K"];
+  F [label="Structured Filtering / Ranking"];
+  K [label="Adaptive Context-K"];
+  X [label="Retrieved Context"];
+  S [label="Claude SUT"];
+  A [label="Answer"];
+  M [label="Retrieval Metrics\nHit • Match • Precision@K"];
+  T [label="Telemetry\nIDs • ranks • scores • context_k • model • tokens • latency"];
+
+  Q -> C -> E -> V -> R -> F -> K -> X -> S -> A;
+  R -> M;
+  F -> M;
+  R -> T;
+  K -> T;
+  S -> T;
 }
