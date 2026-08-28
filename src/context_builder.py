@@ -14,14 +14,13 @@ Rules:
 """.strip()
 
 
-PROMPT_VERSION = "shopping-assistant-v2"
+PROMPT_VERSION = "shopping-assistant-v3-cost-optimized"
 
 
-def build_context(query, results):
-    retrieved_context = []
-
+def build_retrieved_context(results):
+    blocks = []
     for result in results:
-        retrieved_context.append(
+        blocks.append(
             f"""
 Rank: {result['rank']}
 ID: {result['id']}
@@ -31,23 +30,15 @@ Similarity Score: {result['score']:.4f}
 {result['text']}
 """.strip()
         )
-
-    context_text = "\n\n---\n\n".join(retrieved_context)
-
-    final_context = f"""
-SYSTEM INSTRUCTION:
-
-{SYSTEM_INSTRUCTION}
+    return "\n\n---\n\n".join(blocks)
 
 
+def build_context(query, results):
+    context_text = build_retrieved_context(results)
+    return f"""
 USER QUERY:
-
 {query}
 
-
 RETRIEVED CONTEXT:
-
 {context_text}
 """.strip()
-
-    return final_context
