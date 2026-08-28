@@ -37,14 +37,14 @@ jobs:
       - name: Run PR Critical Dataset
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          SUT_MODEL: ${{ vars.SUT_MODEL }}
         run: |
           python src/pr_evaluation_runner.py
 
       - name: Evaluate PR Critical Dataset
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
         run: |
           python src/pr_evaluator.py
 

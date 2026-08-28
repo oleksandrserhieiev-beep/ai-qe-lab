@@ -8,7 +8,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 LLM_API_KEY = os.getenv("LLM_API_KEY")
-LLM_MODEL = os.getenv("LLM_MODEL")
+JUDGE_MODEL = os.getenv("JUDGE_MODEL")
+
+if not LLM_API_KEY:
+    raise ValueError("LLM_API_KEY is missing in .env")
+
+if not JUDGE_MODEL:
+    raise ValueError("JUDGE_MODEL is missing")
+
 
 client = Anthropic(api_key=LLM_API_KEY)
 
@@ -62,7 +69,7 @@ Return ONLY valid JSON:
 """
 
     response = client.messages.create(
-        model=LLM_MODEL,
+        model=JUDGE_MODEL,
         max_tokens=500,
         messages=[
             {
