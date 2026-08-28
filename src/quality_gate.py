@@ -1,11 +1,10 @@
+import argparse
 import json
 import sys
 from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-REPORT_FILE = BASE_DIR / "reports" / "pr_evaluated.json"
 
 MIN_CORRECTNESS = 95.0
 MIN_GROUNDEDNESS = 95.0
@@ -19,8 +18,38 @@ def fail(message):
     sys.exit(1)
 
 
+def resolve_path(path_value):
+    path = Path(path_value)
+
+    if path.is_absolute():
+        return path
+
+    return BASE_DIR / path
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Run AI quality gate against an evaluation report."
+    )
+
+    parser.add_argument(
+        "--report",
+        required=True,
+        help="Path to evaluated JSON report.",
+    )
+
+    return parser.parse_args()
+
+
 def main():
-    with open(REPORT_FILE, "r", encoding="utf-8") as file:
+    args = parse_args()
+
+    report_file = resolve_path(args.report)
+
+    if not report_file.exists():
+        fail(f"Report file not found: {report_file}")
+
+    with open(report_file, "r", encoding="utf-8") as file:
         data = json.load(file)
 
     summary = data["summary"]
@@ -41,24 +70,41 @@ def main():
         fail(f"Critical cases failed: {ids}")
 
     if summary["correctness_rate"] < MIN_CORRECTNESS:
-        fail("Correctness below threshold")
+        fail(
+            f"Correctness below threshold: "
+            f"{summary['correctness_rate']}% < {MIN_CORRECTNESS}%"
+        )
 
     if summary["groundedness_rate"] < MIN_GROUNDEDNESS:
-        fail("Groundedness below threshold")
+        fail(
+            f"Groundedness below threshold: "
+            f"{summary['groundedness_rate']}% < {MIN_GROUNDEDNESS}%"
+        )
 
     if summary["retrieval_hit_rate"] < MIN_RETRIEVAL_HIT:
-        fail("Retrieval Hit Rate below threshold")
+        fail(
+            f"Retrieval Hit Rate below threshold: "
+            f"{summary['retrieval_hit_rate']}% < {MIN_RETRIEVAL_HIT}%"
+        )
 
     if (
         summary["constraint_adherence_rate"]
         < MIN_CONSTRAINT_ADHERENCE
     ):
-        fail("Constraint Adherence below threshold")
+        fail(
+            f"Constraint Adherence below threshold: "
+            f"{summary['constraint_adherence_rate']}% "
+            f"< {MIN_CONSTRAINT_ADHERENCE}%"
+        )
 
     if summary["hallucination_rate"] > MAX_HALLUCINATION:
-        fail("Hallucination Rate above threshold")
+        fail(
+            f"Hallucination Rate above threshold: "
+            f"{summary['hallucination_rate']}% > {MAX_HALLUCINATION}%"
+        )
 
     print("QUALITY GATE PASS")
+    print(f"Report: {report_file}")
     sys.exit(0)
 
 

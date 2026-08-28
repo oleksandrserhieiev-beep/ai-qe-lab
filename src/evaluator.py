@@ -1,3 +1,4 @@
+import argparse
 import json
 from pathlib import Path
 
@@ -6,13 +7,43 @@ from llm_evaluator import evaluate_ai_response
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-RESULTS_FILE = BASE_DIR / "reports" / "golden_results.json"
-EVALUATED_FILE = BASE_DIR / "reports" / "golden_evaluated.json"
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Evaluate AI/RAG execution results."
+    )
+
+    parser.add_argument(
+        "--input",
+        required=True,
+        help="Path to execution results JSON file.",
+    )
+
+    parser.add_argument(
+        "--output",
+        required=True,
+        help="Path to evaluated results JSON file.",
+    )
+
+    return parser.parse_args()
+
+
+def resolve_path(path_value):
+    path = Path(path_value)
+
+    if not path.is_absolute():
+        path = BASE_DIR / path
+
+    return path
 
 
 def evaluate_retrieval(case):
-    expected_product = case.get("expected_retrieved_product")
-    expected_source = case.get("expected_source")
+    expected_product = case.get(
+        "expected_retrieved_product"
+    )
+    expected_source = case.get(
+        "expected_source"
+    )
 
     retrieved_ids = [
         item["id"]
@@ -22,7 +53,10 @@ def evaluate_retrieval(case):
     if expected_product:
         return expected_product in retrieved_ids
 
-    if expected_source and expected_source.lower() != "none":
+    if (
+        expected_source
+        and expected_source.lower() != "none"
+    ):
         return expected_source in retrieved_ids
 
     return True
@@ -32,14 +66,17 @@ def evaluate_case(case):
     retrieval_pass = evaluate_retrieval(case)
 
     query = case.get("query", "")
+
     expected_behavior = case.get(
         "expected_facts_behavior",
         "",
     )
+
     actual_answer = case.get(
         "actual_answer",
         "",
     )
+
     final_context = case.get(
         "final_context",
         "",
@@ -53,15 +90,24 @@ def evaluate_case(case):
     )
 
     correctness = bool(
-        ai_evaluation.get("correctness", False)
+        ai_evaluation.get(
+            "correctness",
+            False,
+        )
     )
 
     groundedness = bool(
-        ai_evaluation.get("groundedness", False)
+        ai_evaluation.get(
+            "groundedness",
+            False,
+        )
     )
 
     hallucination = bool(
-        ai_evaluation.get("hallucination", False)
+        ai_evaluation.get(
+            "hallucination",
+            False,
+        )
     )
 
     constraint_adherence = bool(
@@ -86,7 +132,8 @@ def evaluate_case(case):
             "correctness": correctness,
             "groundedness": groundedness,
             "hallucination": hallucination,
-            "constraint_adherence": constraint_adherence,
+            "constraint_adherence":
+                constraint_adherence,
             "overall_pass": overall_pass,
             "reason": ai_evaluation.get(
                 "reason",
@@ -117,6 +164,7 @@ def percentile(values, percentile_value):
     ) * (len(sorted_values) - 1)
 
     lower_index = int(index)
+
     upper_index = min(
         lower_index + 1,
         len(sorted_values) - 1,
@@ -136,9 +184,12 @@ def percentile(values, percentile_value):
     return round(result, 2)
 
 
-def run_evaluator():
+def run_evaluator(
+    results_file,
+    evaluated_file,
+):
     with open(
-        RESULTS_FILE,
+        results_file,
         "r",
         encoding="utf-8",
     ) as file:
@@ -204,26 +255,51 @@ def run_evaluator():
     output_tokens = []
 
     for case in evaluated_cases:
-        telemetry = case.get("telemetry", {})
+        telemetry = case.get(
+            "telemetry",
+            {},
+        )
 
-        latency = telemetry.get("latency_ms")
-        input_token_count = telemetry.get("input_tokens")
-        output_token_count = telemetry.get("output_tokens")
+        latency = telemetry.get(
+            "latency_ms"
+        )
+
+        input_token_count = telemetry.get(
+            "input_tokens"
+        )
+
+        output_token_count = telemetry.get(
+            "output_tokens"
+        )
 
         if latency is not None:
-            latencies.append(float(latency))
+            latencies.append(
+                float(latency)
+            )
 
         if input_token_count is not None:
-            input_tokens.append(int(input_token_count))
+            input_tokens.append(
+                int(input_token_count)
+            )
 
         if output_token_count is not None:
-            output_tokens.append(int(output_token_count))
+            output_tokens.append(
+                int(output_token_count)
+            )
 
-    total_input_tokens = sum(input_tokens)
-    total_output_tokens = sum(output_tokens)
+    total_input_tokens = sum(
+        input_tokens
+    )
+
+    total_output_tokens = sum(
+        output_tokens
+    )
 
     average_latency = (
-        round(sum(latencies) / len(latencies), 2)
+        round(
+            sum(latencies) / len(latencies),
+            2,
+        )
         if latencies
         else 0.0
     )
@@ -235,7 +311,8 @@ def run_evaluator():
 
     average_input_tokens = (
         round(
-            total_input_tokens / len(input_tokens),
+            total_input_tokens
+            / len(input_tokens),
             2,
         )
         if input_tokens
@@ -244,7 +321,8 @@ def run_evaluator():
 
     average_output_tokens = (
         round(
-            total_output_tokens / len(output_tokens),
+            total_output_tokens
+            / len(output_tokens),
             2,
         )
         if output_tokens
@@ -253,7 +331,6 @@ def run_evaluator():
 
     summary = {
         "total_cases": total,
-
         "passed": overall_passed,
         "failed": total - overall_passed,
 
@@ -288,11 +365,17 @@ def run_evaluator():
         ),
 
         "operational_metrics": {
-            "average_latency_ms": average_latency,
-            "p95_latency_ms": p95_latency,
+            "average_latency_ms":
+                average_latency,
 
-            "total_input_tokens": total_input_tokens,
-            "total_output_tokens": total_output_tokens,
+            "p95_latency_ms":
+                p95_latency,
+
+            "total_input_tokens":
+                total_input_tokens,
+
+            "total_output_tokens":
+                total_output_tokens,
 
             "average_input_tokens_per_case":
                 average_input_tokens,
@@ -307,8 +390,13 @@ def run_evaluator():
         "cases": evaluated_cases,
     }
 
+    evaluated_file.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
     with open(
-        EVALUATED_FILE,
+        evaluated_file,
         "w",
         encoding="utf-8",
     ) as file:
@@ -322,20 +410,9 @@ def run_evaluator():
     print("\nAI Evaluation Summary")
     print("---------------------")
 
-    print(
-        f"Total cases: "
-        f"{summary['total_cases']}"
-    )
-
-    print(
-        f"Passed: "
-        f"{summary['passed']}"
-    )
-
-    print(
-        f"Failed: "
-        f"{summary['failed']}"
-    )
+    print(f"Total cases: {total}")
+    print(f"Passed: {overall_passed}")
+    print(f"Failed: {total - overall_passed}")
 
     print(
         f"Overall Pass Rate: "
@@ -391,20 +468,23 @@ def run_evaluator():
     )
 
     print(
-        f"Average input tokens/case: "
-        f"{average_input_tokens}"
-    )
-
-    print(
-        f"Average output tokens/case: "
-        f"{average_output_tokens}"
-    )
-
-    print(
         f"\nSaved to: "
-        f"{EVALUATED_FILE}"
+        f"{evaluated_file}"
     )
 
 
 if __name__ == "__main__":
-    run_evaluator()
+    args = parse_args()
+
+    results_file = resolve_path(
+        args.input
+    )
+
+    evaluated_file = resolve_path(
+        args.output
+    )
+
+    run_evaluator(
+        results_file=results_file,
+        evaluated_file=evaluated_file,
+    )

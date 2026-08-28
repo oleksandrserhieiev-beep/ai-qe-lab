@@ -1,0 +1,63 @@
+name: AI Regression Evaluation
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+
+    env:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      SUT_MODEL: ${{ vars.SUT_MODEL }}
+      JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Cache Hugging Face models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-all-MiniLM-L6-v2
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Regression Dataset
+        run: >
+          python src/evaluation_runner.py
+          --dataset datasets/regression_dataset.json
+          --output reports/regression_results.json
+
+      - name: Evaluate Regression Results
+        run: >
+          python src/evaluator.py
+          --input reports/regression_results.json
+          --output reports/regression_evaluated.json
+
+      - name: Run Quality Gate
+        run: >
+          python src/quality_gate.py
+          --report reports/regression_evaluated.json
+
+      - name: Upload Regression Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-evaluation-reports
+          path: |
+            reports/regression_results.json
+            reports/regression_evaluated.json
