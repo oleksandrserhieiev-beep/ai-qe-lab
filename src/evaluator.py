@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from llm_evaluator import evaluate_ai_response
+from retrieval_metrics import evaluate_constraint_retrieval
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -58,10 +59,6 @@ def evaluate_retrieval(case):
         expected_source
         and expected_source.lower() != "none"
     ):
-        # Product documents are indexed as individual P-* records, so the
-        # source file name itself never appears as a retrieval ID. Treat
-        # products.json as a source-type expectation and require at least
-        # one product document to have been retrieved.
         if expected_source.lower() == "products.json":
             return any(
                 item.get("type") == "product"
@@ -77,6 +74,11 @@ def evaluate_case(case):
     retrieval_pass = evaluate_retrieval(case)
 
     query = case.get("query", "")
+
+    constraint_retrieval = evaluate_constraint_retrieval(
+        query=query,
+        retrieval=case.get("retrieval", []),
+    )
 
     expected_behavior = case.get(
         "expected_facts_behavior",
@@ -128,6 +130,23 @@ def evaluate_case(case):
         )
     )
 
+    context_coverage = int(
+        ai_evaluation.get(
+            "context_coverage",
+            0,
+        )
+    )
+
+    context_sufficient = bool(
+        ai_evaluation.get(
+            "context_sufficient",
+            False,
+        )
+    )
+
+    # New diagnostic metrics are intentionally observational in this PR.
+    # They do not change the blocking quality-gate contract until a baseline
+    # has been established and thresholds are agreed.
     overall_pass = (
         retrieval_pass
         and correctness
@@ -140,6 +159,9 @@ def evaluate_case(case):
         **case,
         "evaluation": {
             "retrieval_pass": retrieval_pass,
+            "constraint_retrieval": constraint_retrieval,
+            "context_coverage": context_coverage,
+            "context_sufficient": context_sufficient,
             "correctness": correctness,
             "groundedness": groundedness,
             "hallucination": hallucination,
@@ -160,6 +182,16 @@ def percentage(value, total):
 
     return round(
         value / total * 100,
+        2,
+    )
+
+
+def average(values):
+    if not values:
+        return 0.0
+
+    return round(
+        sum(values) / len(values),
         2,
     )
 
@@ -260,6 +292,34 @@ def run_evaluator(
         for case in evaluated_cases
     )
 
+    context_coverage_scores = [
+        case["evaluation"]["context_coverage"]
+        for case in evaluated_cases
+    ]
+
+    context_sufficient_cases = sum(
+        case["evaluation"]["context_sufficient"]
+        for case in evaluated_cases
+    )
+
+    constraint_metric_cases = [
+        case["evaluation"]["constraint_retrieval"]
+        for case in evaluated_cases
+        if case["evaluation"]["constraint_retrieval"]["applicable"]
+    ]
+
+    constraint_match_scores = [
+        metric["constraint_match_score"]
+        for metric in constraint_metric_cases
+        if metric["constraint_match_score"] is not None
+    ]
+
+    constraint_precision_scores = [
+        metric["constraint_precision_at_k"]
+        for metric in constraint_metric_cases
+        if metric["constraint_precision_at_k"] is not None
+    ]
+
     # Operational metrics
     latencies = []
     input_tokens = []
@@ -355,6 +415,27 @@ def run_evaluator(
             total,
         ),
 
+        "average_constraint_match_score": average(
+            constraint_match_scores
+        ),
+
+        "average_constraint_precision_at_k": average(
+            constraint_precision_scores
+        ),
+
+        "constraint_metric_cases": len(
+            constraint_metric_cases
+        ),
+
+        "average_context_coverage": average(
+            context_coverage_scores
+        ),
+
+        "context_sufficiency_rate": percentage(
+            context_sufficient_cases,
+            total,
+        ),
+
         "correctness_rate": percentage(
             correctness_passed,
             total,
@@ -433,6 +514,26 @@ def run_evaluator(
     print(
         f"Retrieval Hit Rate: "
         f"{summary['retrieval_hit_rate']}%"
+    )
+
+    print(
+        f"Average Constraint Match: "
+        f"{summary['average_constraint_match_score']}%"
+    )
+
+    print(
+        f"Average Constraint Precision@K: "
+        f"{summary['average_constraint_precision_at_k']}%"
+    )
+
+    print(
+        f"Average Context Coverage: "
+        f"{summary['average_context_coverage']}%"
+    )
+
+    print(
+        f"Context Sufficiency Rate: "
+        f"{summary['context_sufficiency_rate']}%"
     )
 
     print(
