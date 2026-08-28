@@ -1,10 +1,7 @@
 name: AI Regression Evaluation
 
 on:
-  push:
-    branches:
-      - main
-
+ 
   workflow_dispatch:
 
 jobs:
