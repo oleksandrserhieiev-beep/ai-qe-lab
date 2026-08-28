@@ -69,8 +69,8 @@ def summarize_usage(cases):
 
 
 def print_usage_summary(summary):
-    print("\nToken / Cost Baseline")
-    print("---------------------")
+    print("\nToken / Cost Metrics")
+    print("--------------------")
     print("Layer | Input | Output | Total | Estimated cost (USD)")
     for name in ("sut", "judge"):
         item = summary[name]
