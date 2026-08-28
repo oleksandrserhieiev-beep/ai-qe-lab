@@ -139,6 +139,7 @@ def semantic_search(query, model, documents, top_k=5):
                 "id": document["id"],
                 "type": document["type"],
                 "text": document["text"],
+                "metadata": document["metadata"],
             }
         )
 
@@ -212,6 +213,7 @@ def search(query, model, index, documents, top_k=5):
                 "id": document["id"],
                 "type": document["type"],
                 "text": document["text"],
+                "metadata": document["metadata"],
             }
         )
 
