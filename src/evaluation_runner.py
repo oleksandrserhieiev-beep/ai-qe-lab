@@ -2,12 +2,8 @@ import argparse
 import json
 from pathlib import Path
 
-from vector_store import (
-    build_documents,
-    build_vector_store,
-    search,
-)
-from context_builder import build_context, PROMPT_VERSION
+from vector_store import build_documents, build_vector_store, search
+from context_builder import build_context, build_retrieved_context, PROMPT_VERSION
 from llm_client import generate_answer
 
 
@@ -15,33 +11,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Run AI/RAG evaluation against a dataset."
-    )
-    parser.add_argument(
-        "--dataset",
-        required=True,
-        help="Path to dataset JSON file.",
-    )
-    parser.add_argument(
-        "--output",
-        required=True,
-        help="Path to results JSON file.",
-    )
-    parser.add_argument(
-        "--top-k",
-        type=int,
-        default=5,
-        help="Number of retrieved documents. Default: 5.",
-    )
+    parser = argparse.ArgumentParser(description="Run AI/RAG evaluation against a dataset.")
+    parser.add_argument("--dataset", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--top-k", type=int, default=5)
     return parser.parse_args()
 
 
 def resolve_path(path_value):
     path = Path(path_value)
-    if not path.is_absolute():
-        path = BASE_DIR / path
-    return path
+    return path if path.is_absolute() else BASE_DIR / path
 
 
 def load_dataset(dataset_file):
@@ -51,7 +30,6 @@ def load_dataset(dataset_file):
 
 def run_evaluation(dataset_file, results_file, top_k=5):
     dataset = load_dataset(dataset_file)
-
     print(f"Dataset: {dataset_file}")
     print(f"Cases loaded: {len(dataset)}")
     print(f"Top-K: {top_k}")
@@ -64,46 +42,29 @@ def run_evaluation(dataset_file, results_file, top_k=5):
     for number, case in enumerate(dataset, start=1):
         case_id = case.get("ID")
         query = case.get("Query")
-
         if not query:
             print(f"Skipping {case_id}: no query")
             continue
 
         print(f"\n[{number}/{len(dataset)}] Running {case_id}")
-        print(f"Query: {query}")
-
-        retrieved = search(
-            query=query,
-            model=model,
-            index=index,
-            documents=documents,
-            top_k=top_k,
-        )
-
-        final_context = build_context(
-            query=query,
-            results=retrieved,
-        )
-
+        retrieved = search(query=query, model=model, index=index, documents=documents, top_k=top_k)
+        evidence = build_retrieved_context(retrieved)
+        final_context = build_context(query=query, results=retrieved)
         answer, telemetry = generate_answer(final_context)
 
-        result = {
+        results.append({
             "case_id": case_id,
             "intent": case.get("Intent"),
             "query": query,
             "expected_product": case.get("Expected Product"),
-            "expected_retrieved_product": case.get(
-                "Expected Retrieved Product"
-            ),
-            "expected_facts_behavior": case.get(
-                "Expected Facts/Behavior",
-                case.get("Expected Behavior"),
-            ),
+            "expected_retrieved_product": case.get("Expected Retrieved Product"),
+            "expected_facts_behavior": case.get("Expected Facts/Behavior", case.get("Expected Behavior")),
             "expected_source": case.get("Expected Source"),
             "criticality": case.get("Criticality"),
             "why_golden": case.get("Why Golden"),
             "risk": case.get("Risk") or case.get("Segment"),
             "actual_answer": answer,
+            "retrieved_context": evidence,
             "final_context": final_context,
             "retrieval": [
                 {
@@ -118,14 +79,11 @@ def run_evaluation(dataset_file, results_file, top_k=5):
             "prompt_version": PROMPT_VERSION,
             "top_k": top_k,
             "telemetry": telemetry,
-        }
-
-        results.append(result)
+        })
         print("Answer:")
         print(answer)
 
     results_file.parent.mkdir(parents=True, exist_ok=True)
-
     with open(results_file, "w", encoding="utf-8") as file:
         json.dump(results, file, ensure_ascii=False, indent=2)
 
@@ -136,10 +94,4 @@ def run_evaluation(dataset_file, results_file, top_k=5):
 
 if __name__ == "__main__":
     args = parse_args()
-    dataset_file = resolve_path(args.dataset)
-    results_file = resolve_path(args.output)
-    run_evaluation(
-        dataset_file=dataset_file,
-        results_file=results_file,
-        top_k=args.top_k,
-    )
+    run_evaluation(resolve_path(args.dataset), resolve_path(args.output), args.top_k)
