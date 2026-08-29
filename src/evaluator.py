@@ -24,7 +24,28 @@ def resolve_path(path_value):
     return path if path.is_absolute() else BASE_DIR / path
 
 
-def evaluate_retrieval(case):
+def _expects_no_constraint_match(case):
+    assertions = case.get("deterministic_assertions") or []
+    return any(
+        str(assertion.get("type", "")).strip().lower() == "no_constraint_match"
+        for assertion in assertions
+    )
+
+
+def evaluate_retrieval(case, constraint_retrieval=None):
+    constraint_retrieval = constraint_retrieval or {}
+
+    # For negative catalogue cases, an empty retrieval produced by the
+    # structured no-match path is the expected retrieval outcome. Treat it as
+    # successful evidence resolution rather than requiring an arbitrary product
+    # merely because Expected Source is products.json.
+    if _expects_no_constraint_match(case):
+        return (
+            bool(constraint_retrieval.get("applicable"))
+            and int(constraint_retrieval.get("matching_products") or 0) == 0
+            and str(case.get("retrieval_strategy") or "") == "structured_no_match"
+        )
+
     expected_product = case.get("expected_retrieved_product")
     expected_source = case.get("expected_source")
     retrieval = case.get("retrieval", [])
@@ -40,11 +61,11 @@ def evaluate_retrieval(case):
 
 def evaluate_case(case):
     query = case.get("query", "")
-    retrieval_pass = evaluate_retrieval(case)
     constraint_retrieval = evaluate_constraint_retrieval(
         query=query,
         retrieval=case.get("retrieval", []),
     )
+    retrieval_pass = evaluate_retrieval(case, constraint_retrieval)
     plan = build_evaluation_plan(
         case=case,
         retrieval_pass=retrieval_pass,
