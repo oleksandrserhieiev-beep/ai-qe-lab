@@ -53,6 +53,7 @@ def run_evaluation():
         result = {
             "case_id": case_id,
             "oracle": case.get("Oracle"),
+            "deterministic_assertions": case.get("Deterministic Assertions", []),
             "intent": case.get("Intent"),
             "query": query,
             "expected_product": case.get("Expected Product"),
