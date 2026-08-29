@@ -1,5 +1,8 @@
+import os
+
 from context_builder import build_context, PROMPT_VERSION
 from context_logger import log_context
+from context_selector import select_context_results
 from retrieval_logger import log_retrieval
 from llm_client import generate_answer
 from llm_logger import log_llm_call
@@ -16,6 +19,7 @@ from constraint_filter import (
 
 
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+DEFAULT_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
 
 
 def product_to_text(product):
@@ -85,14 +89,11 @@ def build_vector_store(documents):
     return model, index
 
 
-def semantic_search(query, model, documents, top_k=5):
+def semantic_search(query, model, documents, top_k=DEFAULT_TOP_K):
     if not documents:
         return []
 
-    texts = [
-        document["text"]
-        for document in documents
-    ]
+    texts = [document["text"] for document in documents]
 
     embeddings = model.encode(
         texts,
@@ -101,12 +102,8 @@ def semantic_search(query, model, documents, top_k=5):
     )
 
     dimension = embeddings.shape[1]
-
     temp_index = faiss.IndexFlatIP(dimension)
-
-    temp_index.add(
-        embeddings.astype(np.float32)
-    )
+    temp_index.add(embeddings.astype(np.float32))
 
     query_embedding = model.encode(
         [query],
@@ -114,10 +111,7 @@ def semantic_search(query, model, documents, top_k=5):
         normalize_embeddings=True,
     )
 
-    result_count = min(
-        top_k,
-        len(documents),
-    )
+    result_count = min(top_k, len(documents))
 
     scores, indices = temp_index.search(
         query_embedding.astype(np.float32),
@@ -146,7 +140,8 @@ def semantic_search(query, model, documents, top_k=5):
     return results
 
 
-def search(query, model, index, documents, top_k=5):
+def search(query, model, index, documents, top_k=DEFAULT_TOP_K):
+    """Return ranked retrieval candidates before adaptive context selection."""
     constraints = extract_constraints(query)
 
     has_product_constraints = any(
@@ -163,13 +158,8 @@ def search(query, model, index, documents, top_k=5):
 
             product = document["metadata"]
 
-            if product_matches_constraints(
-                product,
-                constraints,
-            ):
-                filtered_products.append(
-                    document
-                )
+            if product_matches_constraints(product, constraints):
+                filtered_products.append(document)
 
         if filtered_products:
             print(
@@ -184,18 +174,17 @@ def search(query, model, index, documents, top_k=5):
                 top_k=top_k,
             )
 
-    # Fallback:
-    # no structured constraints were detected,
-    # or no product matched them.
+    # Fallback when no structured constraints were detected or no product matched.
     query_embedding = model.encode(
         [query],
         convert_to_numpy=True,
         normalize_embeddings=True,
     )
 
+    result_count = min(top_k, len(documents))
     scores, indices = index.search(
         query_embedding.astype(np.float32),
-        top_k,
+        result_count,
     )
 
     results = []
@@ -221,51 +210,51 @@ def search(query, model, index, documents, top_k=5):
 
 
 if __name__ == "__main__":
-    # 1. Load product catalogue and approved policies
+    # 1. Load product catalogue and approved policies.
     documents = build_documents()
-
     print(f"Documents loaded: {len(documents)}")
 
-    # 2. Build embeddings and FAISS vector index
+    # 2. Build embeddings and FAISS vector index.
     model, index = build_vector_store(documents)
 
-    # 3. Test query
+    # 3. Test query.
     query = "Find me a waterproof black jacket under $150 in size L"
 
-    # 4. Retrieve Top-K relevant documents
-    results = search(
+    # 4. Retrieve ranked Top-K candidates.
+    retrieved = search(
         query=query,
         model=model,
         index=index,
         documents=documents,
-        top_k=5,
+        top_k=DEFAULT_TOP_K,
     )
 
-    # 5. Log retrieval trace
+    # 5. Apply adaptive context selection.
+    context_results = select_context_results(retrieved)
+
+    # 6. Log retrieval candidates.
     log_retrieval(
         query=query,
-        results=results,
+        results=retrieved,
     )
 
-    # 6. Build augmented RAG context
+    # 7. Build augmented RAG context from selected evidence only.
     final_context = build_context(
         query=query,
-        results=results,
+        results=context_results,
     )
 
-    # 7. Log exact context supplied to LLM
+    # 8. Log exact context supplied to LLM.
     log_context(
         query=query,
         final_context=final_context,
         prompt_version=PROMPT_VERSION,
     )
 
-    # 8. Call Claude
-    answer, telemetry = generate_answer(
-        final_context
-    )
+    # 9. Call Claude.
+    answer, telemetry = generate_answer(final_context)
 
-    # 9. Log LLM call
+    # 10. Log LLM call.
     log_llm_call(
         query=query,
         answer=answer,
@@ -273,10 +262,10 @@ if __name__ == "__main__":
         prompt_version=PROMPT_VERSION,
     )
 
-    # 10. Print retrieval results
+    # 11. Print retrieval candidates and selection size.
     print(f"\nQuery: {query}\n")
 
-    for result in results:
+    for result in retrieved:
         print(
             f"Rank: {result['rank']} | "
             f"ID: {result['id']} | "
@@ -284,14 +273,18 @@ if __name__ == "__main__":
             f"Score: {result['score']:.4f}"
         )
 
-    # 11. Print context
+    print(
+        f"\nAdaptive context selected: "
+        f"{len(context_results)} / {len(retrieved)} candidate(s)"
+    )
+
+    # 12. Print context.
     print("\nFINAL CONTEXT:\n")
     print(final_context)
 
-    # 12. Print answer
+    # 13. Print answer and telemetry.
     print("\nCLAUDE ANSWER:\n")
     print(answer)
 
-    # 13. Print telemetry
     print("\nLLM TELEMETRY:\n")
-    print(telemetry)# CI AI trigger test 
+    print(telemetry)
