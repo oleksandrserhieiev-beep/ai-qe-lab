@@ -4,18 +4,6 @@ import sys
 from pathlib import Path
 
 ALLOWED_ORACLES = {"deterministic", "semantic_llm"}
-SEGMENT_ORACLE = {
-    "normal": "deterministic",
-    "ambiguous": "semantic_llm",
-    "negative": "deterministic",
-    "multi_constraint": "deterministic",
-    "out_of_domain": "semantic_llm",
-    "missing_info": "semantic_llm",
-    "conflict": "deterministic",
-    "adversarial": "semantic_llm",
-    "paraphrase": "deterministic",
-    "long_query": "deterministic",
-}
 
 
 def load_cases(path: Path):
@@ -34,14 +22,6 @@ def _nightly_assertions(path: Path):
         return {}
     with assertion_file.open("r", encoding="utf-8") as handle:
         return json.load(handle)
-
-
-def _resolved_oracle(case):
-    oracle = case.get("Oracle")
-    if isinstance(oracle, str) and oracle.strip():
-        return oracle.strip()
-    segment = str(case.get("Segment") or "").strip().lower()
-    return SEGMENT_ORACLE.get(segment)
 
 
 def validate_dataset(path: Path):
@@ -71,11 +51,12 @@ def validate_dataset(path: Path):
         else:
             seen_ids.add(case_id)
 
-        oracle = _resolved_oracle(case)
-        if oracle is None:
-            warnings.append(f"{label}: Oracle missing and Segment has no governed routing rule")
+        oracle = case.get("Oracle")
+        if not isinstance(oracle, str) or not oracle.strip():
+            warnings.append(f"{label}: Oracle missing; runtime routing will use the fallback mapper")
             continue
 
+        oracle = oracle.strip()
         if oracle not in ALLOWED_ORACLES:
             errors.append(
                 f"{label}: invalid Oracle {oracle!r}; allowed values: deterministic, semantic_llm"
