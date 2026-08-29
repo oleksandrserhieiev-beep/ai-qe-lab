@@ -8,7 +8,9 @@ on:
       - "src/**"
       - "data/**"
       - "datasets/**"
+      - "policies/**"
       - "tests/**"
+      - "docs/**"
       - ".github/workflows/ai-evaluation.yml"
       - "requirements.txt"
 
@@ -25,6 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SHOW_COST_USD: ${{ inputs.show_cost_usd }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      SUT_MODEL: ${{ vars.SUT_MODEL }}
+      JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
 
     steps:
       - name: Checkout repository
@@ -48,39 +53,33 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Validate PR Critical Dataset
-        run: |
-          python src/dataset_validator.py datasets/pr_critical_dataset.json
-
       - name: Build AI Risk Coverage Matrix
         run: |
           python src/risk_coverage.py --output reports/risk_coverage.json
 
-      - name: Run PR Critical Dataset
-        env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          SUT_MODEL: ${{ vars.SUT_MODEL }}
+      # TEMPORARY HARDENING VERIFICATION: keep these three suite-level checks
+      # until no-context/context-fixture behavior is confirmed across all suites.
+      - name: "TEMP Verify 1/3 — PR Critical"
         run: |
+          python src/dataset_validator.py datasets/pr_critical_dataset.json
           python src/pr_evaluation_runner.py
-
-      - name: Evaluate PR Critical Dataset
-        env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
-        run: |
           python src/pr_evaluator.py
-
-      - name: Hallucination Retry Policy
-        env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          SUT_MODEL: ${{ vars.SUT_MODEL }}
-          JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
-        run: |
           python src/hallucination_retry.py
-
-      - name: Quality Gate
-        run: |
           python src/quality_gate.py --report reports/pr_evaluated.json
+
+      - name: "TEMP Verify 2/3 — Regression"
+        run: |
+          python src/dataset_validator.py datasets/regression_dataset.json
+          python src/evaluation_runner.py --dataset datasets/regression_dataset.json --output reports/regression_results.json
+          python src/evaluator.py --input reports/regression_results.json --output reports/regression_evaluated.json
+          python src/quality_gate.py --report reports/regression_evaluated.json
+
+      - name: "TEMP Verify 3/3 — Nightly"
+        run: |
+          python src/dataset_validator.py datasets/evaluation_dataset.json
+          python src/evaluation_runner.py --dataset datasets/evaluation_dataset.json --output reports/evaluation_results.json
+          python src/evaluator.py --input reports/evaluation_results.json --output reports/evaluation_evaluated.json
+          python src/quality_gate.py --report reports/evaluation_evaluated.json
 
       - name: Upload evaluation reports
         if: always()
