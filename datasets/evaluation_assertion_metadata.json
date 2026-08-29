@@ -1,0 +1,57 @@
+{
+  "E-001": [{"id":"price","type":"regex","stages":["context","generation"],"pattern":"\\b126\\.32\\b"},{"id":"stock","type":"regex","stages":["context","generation"],"pattern":"(?:stock|units?).{0,20}\\b14\\b|\\b14\\b.{0,20}(?:stock|units?)"}],
+  "E-003": [{"id":"no-matching-product","type":"no_constraint_match","stage":"retrieval"},{"id":"no-match-answer","type":"regex","stage":"generation","pattern":"(?:no (?:matching|suitable|waterproof|products?)|could(?: not|n't) find|none (?:match|available))"}],
+  "E-004": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+  "E-007": [{"id":"approved-threshold","type":"regex","stages":["context","generation"],"pattern":"(?:\\$\\s*)?75(?:\\.00)?\\b"}],
+  "E-009": [{"id":"return-window","type":"regex","stages":["context","generation"],"pattern":"\\b30\\s+(?:calendar\\s+)?days?\\b"}],
+  "E-010": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+
+  "E-011": [{"id":"price","type":"regex","stages":["context","generation"],"pattern":"\\b192\\.6(?:0)?\\b"},{"id":"stock","type":"regex","stages":["context","generation"],"pattern":"(?:stock|units?).{0,20}\\b2\\b|\\b2\\b.{0,20}(?:stock|units?)"}],
+  "E-013": [{"id":"no-matching-product","type":"no_constraint_match","stage":"retrieval"},{"id":"no-match-answer","type":"regex","stage":"generation","pattern":"(?:no (?:matching|suitable|waterproof|products?)|could(?: not|n't) find|none (?:match|available))"}],
+  "E-014": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+  "E-017": [{"id":"approved-threshold","type":"regex","stages":["context","generation"],"pattern":"(?:\\$\\s*)?75(?:\\.00)?\\b"}],
+  "E-019": [{"id":"return-window","type":"regex","stages":["context","generation"],"pattern":"\\b30\\s+(?:calendar\\s+)?days?\\b"}],
+  "E-020": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+
+  "E-021": [{"id":"price","type":"regex","stages":["context","generation"],"pattern":"\\b172\\.42\\b"},{"id":"stock","type":"regex","stages":["context","generation"],"pattern":"(?:stock|units?).{0,20}\\b39\\b|\\b39\\b.{0,20}(?:stock|units?)"}],
+  "E-023": [{"id":"no-matching-product","type":"no_constraint_match","stage":"retrieval"},{"id":"no-match-answer","type":"regex","stage":"generation","pattern":"(?:no (?:matching|suitable|waterproof|products?)|could(?: not|n't) find|none (?:match|available))"}],
+  "E-024": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+  "E-027": [{"id":"approved-threshold","type":"regex","stages":["context","generation"],"pattern":"(?:\\$\\s*)?75(?:\\.00)?\\b"}],
+  "E-029": [{"id":"return-window","type":"regex","stages":["context","generation"],"pattern":"\\b30\\s+(?:calendar\\s+)?days?\\b"}],
+  "E-030": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+
+  "E-031": [{"id":"price","type":"regex","stages":["context","generation"],"pattern":"\\b79\\.48\\b"},{"id":"stock","type":"regex","stages":["context","generation"],"pattern":"(?:stock|units?).{0,20}\\b29\\b|\\b29\\b.{0,20}(?:stock|units?)"}],
+  "E-033": [{"id":"no-matching-product","type":"no_constraint_match","stage":"retrieval"},{"id":"no-match-answer","type":"regex","stage":"generation","pattern":"(?:no (?:matching|suitable|waterproof|products?)|could(?: not|n't) find|none (?:match|available))"}],
+  "E-034": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+  "E-037": [{"id":"approved-threshold","type":"regex","stages":["context","generation"],"pattern":"(?:\\$\\s*)?75(?:\\.00)?\\b"}],
+  "E-039": [{"id":"return-window","type":"regex","stages":["context","generation"],"pattern":"\\b30\\s+(?:calendar\\s+)?days?\\b"}],
+  "E-040": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+
+  "E-041": [{"id":"price","type":"regex","stages":["context","generation"],"pattern":"\\b131\\.87\\b"},{"id":"stock","type":"regex","stages":["context","generation"],"pattern":"(?:stock|units?).{0,20}\\b20\\b|\\b20\\b.{0,20}(?:stock|units?)"}],
+  "E-043": [{"id":"no-matching-product","type":"no_constraint_match","stage":"retrieval"},{"id":"no-match-answer","type":"regex","stage":"generation","pattern":"(?:no (?:matching|suitable|waterproof|products?)|could(?: not|n't) find|none (?:match|available))"}],
+  "E-044": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+  "E-047": [{"id":"approved-threshold","type":"regex","stages":["context","generation"],"pattern":"(?:\\$\\s*)?75(?:\\.00)?\\b"}],
+  "E-049": [{"id":"return-window","type":"regex","stages":["context","generation"],"pattern":"\\b30\\s+(?:calendar\\s+)?days?\\b"}],
+  "E-050": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+
+  "E-051": [{"id":"price","type":"regex","stages":["context","generation"],"pattern":"\\b66\\.59\\b"},{"id":"stock","type":"regex","stages":["context","generation"],"pattern":"(?:stock|units?).{0,20}\\b33\\b|\\b33\\b.{0,20}(?:stock|units?)"}],
+  "E-053": [{"id":"no-matching-product","type":"no_constraint_match","stage":"retrieval"},{"id":"no-match-answer","type":"regex","stage":"generation","pattern":"(?:no (?:matching|suitable|waterproof|products?)|could(?: not|n't) find|none (?:match|available))"}],
+  "E-054": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+  "E-057": [{"id":"approved-threshold","type":"regex","stages":["context","generation"],"pattern":"(?:\\$\\s*)?75(?:\\.00)?\\b"}],
+  "E-059": [{"id":"return-window","type":"regex","stages":["context","generation"],"pattern":"\\b30\\s+(?:calendar\\s+)?days?\\b"}],
+  "E-060": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+
+  "E-061": [{"id":"price","type":"regex","stages":["context","generation"],"pattern":"\\b97\\.95\\b"},{"id":"stock","type":"regex","stages":["context","generation"],"pattern":"(?:stock|units?).{0,20}\\b39\\b|\\b39\\b.{0,20}(?:stock|units?)"}],
+  "E-063": [{"id":"no-matching-product","type":"no_constraint_match","stage":"retrieval"},{"id":"no-match-answer","type":"regex","stage":"generation","pattern":"(?:no (?:matching|suitable|waterproof|products?)|could(?: not|n't) find|none (?:match|available))"}],
+  "E-064": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+  "E-067": [{"id":"approved-threshold","type":"regex","stages":["context","generation"],"pattern":"(?:\\$\\s*)?75(?:\\.00)?\\b"}],
+  "E-069": [{"id":"return-window","type":"regex","stages":["context","generation"],"pattern":"\\b30\\s+(?:calendar\\s+)?days?\\b"}],
+  "E-070": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+
+  "E-071": [{"id":"price","type":"regex","stages":["context","generation"],"pattern":"\\b88\\.14\\b"},{"id":"stock","type":"regex","stages":["context","generation"],"pattern":"(?:stock|units?).{0,20}\\b27\\b|\\b27\\b.{0,20}(?:stock|units?)"}],
+  "E-073": [{"id":"no-matching-product","type":"no_constraint_match","stage":"retrieval"},{"id":"no-match-answer","type":"regex","stage":"generation","pattern":"(?:no (?:matching|suitable|waterproof|products?)|could(?: not|n't) find|none (?:match|available))"}],
+  "E-074": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}],
+  "E-077": [{"id":"approved-threshold","type":"regex","stages":["context","generation"],"pattern":"(?:\\$\\s*)?75(?:\\.00)?\\b"}],
+  "E-079": [{"id":"return-window","type":"regex","stages":["context","generation"],"pattern":"\\b30\\s+(?:calendar\\s+)?days?\\b"}],
+  "E-080": [{"id":"p1001-context","type":"contains","stage":"context","value":"P-1001"},{"id":"p1001-answer","type":"contains","stage":"generation","value":"P-1001"},{"id":"answer-constraints","type":"answer_products_satisfy_constraints","stage":"generation"}]
+}
