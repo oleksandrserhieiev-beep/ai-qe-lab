@@ -23,9 +23,10 @@ def _retrieved_ids(case):
     return [str(item.get("id", "")) for item in case.get("retrieval", [])]
 
 
-def _evaluate_assertion(case, assertion, stage):
+def _evaluate_assertion(case, assertion, stage, constraint_retrieval=None):
     assertion_type = str(assertion.get("type", "")).strip().lower()
     assertion_id = assertion.get("id") or f"{stage}:{assertion_type}"
+    constraint_retrieval = constraint_retrieval or {}
 
     if stage not in SUPPORTED_STAGES:
         return {
@@ -50,6 +51,19 @@ def _evaluate_assertion(case, assertion, stage):
             "expected": expected,
             "actual": actual,
             "reason": "expected ID retrieved" if passed else "expected ID not retrieved",
+        }
+
+    if assertion_type == "no_constraint_match":
+        matching_products = int(constraint_retrieval.get("matching_products") or 0)
+        passed = matching_products == 0
+        return {
+            "id": assertion_id,
+            "stage": stage,
+            "type": assertion_type,
+            "passed": passed,
+            "expected": 0,
+            "actual": matching_products,
+            "reason": "no retrieved product satisfies all constraints" if passed else "unexpected matching product retrieved",
         }
 
     text = _text_for_stage(case, stage)
@@ -110,24 +124,33 @@ def _evaluate_assertion(case, assertion, stage):
 
 
 def evaluate_deterministic_assertions(case, retrieval_pass, constraint_retrieval=None):
-    """Evaluate structured assertions and return layer-level evidence.
-
-    Existing retrieval and constraint metrics remain part of the deterministic
-    result. Explicit atomic assertions extend coverage into context and final
-    generation. Cases without structured assertions retain legacy behavior so
-    older datasets can be migrated incrementally.
-    """
+    """Evaluate structured assertions and return layer-level evidence."""
     constraint_retrieval = constraint_retrieval or {}
+    configured = case.get("deterministic_assertions") or case.get("Deterministic Assertions") or []
+
+    expects_no_match = any(
+        str(assertion.get("type", "")).strip().lower() == "no_constraint_match"
+        for assertion in configured
+    )
     constraint_applicable = bool(constraint_retrieval.get("applicable"))
     constraint_score = constraint_retrieval.get("constraint_match_score")
-    constraint_pass = constraint_score == 100.0 if constraint_applicable else True
+    if expects_no_match:
+        constraint_pass = int(constraint_retrieval.get("matching_products") or 0) == 0
+    else:
+        constraint_pass = constraint_score == 100.0 if constraint_applicable else True
 
-    configured = case.get("deterministic_assertions") or case.get("Deterministic Assertions") or []
     results = []
     for assertion in configured:
         stages = assertion.get("stages") or [assertion.get("stage", "generation")]
         for stage in stages:
-            results.append(_evaluate_assertion(case, assertion, str(stage).strip().lower()))
+            results.append(
+                _evaluate_assertion(
+                    case,
+                    assertion,
+                    str(stage).strip().lower(),
+                    constraint_retrieval=constraint_retrieval,
+                )
+            )
 
     stage_results = {}
     for stage in SUPPORTED_STAGES:
@@ -139,10 +162,7 @@ def evaluate_deterministic_assertions(case, retrieval_pass, constraint_retrieval
             passed = all(item["passed"] for item in stage_assertions)
         else:
             passed = None
-        stage_results[stage] = {
-            "passed": passed,
-            "assertions": stage_assertions,
-        }
+        stage_results[stage] = {"passed": passed, "assertions": stage_assertions}
 
     explicit_assertions_pass = all(item["passed"] for item in results) if results else True
     overall_pass = bool(retrieval_pass and constraint_pass and explicit_assertions_pass)
