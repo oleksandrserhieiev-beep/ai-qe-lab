@@ -4,6 +4,8 @@
 
 AI evaluation in this lab is automated test execution. Deterministic checks and LLM-as-a-Judge are two test-oracle mechanisms inside the same framework. The current SUT path includes retrieval candidates, adaptive context selection, context construction and Claude generation before Oracle evaluation.
 
+The canonical metric definitions and denominators are maintained in `docs/metric_contract.md`.
+
 ## Pre-execution dataset validation
 
 Before any active CI evaluation starts, the dataset is validated by `src/dataset_validator.py`.
@@ -90,11 +92,58 @@ All reviewed deterministic cases are migrated to structured atomic assertions:
 
 Nightly deterministic assertions are loaded from `datasets/evaluation_assertion_metadata.json`. The 61/44 split is the currently implemented case-level routing model.
 
+## Current metric population rules
+
+The report intentionally uses different populations for different metrics.
+
+| Metric | Evaluation mechanism | Population |
+|---|---|---|
+| Overall Pass Rate | Python aggregation across both routes | all executed cases |
+| Retrieval Hit Rate | deterministic Python | all executed cases |
+| Constraint Match / Precision@K | deterministic Python | applicable structured-constraint cases |
+| Correctness | LLM Judge | semantic/Judge cases only |
+| Groundedness | LLM Judge | semantic/Judge cases only |
+| Hallucination | LLM Judge | semantic/Judge cases only |
+| Context Coverage | LLM Judge | semantic/Judge cases only |
+| Context Sufficiency | LLM Judge | semantic/Judge cases only |
+| Constraint Adherence | deterministic Python or Judge depending on route | all executed cases |
+| Judge call reduction | Python routing aggregation | all executed cases |
+
+For PR Critical, the current split is 6 deterministic + 4 semantic. Therefore:
+
+```text
+Overall Pass 100%        = 10/10 complete routes
+Retrieval Hit 100%       = 10/10 cases
+Correctness 100%         = 4/4 judged, not 10/10
+Groundedness 100%        = 4/4 judged, not 10/10
+Hallucination 0%         = 0/4 judged cases hallucinated
+Context Sufficiency 100% = 4/4 judged
+Constraint Adherence 100%= 10/10 through hybrid route evaluation
+```
+
+Deterministic cases store semantic-only fields as `None` and are excluded from semantic denominators. If a run has zero semantic cases, those metrics are reported as **N/A**, not as an implicit `100%`.
+
 ## Semantic route
 
 A semantic case can share exactly the same retrieval and context pipeline. The difference is that its expected behavior cannot be reduced to a complete objective assertion.
 
+The Judge currently evaluates `correctness`, `groundedness`, `hallucination`, `constraint_adherence`, `context_coverage` and `context_sufficient`. Only the semantic route contributes to semantic-only metric denominators.
+
 Example: two policies may be retrieved and preserved correctly, but the SUT must explain their interaction without unsupported assumptions. Retrieval/context evidence is still useful, while final behavioral PASS/FAIL requires the Judge.
+
+## Quality-gate semantics
+
+Current thresholds are:
+
+```text
+Correctness >= 95%           # semantic population when applicable
+Groundedness >= 95%          # semantic population when applicable
+Retrieval Hit >= 95%         # all executed cases
+Constraint Adherence >= 95%  # all executed cases / hybrid route
+Hallucination <= 2%           # semantic population when applicable
+```
+
+An empty semantic population is N/A and is not converted into a fabricated 100% score. Critical-case failures can additionally block the run.
 
 ## Probabilistic generation and re-runs
 
@@ -123,6 +172,8 @@ Failure Layer     -> where did evidence first diverge?
 Context Selection -> which retrieved evidence actually reached the SUT?
 ```
 
+Risk-level semantic metrics use the same rule: the denominator is only the semantic cases carrying that risk. A deterministic-only risk group correctly reports semantic Groundedness/Hallucination as N/A.
+
 ## Engineering outcome
 
 ```text
@@ -144,9 +195,10 @@ Benefits:
 - deterministic cases prove final expected facts without Judge calls;
 - retrieval and generation context are independently observable;
 - context-selection threshold mistakes are distinguishable from retrieval defects;
+- semantic percentages expose their actual judged population;
 - stochastic failures can be separated from systematic defects;
 - the same governed structure can later be produced from Jira-driven agent workflows.
 
 ## Engineering rule
 
-**Automate deterministically everything that can be expressed as an objective assertion. Use an LLM Judge only where the residual quality property genuinely requires semantic interpretation.**
+**Automate deterministically everything that can be expressed as an objective assertion. Use an LLM Judge only where the residual quality property genuinely requires semantic interpretation. Always report the population actually measured.**
