@@ -2,9 +2,19 @@
 
 ## Why the current catalogue exists
 
-The current product catalogue and policy knowledge base are a controlled **POC fixture**. They let the lab learn and validate retrieval, context construction, evaluation, Oracle routing, telemetry, quality gates, and failure localization against known source data.
+The current product catalogue and policy knowledge base are controlled **POC fixtures**. They let the lab validate retrieval, adaptive context selection, generation, evaluation, Oracle routing, telemetry, quality gates and failure localization against known source data. They are not intended to be the final enterprise knowledge source.
 
-They are not intended to be the final enterprise knowledge source.
+## Current governed dataset controls
+
+The executable JSON datasets are already subject to Dataset/Oracle Validation in PR Critical, Regression and Nightly CI. Current rules are:
+
+- `Oracle = deterministic` -> valid and requires non-empty deterministic assertions;
+- `Oracle = semantic_llm` -> valid;
+- Oracle missing / `null` / empty -> warning and runtime fallback is allowed;
+- unsupported non-empty Oracle values -> validation error;
+- missing or duplicate case IDs -> validation error.
+
+All 61 reviewed deterministic cases currently have structured atomic assertions. The dataset is the primary source of truth; the runtime mapper is a resilience mechanism.
 
 ## Planned evolution
 
@@ -20,13 +30,13 @@ flowchart TD
     M --> CI[CI Evaluation]
 ```
 
-As the lab evolves, Jira requirements and the connected project knowledge base become the real inputs for QA-agent workflows. The current catalogue remains useful as a controlled SUT fixture, but it is no longer the conceptual end state.
+As the lab evolves, Jira requirements and connected project knowledge become inputs for QA-agent workflows. The catalogue remains useful as a controlled SUT fixture, but it is not the conceptual enterprise end state.
 
 ## Target dataset lifecycle
 
-The target design removes Excel as a mandatory intermediate format. The agent can create or update executable JSON directly after requirements review and human governance where required.
+The target design does not require Excel as an intermediate format. Agents can create/update governed executable JSON after requirements review and human approval where required.
 
-For every case, the governed dataset should carry enough metadata to support execution and traceability, including case ID, expected behavior, AI risk, priority/criticality, target suite, Oracle, and deterministic assertions where applicable.
+For every case, the governed dataset should carry enough metadata for execution and traceability: case ID, expected behavior, AI risk, priority/criticality, target suite, Oracle and deterministic assertions where applicable.
 
 ```text
 Jira Story
@@ -34,26 +44,16 @@ Jira Story
   -> AI Risk / Test Design
   -> duplicate and coverage review
   -> suite classification
-  -> JSON Dataset update
+  -> Human approval where required
+  -> Governed JSON Dataset update
   -> Dataset Validator
   -> Oracle Mapper generation
   -> CI evaluation
 ```
 
-## Oracle integrity rules
+## Oracle integrity and runtime fallback
 
-The dataset is the primary source of truth.
-
-- `Oracle = deterministic` -> deterministic Python route.
-- `Oracle = semantic_llm` -> semantic Judge route.
-- Oracle missing / `null` / empty -> runtime fallback is allowed and should emit a warning.
-- Unsupported non-empty Oracle values such as `banana` -> dataset validation error; do not silently hide corrupted metadata behind fallback.
-
-When all cases pass dataset validation, the Oracle mapper/registry should be regenerated automatically from the approved dataset rather than edited independently by a person. This prevents the dataset and mapper from drifting because someone forgot to update both.
-
-## Runtime fallback
-
-The mapper remains valuable as a runtime resilience mechanism:
+The dataset is authoritative. The mapper is valuable only as runtime resilience:
 
 ```text
 Oracle missing / null / empty
@@ -64,27 +64,27 @@ Oracle missing / null / empty
       -> unknown ID -> safe semantic_llm default
 ```
 
-The fallback protects evaluation if Oracle metadata is lost during propagation or a legacy case does not contain the field. It is not a second manually maintained business source of truth.
+The next governance hardening step is to regenerate the mapper automatically from validated approved dataset metadata rather than edit it independently. This prevents source-of-truth drift.
 
 ## Continuous dataset integrity
 
-Dataset integrity should be checked whenever a dataset changes. A scheduled CI integrity job can additionally scan all datasets periodically (for example weekly) and report missing Oracle metadata, invalid Oracle values, duplicate IDs, unsupported risks, missing required assertions, and mapper consistency.
+Change-time validation is implemented in the three active CI workflows. A scheduled integrity audit remains optional future hardening for additional checks such as unsupported risks, mapper consistency and broader cross-dataset duplication/coverage rules.
 
-This gives the lifecycle three controls:
+The lifecycle therefore has three intended controls:
 
-1. the QA Agent creates or updates governed cases;
-2. CI validation detects dataset-quality defects;
-3. the generated mapper provides runtime fallback if primary Oracle metadata is missing.
+1. governed cases are created/updated in JSON;
+2. CI validation catches dataset-quality defects before model execution;
+3. the derived mapper provides runtime fallback when primary Oracle metadata is missing.
 
 ## Current versus target state
 
 | Area | Current POC | Target evolution |
 |---|---|---|
-| Knowledge source | Product catalogue + policy fixtures | Jira requirements + connected project knowledge base |
-| Dataset authoring | Controlled repository datasets | Agent-assisted JSON dataset lifecycle |
-| Classification | Existing suite metadata | Risk/criticality-driven automatic suite recommendation |
-| Oracle | Explicit metadata + fallback routing | Explicit validated Oracle + generated mapper |
-| Integrity | Runtime routing safeguards | Change-time validation + scheduled integrity checks + runtime fallback |
+| Knowledge source | Product catalogue + policy fixtures | Jira requirements + connected project knowledge |
+| Dataset authoring | QE-managed repository JSON | Agent-assisted governed JSON lifecycle |
+| Classification | Explicit suite/risk metadata | Risk/criticality-driven suite recommendation |
+| Oracle | Explicit metadata + reviewed fallback | Explicit validated Oracle + automatically generated mapper |
+| Integrity | Change-time Dataset Validation + runtime fallback | Validation + generated mapper + optional scheduled integrity audit |
 | Governance | QE-managed POC | Agent-assisted with human approval for material decisions |
 
-The architectural intent is therefore evolutionary: the current catalogue lets us prove the mechanics in a controlled environment; Jira and the project knowledge base later turn the same evaluation framework into a requirements-driven AI QE workflow.
+The architectural intent is evolutionary: the controlled SUT proves the mechanics; Jira and project knowledge later make the same framework requirements-driven.
