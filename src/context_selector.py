@@ -67,12 +67,32 @@ def select_context_results(retrieved, min_k=None, max_k=None, min_similarity=Non
 
 def build_context_selection_metadata(retrieved, selected, config=None):
     config = config or get_context_selection_config()
+    candidates = list(retrieved or [])
+    selected = list(selected or [])
+
+    selected_ids = [item.get("id") for item in selected]
+    selected_id_set = set(selected_ids)
+    dropped = [item for item in candidates if item.get("id") not in selected_id_set]
+
+    candidate_k = len(candidates)
+    selected_k = len(selected)
+    reduction_pct = (
+        ((candidate_k - selected_k) / candidate_k) * 100.0
+        if candidate_k
+        else 0.0
+    )
+
     return {
-        "candidate_k": len(retrieved or []),
-        "selected_k": len(selected or []),
+        "candidate_k": candidate_k,
+        "selected_k": selected_k,
+        "context_reduction_pct": round(reduction_pct, 2),
         "target_min_k": config["min_k"],
         "max_k": config["max_k"],
         "min_similarity": config["min_similarity"],
-        "selected_ids": [item.get("id") for item in selected or []],
-        "selected_scores": [float(item.get("score", 0.0)) for item in selected or []],
+        "candidate_ids": [item.get("id") for item in candidates],
+        "candidate_scores": [float(item.get("score", 0.0)) for item in candidates],
+        "selected_ids": selected_ids,
+        "selected_scores": [float(item.get("score", 0.0)) for item in selected],
+        "dropped_ids": [item.get("id") for item in dropped],
+        "dropped_scores": [float(item.get("score", 0.0)) for item in dropped],
     }
