@@ -1,0 +1,12 @@
+{
+  "normal": "deterministic",
+  "ambiguous": "semantic_llm",
+  "negative": "deterministic",
+  "multi_constraint": "deterministic",
+  "out_of_domain": "semantic_llm",
+  "missing_info": "semantic_llm",
+  "conflict": "deterministic",
+  "adversarial": "semantic_llm",
+  "paraphrase": "deterministic",
+  "long_query": "deterministic"
+}
