@@ -8,7 +8,7 @@ from context_selector import (
     get_context_selection_config,
     select_context_results,
 )
-from llm_client import generate_answer
+from generation_policy import generate_grounded_answer
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -64,7 +64,7 @@ def run_evaluation():
         )
         retrieved_context = build_retrieved_context(context_results)
         final_context = build_context(query=query, results=context_results)
-        answer, telemetry = generate_answer(final_context)
+        answer, telemetry = generate_grounded_answer(final_context, context_results)
 
         result = {
             "case_id": case_id,
@@ -76,6 +76,7 @@ def run_evaluation():
             "expected_retrieved_product": case.get("Expected Retrieved Product"),
             "expected_facts_behavior": case.get("Expected Facts/Behavior"),
             "expected_source": case.get("Expected Source"),
+            "expected_context_sources": case.get("Expected Context Sources", []),
             "criticality": case.get("Criticality"),
             "risk": case.get("Risk"),
             "why_golden": case.get("Why Golden"),
@@ -103,6 +104,8 @@ def run_evaluation():
             f"Context-K selected: {len(context_results)} / {len(retrieved)} "
             f"candidate(s)"
         )
+        if telemetry.get("llm_call_skipped"):
+            print("Generation path: deterministic no-context abstention (SUT call skipped)")
         print("Answer:")
         print(answer)
 
