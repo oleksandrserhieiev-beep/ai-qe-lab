@@ -1,30 +1,31 @@
 # AI QE Lab — Project Description
 
-AI QE Lab is a practical Quality Engineering reference implementation for AI-enabled systems. Its current System Under Test is a Shopping RAG Assistant, while the surrounding framework demonstrates how AI behavior can be evaluated with governed datasets, deterministic and semantic test oracles, observability, AI-risk coverage, CI/CD quality gates, operational telemetry and failure localization.
+AI QE Lab is a practical Quality Engineering reference implementation for AI-enabled systems. Its current System Under Test is a Shopping RAG Assistant. The implemented RAG path is: constraint extraction -> structured product filtering where applicable -> embedding/FAISS semantic ranking -> Top-K retrieval candidates -> adaptive similarity-based context selection -> deterministic Context Builder -> Claude SUT.
+
+The surrounding framework demonstrates governed datasets, Dataset/Oracle Validation, deterministic and semantic test oracles, observability, AI-risk coverage, CI/CD quality gates, operational telemetry and failure localization.
 
 ## Evaluation model
 
-Evaluation cases carry an expected behavior and an Oracle classification. The Oracle determines **how** the expected behavior is evaluated:
+Evaluation cases carry expected behavior and an Oracle classification:
 
-- `deterministic` — objective Python assertions for formal facts, IDs, numbers, booleans, thresholds, ranges, schemas, catalogue relations and structured constraints;
-- `semantic_llm` — LLM-as-a-Judge evaluation where PASS/FAIL requires semantic interpretation of meaning or behavior.
+- `deterministic` — Python assertions for formal facts, IDs, numbers, booleans, thresholds, catalogue relations and structured constraints;
+- `semantic_llm` — LLM-as-a-Judge evaluation where PASS/FAIL requires semantic interpretation.
 
-Critical, Regression and Nightly have been manually reviewed with a target classification of 61 deterministic and 44 semantic cases across 105 cases.
+The implemented reviewed inventory is 61 deterministic and 44 semantic cases across 105 cases. All 61 deterministic cases have structured atomic assertions.
 
-## Oracle routing safety
+## Dataset and Oracle safety
 
-Explicit Oracle metadata is the primary routing source. If Oracle is missing/null/empty, `judge_routing.py` falls back to the manually reviewed case-ID mapping, accepting `case_id`, `id`, and `ID` as field-name variants for the same identifier. If the ID is also unknown, routing safely defaults to `semantic_llm`.
-
-The LLM Judge does not classify an unknown case as deterministic or semantic. It is invoked only after routing has selected the semantic path and then evaluates PASS/FAIL.
-
-This conservative fallback prevents unknown cases from being incorrectly treated as deterministic without a formal assertion. The long-term governance target is to make Oracle explicit and validated for every newly authored case, leaving fallback only as compatibility/safety behavior.
+Before evaluation, `dataset_validator.py` validates IDs, Oracle values and deterministic assertion presence. Explicit Oracle metadata is primary. Missing/null/empty Oracle is recoverable and uses `judge_routing.py`; an unknown ID safely defaults to `semantic_llm`. Invalid non-empty Oracle metadata is a validation error and stops evaluation before model calls.
 
 ## Current lifecycle
 
 ```text
 Controlled dataset
- -> SUT execution
- -> retrieval/context evidence
+ -> Dataset Validation
+ -> RAG retrieval candidates
+ -> Adaptive Context Selection
+ -> Context Builder
+ -> Claude SUT
  -> Oracle resolution
  -> deterministic Python assertions or semantic LLM Judge
  -> metric aggregation
@@ -33,4 +34,4 @@ Controlled dataset
  -> CI evidence / defect localization
 ```
 
-The next evaluation hardening layer is complete deterministic atomic assertion coverage and strict Oracle metadata validation across Critical, Regression and Nightly.
+The next governance hardening step is automatic fallback-mapper generation from validated approved datasets, followed by Jira-driven dataset lifecycle and Defect -> Regression automation.

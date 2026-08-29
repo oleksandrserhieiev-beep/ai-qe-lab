@@ -1,19 +1,35 @@
 # Dataset Design
 
+Datasets are defined by **execution purpose**, not by inheritance. The same case may appear in more than one suite when it serves more than one lifecycle purpose.
+
 ## Golden Dataset
-Purpose: small, trusted reference set for canonical business-critical behaviour. Expected source/facts are manually controlled. Use for baseline quality, smoke evaluation and evaluator calibration. Do not fill it with every edge case.
 
-Selection focus: critical multi-constraint product search, canonical policy facts, sensitive-data behaviour, abstention, exact product facts, policy paraphrases.
+Purpose: trusted reference behavior and canonical business truth. Use for baseline comparisons, architecture/model/prompt/retrieval changes and release confidence. It is not the parent dataset for the other suites.
 
-## Evaluation Dataset
-Purpose: broader measurement of model/system quality. Segmented by normal, ambiguous, negative/no-match, multi-constraint, out-of-domain, missing-information, conflicting-source, adversarial, paraphrase and long-query cases.
+## PR Critical Dataset
 
-Selection focus: representative distribution + known AI failure modes. Use to calculate correctness, groundedness, hallucination rate, retrieval quality and segment-level quality.
+Purpose: small risk-based blocking subset for fast pull-request feedback. It is a merge gate, not simply a list of P1/severity-1 cases.
 
 ## Regression Dataset
-Purpose: stable, repeatable subset run after prompt/model/embedding/RAG/config/application changes. Contains critical golden cases plus representative evaluation cases.
 
-Selection focus: high business impact, previously failed cases, critical AI risks, stable expected behaviour. Add every confirmed escaped defect as a regression candidate.
+Purpose: stable known behavior plus confirmed/fixed defects and important edge cases. It grows as real defects are fixed. It may overlap Golden or Evaluation but is maintained for regression purpose, not as a child of either dataset.
 
-## Versioning rule
-Version datasets independently (e.g. golden-v1.0, eval-v1.1, regression-v1.3). Record dataset version with every evaluation run. Never compare two runs without knowing model, prompt, KB and dataset versions.
+## Evaluation / Nightly Dataset
+
+Purpose: broad AI-risk and robustness surface. Current segments cover normal, ambiguous, negative/no-match, multi-constraint, out-of-domain, missing-information, conflicting-data, adversarial, paraphrase and long-query behavior.
+
+## Evaluation metadata
+
+Risk, Oracle and deterministic assertion metadata are separate concerns:
+
+```text
+Risk      = what can fail?
+Oracle    = how is PASS/FAIL decided?
+Assertion = what exact formal property must deterministic Python prove?
+```
+
+Critical and Regression carry explicit Oracle metadata. Nightly uses reviewed sidecar metadata for Oracle/risk/assertions where required by the current dataset schema. All three active suites are validated before execution.
+
+## Change control
+
+When comparing evaluation runs, retain the relevant dataset/case identity, prompt version, model IDs, retrieval/context configuration and source-data state in the available reports/telemetry. A future explicit dataset-version field may be added if release governance requires stronger version semantics; it is not currently presented as implemented.

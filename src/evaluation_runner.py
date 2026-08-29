@@ -2,8 +2,13 @@ import argparse
 import json
 from pathlib import Path
 
-from vector_store import build_documents, build_vector_store, search
+from vector_store import DEFAULT_TOP_K, build_documents, build_vector_store, search
 from context_builder import build_context, build_retrieved_context, PROMPT_VERSION
+from context_selector import (
+    build_context_selection_metadata,
+    get_context_selection_config,
+    select_context_results,
+)
 from llm_client import generate_answer
 
 
@@ -17,7 +22,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Run AI/RAG evaluation against a dataset.")
     parser.add_argument("--dataset", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
     return parser.parse_args()
 
 
@@ -52,14 +57,21 @@ def load_assertion_metadata(dataset_file):
         return json.load(file)
 
 
-def run_evaluation(dataset_file, results_file, top_k=5):
+def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
     dataset = load_dataset(dataset_file)
     risk_metadata = load_risk_metadata(dataset_file)
     oracle_metadata = load_oracle_metadata(dataset_file)
     assertion_metadata = load_assertion_metadata(dataset_file)
+    selection_config = get_context_selection_config()
     print(f"Dataset: {dataset_file}")
     print(f"Cases loaded: {len(dataset)}")
-    print(f"Top-K: {top_k}")
+    print(
+        "Adaptive context selection: "
+        f"retrieval_k={top_k}, "
+        f"target_min_k={selection_config['min_k']}, "
+        f"max_k={selection_config['max_k']}, "
+        f"min_similarity={selection_config['min_similarity']:.2f}"
+    )
     print("Initializing RAG...")
 
     documents = build_documents()
@@ -74,9 +86,21 @@ def run_evaluation(dataset_file, results_file, top_k=5):
             continue
 
         print(f"\n[{number}/{len(dataset)}] Running {case_id}")
-        retrieved = search(query=query, model=model, index=index, documents=documents, top_k=top_k)
-        evidence = build_retrieved_context(retrieved)
-        final_context = build_context(query=query, results=retrieved)
+        retrieved = search(
+            query=query,
+            model=model,
+            index=index,
+            documents=documents,
+            top_k=top_k,
+        )
+        context_results = select_context_results(retrieved)
+        selection_metadata = build_context_selection_metadata(
+            retrieved,
+            context_results,
+            selection_config,
+        )
+        evidence = build_retrieved_context(context_results)
+        final_context = build_context(query=query, results=context_results)
         answer, telemetry = generate_answer(final_context)
 
         explicit_risk = case.get("Risk")
@@ -119,10 +143,15 @@ def run_evaluation(dataset_file, results_file, top_k=5):
                 }
                 for item in retrieved
             ],
+            "context_selection": selection_metadata,
             "prompt_version": PROMPT_VERSION,
             "top_k": top_k,
+            "context_k": len(context_results),
             "telemetry": telemetry,
         })
+        print(
+            f"Context-K selected: {len(context_results)} / {len(retrieved)} candidate(s)"
+        )
         print("Answer:")
         print(answer)
 

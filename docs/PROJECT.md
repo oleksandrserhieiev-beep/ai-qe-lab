@@ -1,7 +1,9 @@
 # AI QE Lab — Project Description
 
-AI QE Lab is a practical Quality Engineering reference implementation for AI-enabled systems. The current SUT is a Shopping RAG Assistant. The framework combines governed datasets, RAG observability, deterministic Python checks, semantic LLM-as-a-Judge evaluation, AI-risk metadata, CI/CD quality gates, operational telemetry and failure localization.
+AI QE Lab is a practical Quality Engineering reference implementation for AI-enabled systems. The current SUT is a Shopping RAG Assistant with structured constraint filtering, FAISS Top-K retrieval, adaptive similarity-based context selection, deterministic context construction and Claude generation.
 
-The evaluation routing model uses explicit `Oracle` metadata as the primary source of truth. When Oracle is missing/null/empty, `judge_routing.py` uses the manually reviewed case-ID mapping; `case_id`, `id`, and `ID` are supported field-name variants. If the ID is unknown too, routing safely defaults to `semantic_llm`. The Judge then evaluates PASS/FAIL and does not classify the Oracle type.
+The QE framework combines governed datasets, Dataset/Oracle Validation, deterministic Python assertions, semantic LLM-as-a-Judge evaluation, AI-risk metadata, CI/CD quality gates, operational telemetry and failure localization.
 
-Across the reviewed suites the target routing is 61 deterministic and 44 semantic cases: Critical 6/4, Regression 7/8, Nightly 48/32. The next hardening layer is complete deterministic atomic assertion coverage and strict Oracle metadata validation.
+Across the implemented reviewed suites there are 61 deterministic and 44 semantic cases: Critical 6/4, Regression 7/8, Nightly 48/32. All 61 deterministic cases have structured atomic assertions. Explicit Oracle metadata is primary; missing metadata can use the safe fallback mapper, while invalid non-empty Oracle metadata fails validation before evaluation.
+
+Next governance hardening is automatic mapper generation from validated approved datasets, followed by Jira-driven dataset lifecycle and Defect -> Regression automation.

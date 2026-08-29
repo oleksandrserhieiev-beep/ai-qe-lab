@@ -4,63 +4,89 @@ Practical AI Quality Engineering lab for building, testing, evaluating, observin
 
 ## Objective
 
-The objective of this repository is to provide a reproducible, engineering-focused example of how an AI-enabled application can be quality-controlled as a real software system rather than tested only through manual prompting.
+The repository demonstrates how an AI-enabled application can be quality-controlled as a real software system rather than tested only through manual prompting. The current System Under Test (SUT) is a Shopping RAG Assistant. The surrounding QE framework combines governed datasets, deterministic Python assertions, LLM-as-a-Judge evaluation, AI-risk metadata, CI quality gates, operational telemetry, failure localization, and human governance.
 
-It demonstrates how teams can combine controlled datasets, RAG observability, deterministic Python checks, LLM-as-a-Judge evaluation, AI risk metadata, CI quality gates, operational telemetry, failure localization, and human governance into one traceable AI QE workflow.
+## Current workstreams
 
-The repository is intended to give engineers a practical reference for designing AI evaluation datasets, separating deterministic checks from semantic LLM evaluation, validating RAG retrieval/context/generated answers, mapping tests to AI risks, running risk-based CI evaluation, enforcing quality gates, tracking operational metrics, localizing failures, and extending the model toward QA/test-management agents.
-
----
-
-## Project Workstreams
-
-1. **Shopping RAG Assistant** — implemented and used as the current System Under Test (SUT).
-2. **QA Agent** — planned; requirements review, readiness gating, AI-risk identification, test design, and dataset generation.
-3. **Test Management Lifecycle Agent** — planned; programme-level test planning, monitoring, evidence, residual-risk, and release-governance support.
+1. **Shopping RAG Assistant** — implemented current SUT.
+2. **QA Agent** — planned: requirements review, readiness gating, AI-risk identification, test design, and governed dataset generation.
+3. **Test Management Lifecycle Agent** — planned: programme-level planning, monitoring, residual-risk and release-governance support.
 
 ---
 
-## Current Implemented Architecture
+## Current implemented RAG architecture
 
 ```mermaid
 flowchart TD
-    A[User or Evaluation Dataset] --> B[Constraint Extraction / Filtering]
-    B --> C[Embedding: all-MiniLM-L6-v2]
-    C --> D[FAISS Vector Search]
-    D --> E[Top-K Retrieval]
-    E --> F[Adaptive Context Selection]
-    F --> G[Augmentation / Context Builder]
-    G --> H[Claude SUT]
-    H --> I[Generated Answer]
+    A[User or Evaluation Dataset] --> B[Constraint Extraction]
+    B --> C{Supported product constraints?}
+    C -->|yes| D[Structured Product Filtering]
+    C -->|no / no match| E[Full Corpus]
+    D --> F[Embedding + FAISS Semantic Ranking]
+    E --> F
+    F --> G[Top-K Retrieval Candidates]
+    G --> H[Adaptive Context Selection]
+    H --> I[Augmentation / Context Builder]
+    I --> J[Claude SUT]
+    J --> K[Generated Answer]
 
-    E --> J[Deterministic Retrieval Metrics]
-    G --> K[Context Evidence]
-    I --> AE[Automated AI Evaluation]
-    K --> AE
-    J --> AE
+    G --> RM[Retrieval Evidence + Metrics]
+    H --> CS[Context Selection Evidence]
+    I --> CE[Context Evidence]
+    K --> AE[Automated AI Evaluation]
+    RM --> AE
+    CS --> AE
+    CE --> AE
+    AE --> QR[Oracle Resolution]
+    QR --> AGG[Evaluation Aggregation]
+    AGG --> RR[AI Risk Reporting]
+    RR --> QG[Quality Gate]
+    QG --> CI[GitHub Actions PASS / FAIL]
+```
 
-    AE --> M[Evaluation Aggregation]
-    M --> N[AI Risk Reporting]
-    N --> O[Quality Gate]
-    O --> P[GitHub Actions PASS / FAIL]
+### Retrieval and adaptive context selection
+
+Retrieval and generation context are deliberately separate concepts.
+
+- `RAG_TOP_K=5` controls the maximum retrieval candidate set.
+- structured product constraints are applied **before semantic ranking** when supported constraints are detected and matching products exist;
+- if no supported constraints are detected, or structured filtering finds no matching product, retrieval falls back to semantic FAISS search over the full indexed corpus;
+- `RAG_MIN_SIMILARITY=0.30` removes low-confidence candidates from the generation context;
+- `RAG_MAX_CONTEXT_K=5` caps context evidence;
+- `RAG_MIN_CONTEXT_K=2` is a target floor, not permission to add weak evidence: if only one document passes the similarity threshold, only one is used;
+- the Context Builder receives only the documents selected by `src/context_selector.py`.
+
+The default effective flow is therefore:
+
+```text
+Query
+-> Constraint Extraction
+-> Structured Product Filtering when applicable
+-> Embedding + FAISS Semantic Ranking
+-> Top-K Retrieval Candidates (default max 5)
+-> Adaptive Context Selection (similarity threshold + dynamic Context-K)
+-> Context Builder
+-> Claude SUT
+-> Answer
 ```
 
 Detailed architecture: [`docs/architecture.md`](docs/architecture.md).
 
 ---
 
-## Automated AI Evaluation — Deterministic and Semantic Oracles
+## Automated AI Evaluation — deterministic and semantic oracles
 
-Both paths are **test automation**. The difference is the oracle used to decide PASS/FAIL.
+Both routes are automated testing. The difference is the oracle used to determine PASS/FAIL.
 
 ```mermaid
 flowchart TD
-    A[Automated AI Evaluation] --> O{Explicit Oracle?}
-    O -->|deterministic| D[Deterministic route]
-    O -->|semantic_llm| S[Semantic route]
+    A[Evaluation Case] --> V[Dataset Validation]
+    V --> O{Explicit Oracle?}
+    O -->|deterministic| D[Deterministic Route]
+    O -->|semantic_llm| S[Semantic Route]
     O -->|missing / null / empty| F[Fallback: judge_routing.py]
     F --> ID[Normalize case_id / id / ID]
-    ID --> M{ID in reviewed mapping?}
+    ID --> M{Known reviewed mapping?}
     M -->|deterministic| D
     M -->|semantic_llm| S
     M -->|unknown| S
@@ -71,154 +97,135 @@ flowchart TD
     R --> G[Quality Gate]
 ```
 
-The design rule is:
+The governing rule is:
 
 > **Automate deterministically everything that can be expressed as an objective assertion. Use an LLM Judge only where semantic interpretation is genuinely required.**
 
-The explicit dataset/runtime `Oracle` is the primary source of truth. `judge_routing.py` is a fallback registry for missing Oracle metadata and backward compatibility. If neither an explicit Oracle nor a known mapped ID exists, the safe default is `semantic_llm`.
+The explicit dataset `Oracle` is the primary source of truth. `judge_routing.py` is a fallback registry for missing Oracle metadata and backward compatibility. Unknown cases safely default to `semantic_llm`; the Judge does not classify the Oracle.
 
-The LLM Judge does **not** classify the Oracle. The SUT LLM generates the application answer in both routes; the Judge is invoked only when semantic evaluation is required.
+### Dataset validation
 
-### Manually reviewed oracle classification
+All three active CI workflows validate their dataset before SUT/Judge execution:
 
-| Suite | Total | Deterministic | LLM Judge | Target Judge-call reduction |
+```text
+PR Critical -> validate pr_critical_dataset.json -> evaluation
+Regression  -> validate regression_dataset.json  -> evaluation
+Nightly     -> validate evaluation_dataset.json  -> evaluation
+```
+
+Rules:
+
+```text
+deterministic      -> valid; deterministic assertions required
+semantic_llm       -> valid
+missing/null/empty -> warning + runtime mapper fallback
+invalid non-empty  -> validation ERROR
+missing/duplicate ID -> validation ERROR
+```
+
+---
+
+## Reviewed oracle inventory
+
+| Suite | Total | Deterministic | LLM Judge | Judge-call reduction |
 |---|---:|---:|---:|---:|
 | PR Critical | 10 | 6 | 4 | 60.0% |
 | Regression | 15 | 7 | 8 | 46.7% |
 | Nightly | 80 | 48 | 32 | 60.0% |
 | **Total** | **105** | **61 (58.1%)** | **44 (41.9%)** | **58.1%** |
 
-The Deterministic Assertion Engine does not change this classification. It strengthens cases already routed to Python.
+All 61 deterministic cases are wired to structured deterministic assertion coverage: 6 Critical, 7 Regression and 48 Nightly cases. Nightly assertion metadata is maintained in `datasets/evaluation_assertion_metadata.json`.
 
 ---
 
 ## Deterministic Assertion Engine
 
-Before the engine, deterministic PASS was driven mainly by retrieval and structured constraint checks. That could prove that the right evidence was found, but not always that the same required fact survived context construction and appeared correctly in the generated answer.
-
-The engine adds structured atomic assertions across the pipeline:
+The shared engine evaluates formal expectations across retrieval, context and generation without a Judge call.
 
 ```mermaid
 flowchart LR
-    R[Retrieval] -->|Hit / Match / Precision| C[Context]
-    C -->|Required facts preserved| G[Generation]
+    R[Retrieval] -->|IDs / constraints| C[Selected Context]
+    C -->|Required facts preserved| G[Generated Answer]
     G -->|Formal answer assertions| A[Aggregation]
     A --> L[First Failure Layer]
     L --> P[PASS / FAIL]
 ```
 
-Example:
-
-```text
-Expected return window = 30 days
-
-Retrieval: policy found        PASS
-Context:   30 days present     PASS
-Generation:60 days returned    FAIL
-
-First failure layer = generation
-```
-
-This gives two benefits:
-
-- stronger deterministic correctness without additional Judge calls;
-- better failure localization: retrieval, augmentation/context, or generation.
-
-Current implementation migrates the six deterministic PR Critical cases first. Regression and Nightly deterministic cases can be migrated incrementally using the same engine.
+Supported assertion types include retrieved IDs, contains/regex/not-regex checks, expected-no-match, answer-product constraint validation, and catalogue minimum-price validation. The engine records the first failure layer so a deterministic defect can be localized to retrieval, context or generation.
 
 ---
 
-## Diagnostic Architecture
-
-```mermaid
-flowchart LR
-    Q[Query] --> R[Retrieval]
-    R --> C[Augmentation / Context]
-    C --> S[SUT LLM Generation]
-    S --> E[Evaluation]
-    E --> G[Quality Gate]
-```
-
-For formal facts, the same expected value can be traced through multiple layers. If retrieval is correct but context loses a fact, the probable defect is augmentation/context building. If retrieval and context are correct but generation changes the fact, the probable defect is generation/prompt/model behavior.
-
-The SUT LLM remains probabilistic even when retrieval and context are correct. Controlled re-runs therefore measure reproducibility; they should not simply turn an intermittent failure into a green test.
-
----
-
-## Dataset Model
+## Dataset model
 
 Datasets are defined by **purpose**, not inheritance; overlap is expected.
 
 | Dataset | Purpose | Typical execution |
 |---|---|---|
-| **Golden** | Trusted reference behaviour and baseline validation | model/prompt/retrieval changes, release validation |
+| **Golden** | Trusted reference behavior and baseline validation | model/prompt/retrieval changes, release validation |
 | **PR Critical** | Fast risk-based merge-blocking subset | pull request |
-| **Regression** | Stable behaviour plus previously fixed defects | `main` health / post-merge |
-| **Evaluation / Nightly** | Broad AI-risk surface, robustness, adversarial and edge coverage | nightly |
+| **Regression** | Stable behavior plus fixed defects | `main` health / post-merge |
+| **Evaluation / Nightly** | Broad AI-risk, adversarial and edge coverage | nightly |
 
 Current inventories: Golden 35, PR Critical 10, Regression 15, Nightly 80.
 
-Risk and oracle classification are separate dimensions:
-
 ```text
 Risk      = what quality failure are we protecting against?
-Assertion = what must this case prove?
-Oracle    = what mechanism can prove it reliably?
+Assertion = what must the case prove?
+Oracle    = what mechanism proves it reliably?
 ```
 
-Deterministic cases may additionally carry `Deterministic Assertions`, which act as executable formal contracts for the Python engine.
-
 ---
 
-## AI Risk Coverage
-
-Cases carry explicit AI-risk metadata and the project builds an AI Risk Coverage Matrix across Critical, Regression and Nightly. Canonical risks include hallucination, groundedness, retrieval quality, constraint adherence, policy grounding, prompt injection, missing information, ambiguity, conflicting data, robustness, out-of-domain abstention, sensitive-data handling and negative behaviour.
-
----
-
-## CI/CD Execution Model
+## CI/CD execution model
 
 ```mermaid
 flowchart TD
-    PR[Pull Request] --> C[PR Critical: merge gate]
-    MAIN[Merge to main] --> R[Regression: main health gate]
-    NIGHT[Nightly schedule] --> N[Full Evaluation: broad AI-risk signal]
+    PR[Pull Request] --> C[Dataset Validation + PR Critical]
+    MAIN[Merge to main] --> R[Dataset Validation + Regression]
+    NIGHT[Nightly schedule] --> N[Dataset Validation + Full Evaluation]
     REL[Release validation] --> V[Golden + Regression + repeated Critical]
 ```
 
-Current gate model:
+Policy:
 
 ```text
-Correctness           >= 95%
-Groundedness          >= 95%
-Retrieval Hit Rate    >= 95%
-Constraint Adherence  >= 95%
-Hallucination Rate    <= 2%
+PR Critical = merge gate
+Regression  = main health gate
+Nightly     = broad AI-risk signal
+Release     = release validation gate
 ```
 
----
-
-## Operational Telemetry and Cost Engineering
-
-The framework records latency, SUT/Judge input/output tokens, cache telemetry, model IDs, API attempts and estimated cost. Operational metrics come from API counters and Python aggregation, not LLM judgment.
-
-The deterministic assertion engine itself uses no Judge tokens. The SUT LLM still runs for deterministic and semantic cases because the generated application response is the object under test.
+Current gate thresholds include Correctness >=95%, Groundedness >=95%, Retrieval Hit >=95%, Constraint Adherence >=95%, and Hallucination <=2%, plus critical-case blocking behavior.
 
 ---
 
-## Failure Localization
+## Operational telemetry and cost engineering
+
+The framework records retrieval IDs/ranks/similarity scores, selected context size and IDs in evaluation reports, context, model IDs, latency, token counters, API attempts, cache telemetry and estimated cost. Operational metrics are measured/aggregated by Python; they are not LLM-generated.
+
+The adaptive context layer reduces irrelevant evidence before generation while retaining Top-K retrieval evidence separately for diagnostics.
+
+---
+
+## Failure localization
 
 ```text
-Query -> Retrieval -> Context -> Generation -> Evaluation -> Quality Gate
+Query
+-> Retrieval Candidates
+-> Adaptive Context Selection
+-> Context Builder
+-> Generation
+-> Evaluation
+-> Quality Gate
 ```
 
-A gate failure is classified before changing model, prompt or threshold. Retrieval, context, generation, evaluator and infrastructure defects are different failure classes.
+A final-answer failure is not automatically an LLM defect. Retrieval, context selection, augmentation, generation, dataset/oracle/evaluator and infrastructure failures are distinct classes.
 
 ---
 
-## Dataset Governance and Target Evolution
+## Dataset governance and target evolution
 
-The current product catalogue and policy files are controlled POC fixtures used to prove the mechanics. The target architecture evolves toward Jira requirements plus a connected project knowledge base.
+The current product catalogue and policy files are controlled POC fixtures. The target architecture evolves toward Jira requirements plus connected project knowledge, with agents producing governed JSON evaluation cases.
 
 ```mermaid
 flowchart TD
@@ -230,45 +237,34 @@ flowchart TD
     CI --> E[Evidence / Defect / Regression]
 ```
 
-JSON is the authoritative executable dataset. The mapper is a derived runtime fallback, not a second manually maintained business source of truth.
-
-```text
-deterministic      -> Python Assertion Engine
-semantic_llm       -> LLM Judge
-missing/null/empty -> warning + mapper fallback
-invalid non-empty  -> validation ERROR
-```
+JSON is authoritative. The Oracle mapper is a derived runtime safety layer, not a second manually maintained source of truth.
 
 ---
 
-## Repository Structure
+## Repository structure
 
 ```text
 .github/workflows/    GitHub Actions workflows
 config/               Runtime configuration examples
 data/                 Product catalogue and source data
 datasets/             Golden, Critical, Regression and Evaluation datasets
-docs/                 Architecture and design documentation
-logs/                 Retrieval/context/LLM traces
+docs/                 Architecture, strategy and design documentation
 policies/             Policy knowledge sources
-reports/              Evaluation outputs and coverage reports
-src/                  RAG, evaluation, reporting and gate implementation
+src/                  RAG, adaptive context, evaluation, reporting and gates
 tests/                Software-level tests
 ```
 
 ---
 
-## Current State vs Planned Extensions
+## Current state vs planned extensions
 
-Implemented/current evolution: Shopping RAG SUT, structured constraint filtering, FAISS retrieval/telemetry, controlled datasets, deterministic retrieval diagnostics, semantic Judge, manually reviewed Oracle routing with safe semantic fallback, AI-risk metadata/coverage, CI gates, retry policies, operational telemetry/cost optimization, and the Deterministic Assertion Engine for PR Critical deterministic cases.
+**Implemented/current:** Shopping RAG SUT; structured constraint extraction/filtering; embeddings and FAISS ranking; Top-K candidate retrieval; adaptive similarity-based context selection; context construction; Claude generation; telemetry; purpose-specific datasets; Dataset/Oracle Validation in all three active workflows; manually reviewed Oracle routing with safe fallback; 61 deterministic atomic-assertion cases; 44 semantic Judge cases; AI-risk reporting/coverage; CI gates; hallucination/provider retry controls; cost/token optimization and failure localization.
 
-Next: migrate Regression and Nightly deterministic cases to explicit atomic assertions; strengthen dataset validation; validate assertion-level failure localization across all suites.
-
-Planned after that: Defect -> Regression automation, Jira traceability, Requirements Readiness Agent, AI Risk Analysis Agent, Test Design Agent, duplicate detection, human approval, QA Agent evaluation, Test Management Lifecycle Agent and programme-level release governance.
+**Planned next:** automatically generate/refresh the fallback Oracle mapper from validated approved datasets; complete Defect -> Regression automation and Jira traceability; then Requirements Readiness, AI Risk Analysis, Test Design, duplicate/coverage validation, HITL approval, QA Agent evaluation and Test Management Lifecycle Agent.
 
 ---
 
-## Target Lifecycle
+## Target lifecycle
 
 ```text
 Requirement
@@ -277,8 +273,7 @@ Requirement
 -> AI Risk Analysis
 -> Test Design
 -> Evaluation Case + Oracle + Atomic Assertions
--> Duplicate Detection
--> Priority / Suite Classification
+-> Duplicate / Coverage Check
 -> Human Approval
 -> Governed JSON Dataset
 -> Dataset Validation
