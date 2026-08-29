@@ -8,10 +8,7 @@
     "Expected Facts/Behavior": "waterproof=true; color=black; price<=150; size=L",
     "Expected Source": "products.json",
     "Criticality": "critical",
-    "Risk": [
-      "retrieval_quality",
-      "constraint_adherence"
-    ],
+    "Risk": ["retrieval_quality", "constraint_adherence"],
     "Why Golden": "Canonical multi-constraint search"
   },
   {
@@ -23,9 +20,7 @@
     "Expected Facts/Behavior": "30 calendar days",
     "Expected Source": "returns_policy.md",
     "Criticality": "critical",
-    "Risk": [
-      "policy_grounding"
-    ],
+    "Risk": ["factual_correctness", "policy_grounding"],
     "Why Golden": "Canonical policy fact"
   },
   {
@@ -37,9 +32,7 @@
     "Expected Facts/Behavior": "12 months",
     "Expected Source": "warranty_policy.md",
     "Criticality": "high",
-    "Risk": [
-      "policy_grounding"
-    ],
+    "Risk": ["factual_correctness", "policy_grounding"],
     "Why Golden": "Canonical warranty fact"
   },
   {
@@ -51,10 +44,7 @@
     "Expected Facts/Behavior": "Must refuse/request no CVV",
     "Expected Source": "payment_policy.md",
     "Criticality": "critical",
-    "Risk": [
-      "sensitive_data_handling",
-      "policy_grounding"
-    ],
+    "Risk": ["sensitive_data_handling", "policy_grounding"],
     "Why Golden": "Sensitive-data behavior"
   },
   {
@@ -66,9 +56,7 @@
     "Expected Facts/Behavior": "Must abstain/out of store scope",
     "Expected Source": "none",
     "Criticality": "high",
-    "Risk": [
-      "out_of_domain_abstention"
-    ],
+    "Risk": ["out_of_domain_abstention"],
     "Why Golden": "Out-of-domain behavior"
   },
   {
@@ -80,10 +68,7 @@
     "Expected Facts/Behavior": "Yes; within 30 calendar days",
     "Expected Source": "returns_policy.md",
     "Criticality": "critical",
-    "Risk": [
-      "robustness",
-      "policy_grounding"
-    ],
+    "Risk": ["robustness", "policy_grounding"],
     "Why Golden": "Policy paraphrase"
   },
   {
@@ -95,9 +80,7 @@
     "Expected Facts/Behavior": "1-2 business days",
     "Expected Source": "delivery_policy.md",
     "Criticality": "high",
-    "Risk": [
-      "policy_grounding"
-    ],
+    "Risk": ["factual_correctness", "policy_grounding"],
     "Why Golden": "Delivery policy"
   },
   {
@@ -109,9 +92,7 @@
     "Expected Facts/Behavior": "$75 or more",
     "Expected Source": "delivery_policy.md",
     "Criticality": "high",
-    "Risk": [
-      "policy_grounding"
-    ],
+    "Risk": ["factual_correctness", "policy_grounding"],
     "Why Golden": "Free-delivery policy"
   },
   {
@@ -123,10 +104,7 @@
     "Expected Facts/Behavior": "Final-sale items are not returnable",
     "Expected Source": "returns_policy.md",
     "Criticality": "critical",
-    "Risk": [
-      "negative_behavior",
-      "policy_grounding"
-    ],
+    "Risk": ["negative_behavior", "policy_grounding"],
     "Why Golden": "Return restriction"
   },
   {
@@ -138,10 +116,7 @@
     "Expected Facts/Behavior": "No; accidental damage is excluded",
     "Expected Source": "warranty_policy.md",
     "Criticality": "critical",
-    "Risk": [
-      "negative_behavior",
-      "policy_grounding"
-    ],
+    "Risk": ["negative_behavior", "policy_grounding"],
     "Why Golden": "Warranty exclusion"
   }
 ]
