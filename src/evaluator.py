@@ -94,7 +94,13 @@ def evaluate_case(case):
     constraint_adherence = bool(ai_evaluation.get("constraint_adherence", False))
     context_coverage = int(ai_evaluation.get("context_coverage", 0))
     context_sufficient = bool(ai_evaluation.get("context_sufficient", False))
-    overall_pass = retrieval_pass and correctness and groundedness and not hallucination and constraint_adherence
+    overall_pass = (
+        retrieval_pass
+        and correctness
+        and groundedness
+        and not hallucination
+        and constraint_adherence
+    )
 
     return {
         **case,
@@ -124,7 +130,7 @@ def percentage(value, total):
 
 
 def average(values):
-    return round(sum(values) / len(values), 2) if values else 0.0
+    return round(sum(values) / len(values), 2) if values else None
 
 
 def semantic_rate(cases, metric, positive=True):
@@ -134,9 +140,9 @@ def semantic_rate(cases, metric, positive=True):
         if c["evaluation"].get(metric) is not None
     ]
     if not measured:
-        return 100.0, 0
+        return None, 0, 0
     passed = sum(bool(value) == positive for value in measured)
-    return percentage(passed, len(measured)), len(measured)
+    return percentage(passed, len(measured)), passed, len(measured)
 
 
 def percentile(values, percentile_value):
@@ -148,6 +154,21 @@ def percentile(values, percentile_value):
     upper = min(lower + 1, len(values) - 1)
     fraction = index - lower
     return round(values[lower] + (values[upper] - values[lower]) * fraction, 2)
+
+
+def _rate_text(name, rate, passed, measured, inverse=False):
+    if not measured or rate is None:
+        return f"{name}: N/A (0 judged)"
+    if inverse:
+        failures = measured - passed
+        return f"{name}: {rate}% ({failures}/{measured} hallucinated; {measured} judged)"
+    return f"{name}: {rate}% ({passed}/{measured} judged)"
+
+
+def _coverage_text(rate, measured):
+    if not measured or rate is None:
+        return "Average Context Coverage: N/A (0 judged)"
+    return f"Average Context Coverage: {rate}% ({measured} judged)"
 
 
 def run_evaluator(results_file, evaluated_file):
@@ -164,13 +185,21 @@ def run_evaluator(results_file, evaluated_file):
     retrieval_passed = sum(c["evaluation"]["retrieval_pass"] for c in evaluated_cases)
     constraint_passed = sum(c["evaluation"]["constraint_adherence"] for c in evaluated_cases)
 
-    correctness_rate, correctness_cases = semantic_rate(evaluated_cases, "correctness")
-    groundedness_rate, groundedness_cases = semantic_rate(evaluated_cases, "groundedness")
-    hallucination_pass_rate, hallucination_cases = semantic_rate(
+    correctness_rate, correctness_passed, correctness_cases = semantic_rate(
+        evaluated_cases, "correctness"
+    )
+    groundedness_rate, groundedness_passed, groundedness_cases = semantic_rate(
+        evaluated_cases, "groundedness"
+    )
+    hallucination_pass_rate, non_hallucinated, hallucination_cases = semantic_rate(
         evaluated_cases, "hallucination", positive=False
     )
-    hallucination_rate = round(100.0 - hallucination_pass_rate, 2)
-    context_sufficiency_rate, context_sufficiency_cases = semantic_rate(
+    hallucination_rate = (
+        round(100.0 - hallucination_pass_rate, 2)
+        if hallucination_pass_rate is not None
+        else None
+    )
+    context_sufficiency_rate, context_sufficient_passed, context_sufficiency_cases = semantic_rate(
         evaluated_cases, "context_sufficient"
     )
     context_coverage_scores = [
@@ -178,6 +207,7 @@ def run_evaluator(results_file, evaluated_file):
         for c in evaluated_cases
         if c["evaluation"].get("context_coverage") is not None
     ]
+    context_coverage_cases = len(context_coverage_scores)
 
     constraint_metric_cases = [
         c["evaluation"]["constraint_retrieval"]
@@ -218,7 +248,7 @@ def run_evaluator(results_file, evaluated_file):
         "average_constraint_match_score": average(constraint_match_scores),
         "average_constraint_precision_at_k": average(constraint_precision_scores),
         "constraint_metric_cases": len(constraint_metric_cases),
-        "average_context_coverage": average(context_coverage_scores) if context_coverage_scores else 100.0,
+        "average_context_coverage": average(context_coverage_scores),
         "context_sufficiency_rate": context_sufficiency_rate,
         "correctness_rate": correctness_rate,
         "groundedness_rate": groundedness_rate,
@@ -228,7 +258,14 @@ def run_evaluator(results_file, evaluated_file):
             "correctness": correctness_cases,
             "groundedness": groundedness_cases,
             "hallucination": hallucination_cases,
+            "context_coverage": context_coverage_cases,
             "context_sufficiency": context_sufficiency_cases,
+        },
+        "semantic_metric_pass_counts": {
+            "correctness": correctness_passed,
+            "groundedness": groundedness_passed,
+            "non_hallucinated": non_hallucinated,
+            "context_sufficiency": context_sufficient_passed,
         },
         "judge_routing": {
             "semantic_judge_cases": semantic_judge_cases,
@@ -255,16 +292,43 @@ def run_evaluator(results_file, evaluated_file):
     print(f"Total cases: {total}")
     print(f"Passed: {overall_passed}")
     print(f"Failed: {total - overall_passed}")
-    print(f"Overall Pass Rate: {summary['overall_pass_rate']}%")
-    print(f"Retrieval Hit Rate: {summary['retrieval_hit_rate']}%")
-    print(f"Average Constraint Match: {summary['average_constraint_match_score']}%")
-    print(f"Average Constraint Precision@K: {summary['average_constraint_precision_at_k']}%")
-    print(f"Average Context Coverage: {summary['average_context_coverage']}%")
-    print(f"Context Sufficiency Rate: {summary['context_sufficiency_rate']}%")
-    print(f"Correctness Rate: {summary['correctness_rate']}% ({correctness_cases} judged)")
-    print(f"Groundedness Rate: {summary['groundedness_rate']}% ({groundedness_cases} judged)")
-    print(f"Constraint Adherence Rate: {summary['constraint_adherence_rate']}%")
-    print(f"Hallucination Rate: {summary['hallucination_rate']}% ({hallucination_cases} judged)")
+    print(f"Overall Pass Rate: {summary['overall_pass_rate']}% ({overall_passed}/{total})")
+    print(f"Retrieval Hit Rate: {summary['retrieval_hit_rate']}% ({retrieval_passed}/{total})")
+
+    if summary["average_constraint_match_score"] is None:
+        print("Average Constraint Match: N/A (0 applicable constraint cases)")
+        print("Average Constraint Precision@K: N/A (0 applicable constraint cases)")
+    else:
+        print(
+            f"Average Constraint Match: {summary['average_constraint_match_score']}% "
+            f"({len(constraint_match_scores)} applicable cases)"
+        )
+        print(
+            f"Average Constraint Precision@K: {summary['average_constraint_precision_at_k']}% "
+            f"({len(constraint_precision_scores)} applicable cases)"
+        )
+
+    print(_coverage_text(summary["average_context_coverage"], context_coverage_cases))
+    print(
+        _rate_text(
+            "Context Sufficiency Rate",
+            summary["context_sufficiency_rate"],
+            context_sufficient_passed,
+            context_sufficiency_cases,
+        )
+    )
+    print(_rate_text("Correctness Rate", summary["correctness_rate"], correctness_passed, correctness_cases))
+    print(_rate_text("Groundedness Rate", summary["groundedness_rate"], groundedness_passed, groundedness_cases))
+    print(f"Constraint Adherence Rate: {summary['constraint_adherence_rate']}% ({constraint_passed}/{total})")
+    print(
+        _rate_text(
+            "Hallucination Rate",
+            summary["hallucination_rate"],
+            non_hallucinated,
+            hallucination_cases,
+            inverse=True,
+        )
+    )
     print("\nJudge Routing")
     print("-------------")
     print(f"Semantic Judge cases: {semantic_judge_cases}/{total}")

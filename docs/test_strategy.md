@@ -12,6 +12,8 @@ The strategy answers five questions:
 4. What evidence is required to localize the failure?
 5. What quality decision follows from that evidence?
 
+The canonical detailed metric definitions and denominators are maintained in `docs/metric_contract.md`.
+
 ---
 
 ## 2. Current scope
@@ -58,7 +60,7 @@ Governed JSON is the target authoritative agent output. Excel is not required as
 The system should:
 
 - return answers that satisfy expected business behavior;
-- retrieve the intended product/policy evidence;
+- retrieve intended product/policy evidence;
 - avoid unsupported claims and hallucinations;
 - obey structured constraints such as price, size, color and product attributes;
 - avoid adding weak retrieval evidence to generation context;
@@ -101,7 +103,7 @@ flowchart TD
     QG --> CI[PR / Main / Nightly / Release Decision]
 ```
 
-The actual diagnostic chain is:
+Diagnostic chain:
 
 ```text
 Query
@@ -132,51 +134,36 @@ RAG_MAX_CONTEXT_K=5
 RAG_MIN_SIMILARITY=0.30
 ```
 
-`RAG_MIN_SIMILARITY` is an application-level threshold implemented by the Adaptive Context Selection layer. It is **not** a built-in FAISS minimum. FAISS still returns the ranked retrieval candidates; `context_selector.py` then decides which of those candidates are strong enough to enter the generation context.
+`RAG_MIN_SIMILARITY` is an application-level threshold implemented by `context_selector.py`; it is not a built-in FAISS minimum. FAISS returns ranked candidates and the selector decides which candidates enter generation context.
 
-The similarity score is a normalized embedding-similarity signal used for ranking/filtering in this POC. It should not be interpreted as a calibrated probability that a document is correct or relevant. The `0.30` default is therefore an engineering threshold that must be validated against quality, recall/context sufficiency and token-cost evidence rather than treated as a universal semantic-relevance constant.
+The similarity score is an embedding-similarity signal, not a calibrated probability. The `0.30` default is an engineering threshold that must be validated against retrieval/context sufficiency, answer quality and token-cost evidence.
 
 Rules:
 
 1. retrieve up to Top-K ranked candidates;
-2. keep retrieval candidates as diagnostic evidence even when some are not passed to the SUT;
+2. retain all retrieval candidates as diagnostic evidence;
 3. pass only candidates with similarity `>= RAG_MIN_SIMILARITY` to generation;
 4. cap selected context by `RAG_MAX_CONTEXT_K`;
 5. treat `RAG_MIN_CONTEXT_K` as a target floor, not a hard padding rule;
-6. never add below-threshold evidence simply to reach a fixed number of documents;
-7. allow Context-K to be lower than the target minimum, including zero, when no retrieved evidence clears the threshold.
-
-Example:
-
-```text
-Retrieval Top-K scores: 0.72, 0.51, 0.27, 0.18, 0.11
-RAG_MIN_SIMILARITY:    0.30
-
-Retrieval evidence kept: 5 candidates
-Generation context:     first 2 candidates only
-Context-K:              2
-```
-
-If the scores are `0.72, 0.22, 0.18, 0.12, 0.09`, Context-K becomes `1`; the selector does not inject the `0.22` candidate merely to satisfy `RAG_MIN_CONTEXT_K=2`.
-
-This layer is tested for both quality and cost. Too-low thresholds increase context noise and token use; too-high thresholds can remove evidence that the answer requires. Threshold changes therefore require before/after evaluation rather than isolated tuning.
+6. never add below-threshold evidence merely to reach the target minimum;
+7. allow Context-K to be 0 or 1 when evidence does not clear the threshold.
 
 ---
 
 ## 6. Test approach and levels
 
-The strategy combines risk-based, requirements-based, data-driven, deterministic, semantic, exploratory, regression and observability-driven testing.
-
 | Level | Primary purpose | Typical coverage | Execution |
 |---|---|---|---|
-| Component | Validate deterministic Python behavior | constraints, selection rules, metrics, parsing | local / software tests |
-| Retrieval/RAG | Validate candidate retrieval and selected evidence | expected source, constraints, Top-K, similarity threshold, Context-K | dataset runs |
-| AI Generation | Validate user-visible generated behavior | correctness, groundedness, hallucination, adherence | deterministic assertions / Judge |
-| Integration | Validate end-to-end RAG + LLM + evaluator interaction | metadata propagation, context evidence, reports | PR / Regression / Nightly |
-| System | Validate complete assistant scenarios | business behavior | Golden / Evaluation |
-| Regression | Protect stable/fixed behavior | known behavior and historical defects | main / release |
-| Release | Establish release confidence | Golden + Regression + repeated Critical | release candidate |
-| Agent Evaluation | Validate future agent decisions/actions | requirements, risks, tests, tools, permissions, HITL | planned |
+| Component | deterministic Python behavior | constraints, selector rules, parsers, metrics | local/software tests |
+| Retrieval/RAG | candidate and selected-evidence quality | expected source, constraints, Top-K, similarity threshold, Context-K | dataset runs |
+| AI Generation | user-visible generated behavior | correctness, grounding, hallucination, adherence | deterministic assertions / Judge |
+| Integration | end-to-end RAG + LLM + evaluator | evidence propagation, reports, routing | PR / Regression / Nightly |
+| System | complete assistant scenarios | business behavior | Golden / Evaluation |
+| Regression | stable/fixed behavior | known behavior and historical defects | main / release |
+| Release | release confidence | Golden + Regression + repeated Critical | release candidate |
+| Agent Evaluation | future decisions/actions/tools/HITL | planned agent behavior | planned |
+
+Classical and AI-specific techniques include EP, BVA, decision tables, pairwise/combinatorial, negative testing, error guessing, metamorphic testing, paraphrase testing, adversarial testing, back-to-back comparison and repeated-run testing.
 
 ---
 
@@ -192,16 +179,14 @@ Datasets are organized by **purpose**, not inheritance.
 | Nightly Evaluation | broad AI risk, robustness, adversarial/edge coverage | nightly |
 | Agent Evaluation | future tool/action/HITL behavior | planned |
 
-Overlap is expected when one case supports multiple lifecycle purposes.
-
 Current reviewed Oracle inventory:
 
-| Suite | Deterministic | Semantic |
-|---|---:|---:|
-| PR Critical | 6 | 4 |
-| Regression | 7 | 8 |
-| Nightly | 48 | 32 |
-| **Total** | **61** | **44** |
+| Suite | Total | Deterministic | Semantic |
+|---|---:|---:|---:|
+| PR Critical | 10 | 6 | 4 |
+| Regression | 15 | 7 | 8 |
+| Nightly | 80 | 48 | 32 |
+| **Total** | **105** | **61** | **44** |
 
 All 61 deterministic cases have structured atomic assertions. Nightly assertions are maintained in `datasets/evaluation_assertion_metadata.json`.
 
@@ -209,7 +194,7 @@ All 61 deterministic cases have structured atomic assertions. Nightly assertions
 
 ## 8. Dataset validation and Oracle governance
 
-All three active workflows validate the dataset before SUT/Judge execution.
+All three active workflows validate the effective dataset package before SUT/Judge execution.
 
 ```text
 deterministic      -> valid + deterministic assertions required
@@ -223,100 +208,69 @@ The dataset is authoritative. `judge_routing.py` is a runtime safety/fallback me
 
 ---
 
-## 9. AI risk model
-
-Risk and priority are separate dimensions. Applicable risks include:
-
-- retrieval quality failure;
-- context-selection/evidence-loss failure;
-- hallucination;
-- groundedness failure;
-- constraint non-adherence;
-- missing-information handling;
-- ambiguity handling;
-- conflicting/stale data;
-- out-of-domain behavior;
-- prompt injection / adversarial manipulation;
-- robustness to paraphrase/input variation;
-- non-determinism / flaky behavior;
-- policy grounding;
-- sensitive-data handling;
-- privacy/security where applicable;
-- bias/fairness where architecture/use-case makes them applicable;
-- latency/error/token/context-cost degradation.
-
-Future agent risks include hallucinated requirements, incorrect risk identification, omitted/duplicate coverage, unauthorized tool actions, missing HITL approval and unsafe release recommendations.
-
-Risk identification must remain architecture-aware; RAG-specific risks should not be assigned to components that do not use retrieval.
-
----
-
-## 10. Test design techniques
-
-| Technique | Use |
-|---|---|
-| Equivalence Partitioning | valid/invalid input classes |
-| Boundary Value Analysis | prices, thresholds, token/context boundaries |
-| Decision Tables | interacting business rules |
-| Pairwise / Combinatorial | multiple constraints |
-| Negative Testing | unavailable/missing/invalid evidence |
-| Error Guessing | observed weak points |
-| Metamorphic Testing | expected relationships after controlled input changes |
-| Paraphrase Testing | semantic robustness |
-| Adversarial Testing | prompt injection/manipulation |
-| Back-to-back Comparison | model/prompt/retrieval comparison |
-| Repeated-run Testing | non-determinism/flakiness |
-
-Example BVA:
-
-```text
-Requirement: price <= 150
-149.99 -> valid
-150.00 -> valid boundary
-150.01 -> invalid
-```
-
----
-
-## 11. Metrics and Oracle model
-
-Deterministic Python evidence includes:
-
-- Retrieval Hit Rate;
-- Constraint Match Score;
-- Constraint Precision@K;
-- atomic retrieval/context/generation assertions;
-- adaptive selected Context-K and selected IDs/scores;
-- latency/P95;
-- token/cache/cost aggregation;
-- risk coverage counts;
-- pass rates and gate checks.
-
-Semantic Judge metrics include:
-
-- Correctness;
-- Groundedness;
-- Hallucination;
-- Constraint Adherence where semantic judgment is required;
-- Context Coverage;
-- Context Sufficiency.
+## 9. Metrics and Oracle model
 
 The governing rule is:
 
-> **Formal assertion -> deterministic Python. Meaning/behavior judgment -> semantic LLM Judge.**
+> **Formal assertion -> deterministic Python. Meaning/behavior judgment -> semantic LLM Judge. Always report the population actually measured.**
 
-Diagnostic chain:
+### Current metric contract
+
+| Metric | Layer | Mechanism | Population |
+|---|---|---|---|
+| Overall Pass Rate | case/suite | Python aggregation | all executed cases |
+| Retrieval Hit Rate | retrieval | deterministic Python | all executed cases |
+| Constraint Match Score | retrieval/filtering | deterministic Python | applicable structured-constraint cases |
+| Constraint Precision@K | retrieval/ranking | deterministic Python | applicable structured-constraint cases |
+| Candidate K / Selected Context-K / IDs / scores | retrieval/context selection | deterministic Python telemetry | per case |
+| Context atomic assertions | augmentation/context | deterministic engine | deterministic cases with applicable assertions |
+| Average Context Coverage | augmentation/context | LLM Judge | judged cases only |
+| Context Sufficiency Rate | augmentation/context | LLM Judge | judged cases only |
+| Generation atomic assertions | generation | deterministic engine | deterministic cases with applicable assertions |
+| Correctness Rate | generation | LLM Judge | judged cases only |
+| Groundedness Rate | generation | LLM Judge | judged cases only |
+| Hallucination Rate | generation | LLM Judge | judged cases only |
+| Constraint Adherence Rate | retrieval/generation | deterministic or Judge by route | all executed cases |
+| Judge call reduction | Oracle/cost | Python aggregation | all executed cases |
+| Risk summary | risk reporting | hybrid aggregation | cases carrying each risk |
+| latency/P95/tokens/cost | operations | telemetry + Python | applicable calls/cases |
+
+### Denominator rule
+
+Semantic metrics are **not suite-wide in a mixed deterministic/semantic suite**. Deterministic cases store semantic-only fields as `None` and are excluded.
+
+For current PR Critical:
 
 ```text
-Retrieval Hit / Match / Precision
--> Adaptive Context Selection
--> Context Evidence
--> Deterministic or Semantic Generation Evaluation
+10 total cases
+6 deterministic
+4 semantic/Judge
+
+Overall Pass 100%         = 10/10
+Retrieval Hit 100%        = 10/10
+Correctness 100%          = 4/4 judged
+Groundedness 100%         = 4/4 judged
+Hallucination 0%          = 0/4 hallucinated; 4 judged
+Context Coverage 100%     = 4 judged
+Context Sufficiency 100%  = 4/4 judged
+Constraint Adherence 100% = 10/10 through hybrid route evaluation
 ```
+
+If there are zero semantic cases, semantic metrics are **N/A**, not `100%`.
+
+This distinction also applies to AI Risk Summary: `Groundedness N/A (0 semantic cases)` is correct for a deterministic-only risk bucket.
 
 ---
 
-## 12. Quality gates and CI/CD
+## 10. AI risk model
+
+Risk and priority are separate dimensions. Applicable risks include retrieval quality, context-selection/evidence loss, hallucination, groundedness, constraint non-adherence, missing-information handling, ambiguity, conflicting/stale data, out-of-domain behavior, prompt injection, robustness, non-determinism, policy grounding, sensitive-data handling, privacy/security where applicable, bias/fairness where applicable, and operational degradation.
+
+Risk identification must remain architecture-aware; RAG-specific risks must not be assigned automatically to systems that do not use retrieval.
+
+---
+
+## 11. Quality gates and CI/CD
 
 Current policy:
 
@@ -327,55 +281,21 @@ Nightly     = broad AI-risk signal
 Release     = release validation gate
 ```
 
-Current blocking dimensions include critical-case failures and thresholds for Correctness, Groundedness, Retrieval Hit, Constraint Adherence and Hallucination.
+Current thresholds:
 
-```mermaid
-flowchart TD
-    A[Code / Dataset Change] --> B{Trigger}
-    B -->|PR| C[PR Critical]
-    B -->|Push main| D[Regression]
-    B -->|Schedule| E[Nightly Evaluation]
-    B -->|Release| F[Golden + Regression + Repeated Critical]
-    C --> V[Dataset Validation]
-    D --> V
-    E --> V
-    F --> X[Release Validation]
-    V --> R[Run SUT + Evaluation]
-    R --> G[Risk Summary + Operational Metrics]
-    G --> Q[Quality Gate]
-    Q --> P{Pass?}
-    P -->|yes| OK[Proceed]
-    P -->|no| FAIL[Investigate / Fix / Revert / Block]
+```text
+Correctness >= 95%           # judged semantic population when applicable
+Groundedness >= 95%          # judged semantic population when applicable
+Retrieval Hit >= 95%         # all executed cases
+Constraint Adherence >= 95%  # all executed cases / hybrid route
+Hallucination <= 2%           # judged semantic population when applicable
 ```
 
-Documentation-only changes should not unnecessarily spend LLM API cost.
+Critical-case failures can additionally block a run. When a semantic metric has no applicable cases, it is N/A and the corresponding threshold is not fabricated from an empty population.
 
 ---
 
-## 13. Entry and exit criteria
-
-Entry criteria include:
-
-- testable expected behavior;
-- valid dataset/schema/Oracle metadata;
-- required source data available;
-- environment/model variables and API secrets configured;
-- relevant risk/assertion metadata available;
-- no infrastructure incident that invalidates execution.
-
-Exit criteria include:
-
-- required scope executed;
-- blocking cases passed or explicitly dispositioned;
-- thresholds satisfied;
-- failures localized/classified;
-- known defects and residual risks understood;
-- evidence retained;
-- release-level evidence supports the decision.
-
----
-
-## 14. Failure localization and defect taxonomy
+## 12. Failure localization and defect taxonomy
 
 ```mermaid
 flowchart TD
@@ -390,11 +310,48 @@ flowchart TD
     H -->|yes| J[Dataset / Oracle / Evaluator / Infrastructure investigation]
 ```
 
-Defect categories include SUT/generation, retrieval/filtering/ranking, context selection, context construction, dataset, expected-result/oracle, evaluator/Judge, provider/infrastructure, stochastic behavior, security/guardrail and operational/performance.
+Defect classes include SUT/generation, retrieval/filtering/ranking, context selection, context construction, dataset, expected-result/oracle, evaluator/Judge, provider/infrastructure, stochastic behavior, security/guardrail and operational/performance.
 
 ---
 
-## 15. Defect -> Regression policy
+## 13. Resilience and repeated-run policy
+
+Provider retry and hallucination retry are separate controls:
+
+- provider retry handles delivery/infrastructure failures;
+- hallucination retry investigates stochastic quality instability.
+
+A rerun is evidence about reproducibility, not a retry-until-green mechanism. The original failure remains part of the evidence chain.
+
+---
+
+## 14. Non-functional and cost testing
+
+The strategy includes latency/P95, provider errors/retries, rate limits/timeouts, throughput/concurrency when introduced, token/context-size growth, cost trends and repeated-run stability.
+
+Cost principles:
+
+1. deterministic Python first;
+2. semantic Judge only when needed;
+3. separate retrieval candidates from generation context;
+4. filter low-value evidence before generation;
+5. preserve BEFORE/AFTER evidence for optimizations;
+6. use model tiering/caching only after quality validation;
+7. never weaken quality thresholds merely to reduce spend.
+
+USD cost is an estimate derived from configured pricing and token telemetry, not billing truth.
+
+---
+
+## 15. Entry and exit criteria
+
+Entry criteria include testable expected behavior; valid dataset/schema/Oracle metadata; required source data; environment/model variables and API secrets; relevant risk/assertion metadata; and no infrastructure incident invalidating execution.
+
+Exit criteria include required scope executed; blocking cases passed or dispositioned; applicable thresholds satisfied; failures localized/classified; defects/residual risks understood; evidence retained; and release evidence supporting the decision.
+
+---
+
+## 16. Defect -> Regression policy
 
 Target lifecycle:
 
@@ -412,30 +369,7 @@ Failed evaluation
 
 ---
 
-## 16. Non-functional and cost testing
-
-The strategy includes latency/P95, provider error/retry handling, rate limits/timeouts, throughput/concurrency when introduced, tokens, context-size growth, cost trends and repeated-run stability.
-
-Provider retry and hallucination retry are separate controls:
-
-- provider retry handles delivery/infrastructure failures;
-- hallucination retry investigates stochastic quality instability.
-
-Cost principles:
-
-1. deterministic Python first;
-2. semantic Judge only when needed;
-3. separate retrieval candidates from generation context;
-4. filter low-value evidence before generation;
-5. preserve BEFORE/AFTER evidence for optimizations;
-6. use model tiering/caching only after quality validation;
-7. never weaken quality thresholds just to reduce spend.
-
----
-
 ## 17. Traceability and future governance
-
-Current/target traceability:
 
 ```text
 Requirement
@@ -468,21 +402,17 @@ Jira Story
 -> CI Execution
 ```
 
-JSON is authoritative. Human review can occur before approval, but no Excel export is required for the executable lifecycle.
+JSON is authoritative. No Excel export is required for the executable lifecycle.
 
 ---
 
-## 18. Roles and reporting
+## 18. Roles, reporting and release readiness
 
-The Test Lead / Quality Owner owns strategy, risks, gates, residual-risk and release recommendations. QA engineers design/evaluate coverage and analyze evidence. Development/AI Engineering fixes SUT/retrieval/prompt defects. Product/business stakeholders validate expected behavior and risk acceptance. Future agents assist under defined permissions and HITL controls; they do not replace human accountability.
+The Test Lead / Quality Owner owns strategy, risk acceptance, gates and release recommendations. QA engineers design coverage and analyze evidence. Development/AI Engineering fixes SUT/retrieval/prompt defects. Product/business stakeholders validate expected behavior and risk acceptance. Future agents assist under defined permissions/HITL controls but do not replace human accountability.
 
-Reports should expose executed/passed/failed, blocking failures, risk-level outcomes, retrieval/context-selection/context/generation evidence, latency/tokens, trend vs baseline, defect classification and residual-risk recommendation.
+Reports expose executed/passed/failed, actual denominators, blocking failures, risk-level outcomes, retrieval/context-selection/context/generation evidence, latency/tokens, trend vs baseline, defect classification and residual-risk recommendation.
 
----
-
-## 19. Release readiness
-
-Release validation should combine Golden, Regression, repeated Critical where stability matters, unresolved-defect review, operational telemetry, risk coverage and residual-risk assessment.
+Release validation combines Golden, Regression, repeated Critical where stability matters, unresolved-defect review, operational telemetry, risk coverage and residual-risk assessment.
 
 ```text
 Evidence acceptable + residual risk acceptable -> GO
@@ -491,6 +421,6 @@ Blocking gate failure or unacceptable residual risk -> NO-GO / FIX-FORWARD / EXP
 
 ---
 
-## 20. Strategy evolution
+## 19. Strategy evolution
 
-This is a living strategy. Implementation, architecture diagrams and documentation must be updated together. A capability must not be presented as current until it exists in executable code; planned capabilities remain explicitly labeled as planned.
+This is a living strategy. Implementation, architecture, metrics and documentation must evolve together. A capability must not be presented as current until it exists in executable code. Metric percentages must never hide their applicable population.
