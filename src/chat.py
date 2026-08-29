@@ -1,4 +1,5 @@
 from vector_store import (
+    DEFAULT_TOP_K,
     build_documents,
     build_vector_store,
     search,
@@ -11,7 +12,7 @@ from llm_client import generate_answer
 from llm_logger import log_llm_call
 
 
-RETRIEVAL_K = 5
+RETRIEVAL_K = DEFAULT_TOP_K
 
 
 def main():
