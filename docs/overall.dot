@@ -8,8 +8,11 @@ digraph G {
   Validation [label="Dataset / Oracle Validation\n(evaluation datasets)"];
   Fixtures [label="Case-scoped Test Fixtures\nonly when declared by evaluation case"];
   Constraints [label="Constraint Extraction"];
-  Decision [label="Supported constraints\nand product match?", shape=diamond];
   Filter [label="Structured Product Filtering"];
+  Match [label="Hard constraints have\nmatching products?", shape=diamond];
+  NoMatch [label="Deterministic No-Product-Match\nNo SUT API call • 0 SUT tokens"];
+  Cheapest [label="Cheapest / lowest-price\nrequest?", shape=diamond];
+  MinPrice [label="Structured Catalogue Min-Price\nDeterministic evidence"];
   Corpus [label="Approved Corpus"];
   Retrieval [label="Embedding + FAISS Ranking\nTop-K Candidates"];
   ContextK [label="Adaptive Context Selection\nSimilarity >= 0.30 + Max Context-K"];
@@ -19,28 +22,35 @@ digraph G {
   Abstain [label="Deterministic No-Context Abstention\nNo SUT API call • 0 SUT tokens"];
   Answer [label="Answer"];
 
-  Py [label="Deterministic Evidence\nRetrieval • Context Selection • Atomic Assertions"];
+  Py [label="Deterministic Evidence\nRetrieval Routing • Context Selection • Atomic Assertions"];
   Oracle [label="Oracle Resolution"];
   Judge [label="Semantic LLM Judge"];
   Risk [label="AI Risk Reporting + Coverage Matrix"];
   Gate [label="Quality Gate"];
   CI [label="GitHub Actions\nPASS / FAIL"];
-  Telemetry [label="Observability\nRetrieval • Selection • Generation Path • Tokens • Latency"];
+  Telemetry [label="Observability\nRetrieval Strategy • Selection • Generation Path • Tokens • Latency"];
   Governance [label="Governed JSON Datasets\nDataset authoritative • Mapper derived"];
 
-  Dataset -> Validation -> Constraints -> Decision;
+  Dataset -> Validation -> Constraints -> Filter;
   Validation -> Fixtures;
-  Decision -> Filter [label="yes"];
-  Decision -> Corpus [label="no / no match"];
   Fixtures -> Corpus [label="evaluation-only augmentation"];
-  Filter -> Retrieval;
-  Corpus -> Retrieval;
-  Retrieval -> ContextK -> HasContext;
+  Filter -> Match;
+  Match -> NoMatch [label="no"];
+  NoMatch -> Answer;
+  Match -> Cheapest [label="yes / constraints"];
+  Constraints -> Cheapest [label="no hard constraints"];
+  Cheapest -> MinPrice [label="yes"];
+  Cheapest -> Corpus [label="no"];
+  MinPrice -> ContextK;
+  Corpus -> Retrieval -> ContextK;
+  ContextK -> HasContext;
   HasContext -> Context [label="yes"];
   Context -> SUT -> Answer;
   HasContext -> Abstain [label="no"];
   Abstain -> Answer;
 
+  Filter -> Py;
+  MinPrice -> Py;
   Retrieval -> Py;
   ContextK -> Py;
   Context -> Py;
@@ -51,6 +61,8 @@ digraph G {
   Judge -> Risk;
   Risk -> Gate -> CI;
 
+  NoMatch -> Telemetry;
+  MinPrice -> Telemetry;
   Retrieval -> Telemetry;
   ContextK -> Telemetry;
   Context -> Telemetry;
