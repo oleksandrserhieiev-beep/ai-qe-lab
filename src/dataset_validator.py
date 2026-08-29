@@ -1,9 +1,11 @@
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 ALLOWED_ORACLES = {"deterministic", "semantic_llm"}
+PRODUCT_ID_RE = re.compile(r"^P-\d+$", re.IGNORECASE)
 
 
 def load_cases(path: Path):
@@ -39,6 +41,15 @@ def validate_dataset(path: Path):
         else:
             seen_ids.add(case_id)
 
+        expected_source = case.get("Expected Source")
+        if expected_source is not None:
+            source_value = str(expected_source).strip()
+            if PRODUCT_ID_RE.fullmatch(source_value):
+                errors.append(
+                    f"{label}: Expected Source must identify a source document/dataset, not product ID {source_value!r}; "
+                    "use Expected Product / Expected Retrieved Product for product identity"
+                )
+
         oracle = case.get("Oracle")
         if oracle is None or (isinstance(oracle, str) and not oracle.strip()):
             warnings.append(
@@ -64,7 +75,7 @@ def validate_dataset(path: Path):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Validate AI QE dataset Oracle metadata")
+    parser = argparse.ArgumentParser(description="Validate AI QE dataset metadata contracts")
     parser.add_argument("datasets", nargs="+", help="Dataset JSON files to validate")
     args = parser.parse_args()
 
