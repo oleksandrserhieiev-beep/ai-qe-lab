@@ -1,26 +1,28 @@
 # AI QE Lab — Current Project Overview
 
-AI QE Lab is a practical Quality Engineering reference implementation for AI-enabled systems. Its current System Under Test is a Shopping RAG Assistant. The surrounding framework demonstrates governed datasets, deterministic and semantic test oracles, observability, AI-risk coverage, CI/CD quality gates, operational telemetry and failure localization.
+AI QE Lab is a practical Quality Engineering reference implementation for AI-enabled systems. Its current System Under Test is a Shopping RAG Assistant. The current RAG path uses structured product filtering, embedding/FAISS ranking, Top-K retrieval candidates, adaptive similarity-based context selection, deterministic context construction and Claude generation.
 
-## Oracle routing
+The surrounding QE framework provides governed datasets, Dataset/Oracle Validation, deterministic and semantic test oracles, observability, AI-risk coverage, CI/CD quality gates, operational telemetry and failure localization.
 
-Evaluation cases declare how expected behavior should be evaluated through `Oracle = deterministic` or `Oracle = semantic_llm`. Explicit Oracle metadata is primary. If it is missing/null/empty, `judge_routing.py` uses the manually reviewed case-ID mapping, accepting `case_id`, `id`, and `ID` as field-name variants. If the ID is unknown too, routing safely defaults to `semantic_llm` and the LLM Judge evaluates PASS/FAIL.
-
-The Judge does not decide whether an unknown case is deterministic or semantic. The routing layer makes that conservative fallback decision.
-
-## Current reviewed inventory
+## Current evaluation inventory
 
 - PR Critical: 6 deterministic / 4 semantic.
 - Regression: 7 deterministic / 8 semantic.
 - Nightly: 48 deterministic / 32 semantic.
 - Total: 61 deterministic / 44 semantic across 105 reviewed cases.
 
+All 61 deterministic cases have structured atomic assertions. All three active CI workflows validate their dataset before evaluation.
+
 ## Current lifecycle
 
 ```text
 Controlled dataset
- -> SUT execution
- -> retrieval/context evidence
+ -> Dataset Validation
+ -> Constraint Extraction / Structured Filtering
+ -> Embedding + FAISS Top-K candidates
+ -> Adaptive Context Selection
+ -> Context Builder
+ -> Claude SUT
  -> Oracle resolution
  -> deterministic Python assertions or semantic LLM Judge
  -> metric aggregation
@@ -29,6 +31,8 @@ Controlled dataset
  -> CI evidence / defect localization
 ```
 
+Explicit Oracle metadata is primary. Missing/null/empty Oracle uses the reviewed fallback mapping in `judge_routing.py`; unknown IDs safely fall back to `semantic_llm`. Invalid non-empty Oracle metadata fails Dataset Validation.
+
 ## Next hardening layer
 
-Complete deterministic atomic assertion coverage and stricter Oracle metadata validation across Critical, Regression and Nightly. Routing a case to deterministic evaluation is not sufficient by itself; Python must prove the expected facts/business rules with explicit assertions.
+Automatically generate/refresh the fallback Oracle mapper from validated approved datasets, then extend the governed lifecycle toward Jira-driven requirements and Defect -> Regression automation.
