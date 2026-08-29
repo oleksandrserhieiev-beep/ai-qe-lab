@@ -26,7 +26,9 @@ NIGHTLY_SEMANTIC_SEGMENTS = {
 
 
 def _case_id(case):
-    return str(case.get("id") or case.get("ID") or "").strip().upper()
+    # Dataset files use "ID", while execution runners normalize it to "case_id".
+    # Accept all supported representations so routing works both before and after execution.
+    return str(case.get("case_id") or case.get("id") or case.get("ID") or "").strip().upper()
 
 
 def _segment(case):
@@ -67,9 +69,6 @@ def build_evaluation_plan(case, retrieval_pass, constraint_retrieval=None):
     constraint_score = constraint_retrieval.get("constraint_match_score")
     constraint_pass = constraint_score == 100.0 if constraint_applicable else True
 
-    # Existing evaluator deterministic evidence remains responsible for objective
-    # retrieval/constraint assertions. Exact factual/boolean assertion expansion is
-    # handled by dataset-specific executable expected values in the implementation PR.
     return {
         **route,
         "constraint_assertion": {
