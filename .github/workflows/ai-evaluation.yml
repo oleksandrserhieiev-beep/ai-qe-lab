@@ -56,13 +56,6 @@ jobs:
         run: |
           python src/risk_coverage.py --output reports/risk_coverage.json
 
-      - name: Run Adaptive Context Selection Baseline
-        run: |
-          python src/context_selection_baseline.py \
-            --dataset datasets/evaluation_dataset.json \
-            --output reports/context_selection_baseline.json \
-            --thresholds 0.20 0.25 0.30 0.35 0.40
-
       - name: Run PR Critical Dataset
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
