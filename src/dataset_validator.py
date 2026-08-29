@@ -4,6 +4,18 @@ import sys
 from pathlib import Path
 
 ALLOWED_ORACLES = {"deterministic", "semantic_llm"}
+SEGMENT_ORACLE = {
+    "normal": "deterministic",
+    "ambiguous": "semantic_llm",
+    "negative": "deterministic",
+    "multi_constraint": "deterministic",
+    "out_of_domain": "semantic_llm",
+    "missing_info": "semantic_llm",
+    "conflict": "deterministic",
+    "adversarial": "semantic_llm",
+    "paraphrase": "deterministic",
+    "long_query": "deterministic",
+}
 
 
 def load_cases(path: Path):
@@ -12,6 +24,24 @@ def load_cases(path: Path):
     if not isinstance(data, list):
         raise ValueError("dataset root must be a JSON array")
     return data
+
+
+def _nightly_assertions(path: Path):
+    if path.name != "evaluation_dataset.json":
+        return {}
+    assertion_file = path.parent / "evaluation_assertion_metadata.json"
+    if not assertion_file.exists():
+        return {}
+    with assertion_file.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def _resolved_oracle(case):
+    oracle = case.get("Oracle")
+    if isinstance(oracle, str) and oracle.strip():
+        return oracle.strip()
+    segment = str(case.get("Segment") or "").strip().lower()
+    return SEGMENT_ORACLE.get(segment)
 
 
 def validate_dataset(path: Path):
@@ -23,6 +53,8 @@ def validate_dataset(path: Path):
         cases = load_cases(path)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         return [f"{path}: {exc}"], warnings, 0
+
+    assertion_metadata = _nightly_assertions(path)
 
     for index, case in enumerate(cases, start=1):
         if not isinstance(case, dict):
@@ -39,22 +71,21 @@ def validate_dataset(path: Path):
         else:
             seen_ids.add(case_id)
 
-        oracle = case.get("Oracle")
-        if oracle is None or (isinstance(oracle, str) and not oracle.strip()):
-            warnings.append(
-                f"{label}: Oracle missing; runtime routing will use the fallback mapper"
-            )
+        oracle = _resolved_oracle(case)
+        if oracle is None:
+            warnings.append(f"{label}: Oracle missing and Segment has no governed routing rule")
             continue
 
-        if not isinstance(oracle, str) or oracle.strip() not in ALLOWED_ORACLES:
+        if oracle not in ALLOWED_ORACLES:
             errors.append(
                 f"{label}: invalid Oracle {oracle!r}; allowed values: deterministic, semantic_llm"
             )
             continue
 
-        oracle = oracle.strip()
         if oracle == "deterministic":
             assertions = case.get("Deterministic Assertions")
+            if not isinstance(assertions, list) or not assertions:
+                assertions = assertion_metadata.get(case_id, [])
             if not isinstance(assertions, list) or not assertions:
                 errors.append(
                     f"{label}: deterministic Oracle requires non-empty Deterministic Assertions"
