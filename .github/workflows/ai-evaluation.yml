@@ -53,19 +53,29 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Validate PR Critical Dataset
+        run: |
+          python src/dataset_validator.py datasets/pr_critical_dataset.json
+
       - name: Build AI Risk Coverage Matrix
         run: |
           python src/risk_coverage.py --output reports/risk_coverage.json
 
-      # TEMPORARY HARDENING VERIFICATION: Nightly only.
-      # Once the 80-case suite is confirmed healthy, restore this PR workflow
-      # to the normal PR Critical-only execution path.
-      - name: "TEMP Verify — Nightly 80"
+      - name: Run PR Critical Dataset
         run: |
-          python src/dataset_validator.py datasets/evaluation_dataset.json
-          python src/evaluation_runner.py --dataset datasets/evaluation_dataset.json --output reports/evaluation_results.json
-          python src/evaluator.py --input reports/evaluation_results.json --output reports/evaluation_evaluated.json
-          python src/quality_gate.py --report reports/evaluation_evaluated.json
+          python src/pr_evaluation_runner.py
+
+      - name: Evaluate PR Critical Dataset
+        run: |
+          python src/pr_evaluator.py
+
+      - name: Hallucination Retry Policy
+        run: |
+          python src/hallucination_retry.py
+
+      - name: Quality Gate
+        run: |
+          python src/quality_gate.py --report reports/pr_evaluated.json
 
       - name: Upload evaluation reports
         if: always()
