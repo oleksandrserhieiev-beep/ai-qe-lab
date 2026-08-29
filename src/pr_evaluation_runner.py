@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from vector_store import build_documents, build_vector_store, search
+from vector_store import DEFAULT_TOP_K, build_documents, build_vector_store, search
 from context_builder import build_context, build_retrieved_context, PROMPT_VERSION
 from context_selector import (
     build_context_selection_metadata,
@@ -14,7 +14,7 @@ from llm_client import generate_answer
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATASET_FILE = BASE_DIR / "datasets" / "pr_critical_dataset.json"
 RESULTS_FILE = BASE_DIR / "reports" / "pr_results.json"
-RETRIEVAL_K = 5
+RETRIEVAL_K = DEFAULT_TOP_K
 
 
 def load_dataset():
