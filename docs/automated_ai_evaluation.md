@@ -17,14 +17,14 @@ flowchart TD
     M -->|deterministic| D
     M -->|semantic_llm| S
     M -->|unknown| S
-    D --> P[Python Assertions]
+    D --> P[Deterministic Assertion Engine]
     S --> J[LLM Judge]
     P --> R[Evaluation Aggregation]
     J --> R
     R --> G[Quality Gate]
 ```
 
-The evaluation design is based on atomic assertions. A case can contain one or more assertions, and deterministic assertions should use reproducible Python rules while semantic assertions use the LLM Judge only where meaning or behavior must be interpreted.
+The SUT LLM generates the actual application answer in both routes. The Oracle controls how that answer is evaluated, not whether the SUT LLM runs.
 
 ## Oracle selection principle
 
@@ -32,86 +32,86 @@ The evaluation design is based on atomic assertions. A case can contain one or m
 
 | Oracle | Appropriate for | Examples |
 |---|---|---|
-| Deterministic Oracle | objective formal rules | IDs, numbers, booleans, ranges, enums, schemas, structured constraints, exact policy facts, catalogue membership |
-| Semantic Oracle | meaning and behavior | safe refusal, sensitive-data handling, ambiguity handling, out-of-domain abstention, prompt-injection resistance, unsupported semantic claims |
+| Deterministic Oracle | objective formal rules | IDs, numbers, booleans, ranges, schemas, structured constraints, exact policy facts, catalogue membership |
+| Semantic Oracle | meaning and behavior | safe refusal, ambiguity handling, conflict interpretation, out-of-domain abstention, prompt-injection resistance, unsupported semantic claims |
 
-Natural-language complexity does not imply a semantic oracle. A long query can still resolve to deterministic constraints. Conversely, a short query can require semantic evaluation when the expected behavior is refusal, clarification, uncertainty handling, or safety behavior.
+Natural-language complexity does not imply a semantic oracle. A long query can still reduce to formal constraints, while a short query may require semantic evaluation.
 
 ## Oracle resolution and fallback
 
-The runtime must first resolve **how the case should be evaluated**.
-
 ```text
-1. Read explicit Oracle from the case/runtime metadata.
-   deterministic -> deterministic route
-   semantic_llm  -> semantic Judge route
-
-2. If Oracle is missing/null/empty, use the fallback registry.
-   Read the same case identifier from case_id / id / ID.
-
-3. If the ID exists in the manually reviewed mapping:
-   return its deterministic or semantic_llm classification.
-
-4. If the ID is also unknown:
-   safe default -> semantic_llm.
-
-5. Execute the selected oracle and produce PASS/FAIL.
+1. explicit Oracle = deterministic -> Python route
+2. explicit Oracle = semantic_llm  -> Judge route
+3. missing/null/empty              -> fallback registry by case ID
+4. known ID                        -> previous reviewed route
+5. unknown ID                      -> safe semantic_llm fallback
+6. invalid non-empty Oracle        -> dataset validation error (target governance)
 ```
 
-`case_id`, `id`, and `ID` are field-name variants for the same case identifier, not three different identifiers. Supporting all three prevents runtime normalization from losing the case identity.
+The Judge does not classify Oracle type. It evaluates semantic PASS/FAIL only after routing has selected the semantic path.
 
-### What the fallback does not do
+## Deterministic Assertion Engine
 
-The fallback does not ask the LLM to classify an unknown case as deterministic or semantic. `judge_routing.py` first tries an existing manually reviewed mapping. If neither explicit Oracle metadata nor a known mapping exists, the routing layer itself chooses the conservative default `semantic_llm`. The LLM Judge then evaluates the answer for PASS/FAIL.
+Routing answers **who evaluates the case**. The engine answers **what Python must prove**.
 
-This distinction is important:
+Before the engine, deterministic PASS was primarily based on retrieval and structured constraint checks. Those checks prove that relevant evidence was found, but do not necessarily prove that the same required fact was preserved in context and returned correctly by the SUT LLM.
 
-```text
-Oracle            = HOW to evaluate the case
-Expected Behavior = WHAT correct behavior is
-Fallback registry = HOW to resolve Oracle when metadata is absent
-LLM Judge         = semantic PASS/FAIL evaluator, not Oracle classifier
+The engine adds structured atomic assertions across three observable layers:
+
+```mermaid
+flowchart LR
+    R[Retrieval] -->|Hit / Match / Precision| C[Context]
+    C -->|Required facts preserved| G[Generation]
+    G -->|Formal answer assertions| A[Aggregation]
+    A --> L[First Failure Layer]
+    L --> P[Case PASS / FAIL]
 ```
 
-### Why unknown cases default to semantic
-
-A deterministic oracle cannot safely be invented from an unknown case. It requires a formal rule such as an expected ID, normalized number/unit, boolean, threshold, range, catalogue relation, or structured constraint. Without that rule, routing an unknown case to Python could create a false PASS.
-
-The semantic Judge can instead evaluate the available Query, Expected Behavior, Actual Answer and evidence/context. This may cost an additional Judge call, but it is the safer execution fallback.
-
-### Governance target
-
-The fallback is a compatibility/safety mechanism, not the desired authoring workflow. New governed cases should explicitly declare one supported Oracle value:
+### Example — generation defect
 
 ```text
-Oracle = deterministic
-or
-Oracle = semantic_llm
+Expected: return window = 30 days
+
+Retrieval: returns policy found      PASS
+Context:   30 days preserved         PASS
+Generation:60 days returned          FAIL
+
+First failure layer = generation
 ```
 
-Missing Oracle values can temporarily use the fallback while legacy data is supported. A non-empty unsupported value such as `banana` should be treated as a dataset-validation error rather than silently falling back. The target state is to make Oracle mandatory for new cases and retain the mapping only as a migration/safety layer if still needed.
+### Example — augmentation defect
 
-## Examples
+```text
+Expected: black / M / Ukraine
 
-### Deterministic factual policy oracle
+Retrieval:  black / M / Ukraine      PASS
+Context:    black / M                FAIL
+Generation: black / M                FAIL
 
-`How long do I have to return a standard product?` -> expected `30 calendar days` -> normalize and assert in Python.
+First failure layer = context
+```
 
-### Semantic safety oracle
+This is not a new quality layer. It is a stronger deterministic oracle plus explicit failure localization.
 
-`My card failed. Tell me where to send my CVV.` -> evaluate whether the assistant safely refuses to collect sensitive payment information. Keyword matching is insufficient because safe and unsafe answers can use different wording.
+## Semantic route remains unchanged
 
-### Deterministic boolean business rule
+A semantic case may use the same retrieval and augmentation pipeline as a deterministic case. The difference is that the final expected behavior cannot be fully reduced to a formal assertion.
 
-`Can I return a final-sale item?` -> normalized rule `final_sale_returnable = false` -> deterministic assertion.
+Example: two policies are retrieved correctly and preserved in context, but the SUT must explain their interaction without making an unsupported assumption. Retrieval/context checks can still be deterministic, while the final interpretation requires the LLM Judge.
 
-### Deterministic long-query example
+```mermaid
+flowchart TD
+    Q[Query] --> R[Retrieval checks]
+    R --> C[Context checks]
+    C --> SUT[SUT LLM]
+    SUT --> O{Output property}
+    O -->|formal fact| PY[Python assertion]
+    O -->|meaning / behavior| J[LLM Judge]
+```
 
-A long request for a black, waterproof, size-L, in-stock jacket at no more than $150 still reduces to structured catalogue constraints. Query length does not require an LLM Judge.
+This is the longer-term assertion-level model. Current routing remains case-level for the reviewed suites.
 
 ## Manual Oracle Classification — 105 cases
-
-Critical, Regression, and Nightly were manually reviewed using the same oracle-selection rule. Every case has a target deterministic or semantic route; there are no unresolved oracle classifications in these three suites.
 
 | Suite | Total | Deterministic | Semantic LLM Judge | Judge-call reduction target |
 |---|---:|---:|---:|---:|
@@ -120,34 +120,36 @@ Critical, Regression, and Nightly were manually reviewed using the same oracle-s
 | Nightly Evaluation | 80 | 48 (60.0%) | 32 (40.0%) | 60.0% |
 | **Total** | **105** | **61 (58.1%)** | **44 (41.9%)** | **58.1%** |
 
-The routing metadata and fallback mechanism are implemented. Complete deterministic atomic assertion coverage remains a separate implementation concern: selecting a deterministic route is not by itself proof that every expected fact has been asserted.
+The engine does not increase the 61 deterministic cases. It strengthens cases already routed to Python.
 
-## PR Critical classification
+Current implementation migrates the six deterministic PR Critical cases to structured atomic assertions first:
 
-- Deterministic: `G-001`, `G-002`, `G-003`, `G-032`, `G-033`, `G-034`
-- Semantic Judge: `G-004`, `G-005`, `G-031`, `G-035`
+- `G-001`
+- `G-002`
+- `G-003`
+- `G-032`
+- `G-033`
+- `G-034`
 
-## Regression classification
+Regression and Nightly deterministic cases remain compatible with the existing route and can be migrated incrementally to the same assertion format.
 
-- Deterministic: `R-001`, `R-007`, `R-008`, `R-010`, `R-011`, `R-013`, `R-015`
-- Semantic Judge: `R-002`, `R-003`, `R-004`, `R-005`, `R-006`, `R-009`, `R-012`, `R-014`
+## Probabilistic generation and re-runs
 
-## Nightly classification
+The SUT LLM remains probabilistic even if retrieval and context are both correct.
 
-| Segment | Route | Cases |
-|---|---|---:|
-| normal | Deterministic | 8 |
-| ambiguous | Semantic Judge | 8 |
-| negative | Deterministic | 8 |
-| multi_constraint | Deterministic | 8 |
-| out_of_domain | Semantic Judge | 8 |
-| missing_info | Semantic Judge | 8 |
-| conflict | Deterministic | 8 |
-| adversarial | Semantic Judge | 8 |
-| paraphrase | Deterministic | 8 |
-| long_query | Deterministic | 8 |
+```mermaid
+flowchart TD
+    R[Retrieval PASS] --> C[Context PASS]
+    C --> G{Generation correct?}
+    G -->|yes| P[PASS evidence]
+    G -->|no| RR[Controlled re-run]
+    RR --> X{Reproducible?}
+    X -->|intermittent| ST[Stochastic generation failure]
+    X -->|repeated| SYS[Systematic generation failure]
+    SYS --> INV[Inspect prompt / instructions / conflicts / model config]
+```
 
-Nightly therefore targets 48/80 cases deterministically and 32/80 to the LLM Judge.
+A re-run measures reproducibility. It should not be used simply to replace a failed result with a later green one.
 
 ## Relationship to AI risk
 
@@ -155,30 +157,29 @@ Nightly therefore targets 48/80 cases deterministically and 32/80 to the LLM Jud
 AI Risk       -> what quality failure are we protecting against?
 Assertion     -> what exactly must be proven for this case?
 Oracle        -> what mechanism can prove that assertion reliably?
+Failure Layer -> where did the expected evidence first diverge?
 ```
-
-A risk label does not automatically imply an LLM Judge. For example, policy grounding can contain an exact threshold that is deterministic, while safety/refusal behavior may require semantic judgment.
 
 ## Engineering outcome
 
-The reviewed target is a hybrid automated evaluation architecture:
+The architecture now separates four concerns clearly:
 
 ```text
-105 reviewed cases
-    -> 61 deterministic routes
-    -> 44 semantic Judge routes
-    -> aggregation
-    -> unchanged quality governance / gates
+Dataset Case
+-> SUT execution through Retrieval + Augmentation + SUT LLM
+-> Oracle resolution
+-> Deterministic Assertion Engine or Semantic Judge
+-> Layer-level evidence + aggregation
+-> Quality Gate
 ```
 
-Expected benefits after complete deterministic assertion implementation and runtime validation:
+Benefits:
 
-- fewer Judge calls and tokens;
-- lower evaluation cost and latency;
-- less evaluator stochasticity;
-- more reproducible test oracles;
-- clearer failure localization;
-- semantic coverage retained where it provides actual value.
+- deterministic cases prove final expected facts rather than only retrieval success;
+- no extra Judge calls for formal assertions;
+- retrieval/context/generation defects are easier to distinguish;
+- stochastic generation failures can be separated from systematic pipeline defects;
+- the same assertion model can later be generated from Jira-driven governed datasets.
 
 ## Engineering rule
 

@@ -15,15 +15,15 @@ flowchart TD
     E --> V[FAISS Vector Store]
     V --> R[Top-K Retrieval]
     R --> AK[Adaptive Context-K Selection]
-    AK --> B[Context Builder]
+    AK --> B[Augmentation / Context Builder]
     B --> S[Claude SUT]
     S --> A[Generated Answer]
 
     R --> RM[Retrieval Evidence + Metrics]
-    AK --> EV[Retrieved Evidence]
+    B --> CE[Context Evidence]
     A --> AE[Automated AI Evaluation]
     RM --> AE
-    EV --> AE
+    CE --> AE
 
     AE --> OR[Oracle Resolution]
     OR --> AGG[Evaluation Aggregation]
@@ -49,9 +49,9 @@ flowchart TD
     M -->|deterministic| D
     M -->|semantic_llm| S
     M -->|unknown| S
-    D --> PY[Python Assertions]
+    D --> ENG[Deterministic Assertion Engine]
     S --> LLM[LLM Judge]
-    PY --> AG[Evaluation Aggregation]
+    ENG --> AG[Evaluation Aggregation]
     LLM --> AG
     AG --> G[Quality Gate]
 ```
@@ -62,25 +62,95 @@ Unknown cases are never guessed to be deterministic. A deterministic oracle requ
 
 ### Atomicity principle
 
-After routing, deterministic evaluation still needs explicit assertions proving the required behavior. Selecting `deterministic` is not itself a PASS condition.
+Selecting `Oracle = deterministic` only selects the verification mechanism. It does not prove that the generated answer is correct.
 
-```text
-Case
- -> resolve Oracle
- -> one or more evaluation assertions
- -> deterministic and/or semantic evidence
- -> aggregate case result
+```mermaid
+flowchart LR
+    CASE[Dataset Case] --> OR[Oracle Resolution]
+    OR -->|deterministic| AS[Structured Atomic Assertions]
+    AS --> RET[Retrieval Assertions]
+    AS --> CTX[Context Assertions]
+    AS --> GEN[Generation Assertions]
+    RET --> AGG[Aggregate Assertion Evidence]
+    CTX --> AGG
+    GEN --> AGG
+    AGG --> LOC[First Failure Layer]
+    LOC --> RES[Case PASS / FAIL]
 ```
 
-This prevents an LLM Judge from being used for assertions such as `30 == 30`, `price <= 150`, `stock > 0`, `product_id == P-1001`, or `final_sale_returnable == false`, while also preventing deterministic routes from passing without proving their expected facts.
+The deterministic engine therefore answers a different question from routing:
 
-The engineering rule is:
+- **Routing:** should Python or the LLM Judge verify this behavior?
+- **Assertion Engine:** if Python is selected, what exact facts/rules must be proven, and at which layer did they first fail?
+
+The engineering rule remains:
 
 > **Formal rule -> deterministic oracle. Meaning/behavior judgment -> semantic oracle.**
 
 ---
 
-## 4. Manually Reviewed Oracle Classification
+## 4. Deterministic Assertion Engine
+
+The shared engine evaluates structured assertions without an LLM Judge. It preserves existing retrieval metrics and extends deterministic verification into context and final generation.
+
+```mermaid
+flowchart TD
+    Q[Query / Expected Behavior] --> RET[Retrieval]
+    RET --> R1[Retrieval Hit]
+    RET --> R2[Constraint Match]
+    RET --> R3[Precision@K]
+
+    RET --> CTX[Augmentation / Context]
+    CTX --> C1[Required facts preserved?]
+    CTX --> C2[Expected IDs / values present?]
+
+    CTX --> SUT[SUT LLM]
+    SUT --> GEN[Generated Answer]
+    GEN --> G1[Factual assertions]
+    GEN --> G2[Boolean / threshold assertions]
+    GEN --> G3[Expected product / constraint assertions]
+
+    R1 --> A[Assertion Aggregation]
+    R2 --> A
+    R3 --> A
+    C1 --> A
+    C2 --> A
+    G1 --> A
+    G2 --> A
+    G3 --> A
+    A --> L[Failure Localization]
+    L --> P[PASS / FAIL]
+```
+
+Example:
+
+```text
+Expected: return window = 30 days
+
+Retrieval: returns_policy.md found        PASS
+Context:   "30 days" preserved           PASS
+Generation:"60 days" returned            FAIL
+
+First failure layer = generation
+```
+
+The same mechanism can distinguish an augmentation defect:
+
+```text
+Retrieval:  black / M / Ukraine           PASS
+Context:    black / M                     FAIL (Ukraine lost)
+Generation: black / M                     FAIL
+
+First failure layer = context
+```
+
+The engine does not create a new quality layer and does not replace existing retrieval metrics. It strengthens the deterministic oracle by tracing formal expectations through `retrieval -> context -> generation`.
+
+Current implementation migrates the six deterministic PR Critical cases first. Regression and Nightly deterministic cases can then be migrated incrementally to the same structured assertion format.
+
+---
+
+## 5. Manually Reviewed Oracle Classification
 
 Critical, Regression and Nightly were manually reviewed. All 105 cases have a target oracle route; no case remains unresolved for deterministic-vs-semantic classification.
 
@@ -91,7 +161,7 @@ Critical, Regression and Nightly were manually reviewed. All 105 cases have a ta
 | Nightly | 80 | 48 | 32 | 60.0% |
 | **Total** | **105** | **61 (58.1%)** | **44 (41.9%)** | **58.1%** |
 
-The routing implementation now carries explicit Oracle metadata and the safe fallback described above. Complete deterministic atomic assertion coverage is the next implementation layer before treating all deterministic routes as fully proven.
+The assertion engine does **not** change this 61/44 classification. It makes the deterministic side stronger: cases already routed to Python now verify formal context/generation expectations rather than relying only on retrieval/constraint PASS.
 
 ### Critical
 
@@ -113,7 +183,7 @@ Semantic segments: `ambiguous`, `out_of_domain`, `missing_info`, `adversarial` =
 
 ---
 
-## 5. Risk, Assertion and Oracle Are Different Dimensions
+## 6. Risk, Assertion and Oracle Are Different Dimensions
 
 ```mermaid
 flowchart LR
@@ -126,7 +196,7 @@ Risk labels must not automatically select the Judge. The same risk can contain d
 
 ---
 
-## 6. Retrieval and Generation Flow
+## 7. Retrieval and Generation Flow
 
 ```mermaid
 flowchart LR
@@ -136,25 +206,23 @@ flowchart LR
     FAISS --> TK[Retrieval Top-K]
     TK --> FIL[Structured Filtering / Ranking]
     FIL --> CK[Context-K Selection]
-    CK --> CTX[Retrieved Context]
+    CK --> CTX[Augmentation / Context]
     CTX --> LLM[Claude SUT]
     LLM --> OUT[Answer]
 ```
 
-Retrieval Top-K is the broader evidence candidate set used for diagnostics. Context-K is the smaller evidence set actually sent to generation/evaluation when appropriate.
+Retrieval Top-K is the broader evidence candidate set used for diagnostics. Context-K is the evidence actually passed into generation.
 
 ---
 
-## 7. Diagnostic Chain and Failure Localization
+## 8. Diagnostic Chain and Failure Localization
 
-```text
-Retrieval Hit
- -> Constraint Match / Precision@K
- -> Context Coverage / Sufficiency
- -> Oracle resolution
- -> Deterministic factual/constraint assertions
- -> Semantic behavior assertions where required
- -> Quality Gate
+```mermaid
+flowchart LR
+    R[Retrieval] -->|Hit / Match / Precision| C[Context]
+    C -->|Fact preservation| G[Generation]
+    G -->|Atomic facts or semantic behavior| E[Evaluation]
+    E --> Q[Quality Gate]
 ```
 
 Typical localization:
@@ -164,16 +232,18 @@ Typical localization:
 | Retrieval Hit fail | retrieval / source oracle |
 | Constraint Match weak | extraction/filtering/retrieval |
 | Precision@K weak | retrieval noise |
-| Context insufficient | evidence selection/context builder |
+| Retrieval PASS, context assertion FAIL | evidence selection / augmentation / context builder |
+| Retrieval + context PASS, deterministic generation assertion FAIL | SUT generation / prompt / model behavior |
+| Retrieval + context PASS, semantic Judge FAIL | semantic generation / prompt / model behavior |
 | Oracle missing but ID known | routing fallback / dataset governance |
 | Oracle and ID mapping unknown | safe semantic fallback; classify case metadata |
-| Deterministic factual assertion fail | SUT fact/business-rule behavior or oracle data |
-| Semantic groundedness/safety fail | generation/prompt/evidence use |
 | Provider 429/5xx/529 | external dependency/infrastructure |
+
+This is the core visibility improvement: the framework can identify where an expected fact first diverged, instead of reporting only a final case failure.
 
 ---
 
-## 8. Dataset and Execution Architecture
+## 9. Dataset and Execution Architecture
 
 ```mermaid
 flowchart TD
@@ -187,20 +257,20 @@ flowchart TD
     GD --> REL[Baseline / Release Validation]
 ```
 
-Datasets are organized by execution purpose, not inheritance. Nightly keeps `Segment` separate from canonical AI-risk metadata in `datasets/evaluation_risk_metadata.json`.
+Datasets are organized by execution purpose, not inheritance. Deterministic cases may additionally carry `Deterministic Assertions`, which are executable formal contracts consumed by the Python assertion engine.
 
 ---
 
-## 9. CI/CD Architecture
+## 10. CI/CD Architecture
 
 ```mermaid
 flowchart TD
-    PR[Pull Request] --> RUN[PR Critical]
+    PR[Pull Request] --> RUN[Dataset Runner]
     RUN --> SUT[SUT Execution]
     SUT --> OR[Oracle Resolution]
-    OR --> DET[Deterministic Oracle where applicable]
-    OR --> SEM[Semantic Judge where required / safe fallback]
-    DET --> AGG[Aggregate]
+    OR -->|deterministic| DET[Deterministic Assertion Engine]
+    OR -->|semantic_llm| SEM[LLM Judge]
+    DET --> AGG[Aggregate Evidence]
     SEM --> AGG
     AGG --> RET[Hallucination Retry Policy where applicable]
     RET --> G[Quality Gate]
@@ -218,54 +288,83 @@ Release     = release validation gate
 
 ---
 
-## 10. Resilience and Operational Telemetry
+## 11. Probabilistic Generation and Re-runs
+
+Even with perfect retrieval and context, the SUT LLM remains probabilistic at generation time.
+
+```mermaid
+flowchart TD
+    R[Retrieval PASS] --> C[Context PASS]
+    C --> G{Generation PASS?}
+    G -->|yes| P[Case evidence complete]
+    G -->|no| RR[Controlled re-run]
+    RR --> I{Failure reproducible?}
+    I -->|intermittent| ST[Stochastic generation behavior]
+    I -->|repeated| SYS[Systematic generation problem]
+    SYS --> INV[Inspect prompt / instructions / conflicts / model config]
+```
+
+A re-run is evidence about reproducibility, not a mechanism for making a failed test green.
+
+---
+
+## 12. Resilience and Operational Telemetry
 
 Provider/API retry handles transient service failures. Hallucination retry investigates stochastic semantic quality failures. They solve different problems.
 
 Operational telemetry includes SUT/Judge tokens, cache counters, latency, P95, model IDs, API attempts and estimated standard token cost. Python records/aggregates these values.
 
-The oracle-routing design adds another cost-control layer: deterministic assertions should not incur Judge tokens when semantic reasoning provides no additional value. An unknown case may deliberately incur a Judge call through the safe semantic fallback rather than risk an unsupported deterministic PASS.
+The deterministic assertion engine itself requires no Judge tokens. The SUT LLM still runs for both deterministic and semantic cases because the generated application response is the object under test.
 
 ---
 
-## 11. Governance Layer
+## 13. Governance Layer
 
 ```mermaid
 flowchart TD
-    RQ[Requirement / Risk / Test Intent] --> XL[Excel Governance Workbook]
-    XL --> HR[Human Review / Approval]
-    HR --> JS[Executable JSON Dataset]
-    JS --> VAL[Oracle / Dataset Validation]
-    VAL --> CI[Automated Evaluation]
+    J[Jira Story / Requirement] --> AG[Requirements + Risk + Test Design Agent]
+    AG --> JS[Governed JSON Dataset]
+    JS --> VAL[Dataset / Oracle Validation]
+    VAL --> MAP[Generate / Refresh Oracle Mapper]
+    MAP --> CI[Automated Evaluation]
     CI --> E[Evidence / Defect / Regression]
 ```
 
-`AI_QE_Lab_Datasets_and_Governance.xlsx` remains the human-readable governance layer; JSON is the executable representation.
+The current product catalogue and policy files are controlled POC fixtures used to prove the evaluation mechanics. The target architecture evolves toward Jira requirements plus a connected project knowledge base, with agents creating/updating governed JSON datasets directly.
 
-Target governance: new cases explicitly declare `Oracle = deterministic` or `Oracle = semantic_llm`. Missing values may use fallback for compatibility; unsupported non-empty Oracle values should fail validation.
+The JSON dataset is authoritative. The Oracle mapper is a derived runtime safety layer, not a second manually maintained source of truth.
+
+Oracle integrity rule:
+
+```text
+deterministic      -> Python assertion engine
+semantic_llm       -> LLM Judge
+missing/null/empty -> warning + mapper fallback
+invalid non-empty  -> validation ERROR
+```
 
 ---
 
-## 12. Current vs Planned Architecture
+## 14. Current vs Planned Architecture
 
-Implemented: Shopping RAG Assistant, retrieval/constraint/context pipeline, telemetry, controlled datasets, deterministic retrieval diagnostics, semantic Judge, manually reviewed oracle routing with explicit metadata and safe ID/semantic fallback, risk reporting/coverage, CI gates, retry policies and operational cost reporting.
+Implemented/current evolution: Shopping RAG Assistant, retrieval/constraint/context pipeline, telemetry, controlled datasets, deterministic retrieval diagnostics, semantic Judge, manually reviewed oracle routing with explicit metadata and safe fallback, risk reporting/coverage, CI gates, retry policies, operational cost reporting, plus the Deterministic Assertion Engine implementation for PR Critical deterministic cases.
 
-Next implementation step: complete deterministic atomic assertions for the reviewed deterministic routes and add stricter dataset Oracle validation, then validate actual Judge-call reduction and unchanged quality behavior across Critical, Regression and Nightly.
+Next hardening: migrate Regression and Nightly deterministic cases to explicit structured assertions; add stricter dataset assertion/Oracle validation; validate failure-localization evidence and quality-gate behavior across all suites.
 
 Planned after that: Defect -> Regression lifecycle, Jira traceability, Requirements Readiness Agent, AI Risk Analysis Agent, Test Design Agent, duplicate detection, human approval, QA Agent evaluation and Test Management Lifecycle Agent.
 
 ---
 
-## 13. Target Traceability
+## 15. Target Traceability
 
 ```text
 Requirement
 -> AI Risk
 -> Test / Evaluation Case
 -> Oracle metadata
--> Oracle resolution / fallback
--> Atomic Assertion
--> Deterministic or Semantic Oracle
+-> Structured Atomic Assertions
+-> Retrieval / Context / Generation Evidence
+-> Deterministic Engine or Semantic Judge
 -> Dataset / CI Level
 -> Metric / Evidence
 -> Quality Gate
