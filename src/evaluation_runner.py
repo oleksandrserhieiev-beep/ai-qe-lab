@@ -12,6 +12,19 @@ POLICIES_DIR = BASE_DIR / "policies"
 NIGHTLY_RISK_METADATA = BASE_DIR / "datasets" / "evaluation_risk_metadata.json"
 NIGHTLY_ASSERTION_METADATA = BASE_DIR / "datasets" / "evaluation_assertion_metadata.json"
 
+SEGMENT_ORACLE = {
+    "normal": "deterministic",
+    "ambiguous": "semantic_llm",
+    "negative": "deterministic",
+    "multi_constraint": "deterministic",
+    "out_of_domain": "semantic_llm",
+    "missing_info": "semantic_llm",
+    "conflict": "deterministic",
+    "adversarial": "semantic_llm",
+    "paraphrase": "deterministic",
+    "long_query": "deterministic",
+}
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run AI/RAG evaluation against a dataset.")
@@ -91,8 +104,9 @@ def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
         final_context = build_context(query=query, results=context_results)
         answer, telemetry = generate_grounded_answer(final_context, context_results, retrieval_metadata=retrieval_routing)
 
+        segment = str(case.get("Segment") or "").strip().lower()
         explicit_risk = case.get("Risk") if case.get("Risk") is not None else risk_metadata.get(case_id)
-        explicit_oracle = case.get("Oracle")
+        explicit_oracle = case.get("Oracle") or SEGMENT_ORACLE.get(segment)
         deterministic_assertions = case.get("Deterministic Assertions")
         if deterministic_assertions is None:
             deterministic_assertions = assertion_metadata.get(case_id, [])
@@ -104,7 +118,7 @@ def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
             "expected_facts_behavior": case.get("Expected Facts/Behavior", case.get("Expected Behavior")),
             "expected_source": case.get("Expected Source"), "expected_context_sources": case.get("Expected Context Sources", []),
             "context_fixtures": list(fixture_files), "criticality": case.get("Criticality"), "why_golden": case.get("Why Golden"),
-            "risk": explicit_risk, "segment": case.get("Segment"), "actual_answer": answer, "retrieved_context": evidence,
+            "risk": explicit_risk, "segment": segment, "actual_answer": answer, "retrieved_context": evidence,
             "final_context": final_context,
             "retrieval": [{"id": item["id"], "type": item["type"], "rank": item["rank"], "similarity_score": item["score"], "metadata": item.get("metadata", {})} for item in retrieved],
             "retrieval_strategy": retrieval_routing["strategy"],
