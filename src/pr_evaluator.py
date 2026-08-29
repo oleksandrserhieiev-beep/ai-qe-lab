@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from cost_reporting import summarize_usage, print_usage_summary
-from judge_routing import choose_judge_route, deterministic_evaluation
+from judge_routing import build_evaluation_plan, deterministic_evaluation
 from llm_evaluator import evaluate_ai_response
 from retrieval_metrics import evaluate_constraint_retrieval
 from risk_reporting import build_risk_summary, print_risk_summary
@@ -35,22 +35,28 @@ def evaluate_case(case):
         query=query,
         retrieval=case.get("retrieval", []),
     )
-    route = choose_judge_route(
-        risk=case.get("risk"),
+    plan = build_evaluation_plan(
+        case=case,
         retrieval_pass=retrieval_pass,
         constraint_retrieval=constraint_retrieval,
     )
 
-    if route["route"] == "deterministic_only":
+    if plan["route"] == "deterministic_only":
         deterministic = deterministic_evaluation(
             retrieval_pass=retrieval_pass,
             constraint_retrieval=constraint_retrieval,
+            plan=plan,
         )
         return {
             **case,
             "evaluation": {
                 "retrieval_pass": retrieval_pass,
                 "constraint_retrieval": constraint_retrieval,
+                "deterministic_assertions": {
+                    "factual": plan.get("factual_assertion"),
+                    "product": plan.get("product_assertion"),
+                    "signals": plan.get("deterministic_signals", []),
+                },
                 "correctness": None,
                 "groundedness": None,
                 "hallucination": None,
@@ -58,8 +64,8 @@ def evaluate_case(case):
                 "context_coverage": None,
                 "context_sufficient": None,
                 "overall_pass": deterministic["overall_pass"],
-                "reason": route["reason"],
-                "judge_route": route["route"],
+                "reason": plan["reason"],
+                "judge_route": plan["route"],
                 "judge_telemetry": {},
             },
         }
@@ -85,6 +91,10 @@ def evaluate_case(case):
         "evaluation": {
             "retrieval_pass": retrieval_pass,
             "constraint_retrieval": constraint_retrieval,
+            "deterministic_assertions": {
+                "factual": plan.get("factual_assertion"),
+                "product": plan.get("product_assertion"),
+            },
             "correctness": correctness,
             "groundedness": groundedness,
             "hallucination": hallucination,
@@ -93,7 +103,7 @@ def evaluate_case(case):
             "context_sufficient": context_sufficient,
             "overall_pass": overall_pass,
             "reason": ai_evaluation.get("reason"),
-            "judge_route": route["route"],
+            "judge_route": plan["route"],
             "judge_telemetry": ai_evaluation.get("_telemetry", {}),
         },
     }
