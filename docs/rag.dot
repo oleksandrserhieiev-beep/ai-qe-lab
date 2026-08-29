@@ -5,21 +5,27 @@ digraph G {
 
   Q [label="Query"];
   C [label="Constraint Extraction"];
-  E [label="Embedding\nall-MiniLM-L6-v2"];
-  V [label="FAISS Vector Store\nProducts + Policies"];
-  R [label="Retrieval Top-K"];
-  F [label="Structured Filtering / Ranking"];
-  K [label="Adaptive Context-K"];
-  X [label="Retrieved Context"];
+  D [label="Supported constraints\nand product match?", shape=diamond];
+  F [label="Structured Product Filtering"];
+  ALL [label="Full Corpus"];
+  E [label="Embedding + FAISS\nSemantic Ranking"];
+  R [label="Top-K Retrieval Candidates\ndefault max 5"];
+  K [label="Adaptive Context Selection\nscore >= threshold • max Context-K"];
+  X [label="Context Builder"];
   S [label="Claude SUT"];
   A [label="Answer"];
   M [label="Retrieval Metrics\nHit • Match • Precision@K"];
-  T [label="Telemetry\nIDs • ranks • scores • context_k • model • tokens • latency"];
+  T [label="Telemetry\nIDs • ranks • scores • selected context_k • tokens • latency"];
 
-  Q -> C -> E -> V -> R -> F -> K -> X -> S -> A;
+  Q -> C -> D;
+  D -> F [label="yes"];
+  D -> ALL [label="no / no match"];
+  F -> E;
+  ALL -> E;
+  E -> R -> K -> X -> S -> A;
   R -> M;
-  F -> M;
   R -> T;
   K -> T;
+  X -> T;
   S -> T;
 }
