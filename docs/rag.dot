@@ -7,25 +7,32 @@ digraph G {
   C [label="Constraint Extraction"];
   D [label="Supported constraints\nand product match?", shape=diamond];
   F [label="Structured Product Filtering"];
-  ALL [label="Full Corpus"];
+  ALL [label="Full Corpus\n+ case-scoped test fixtures when declared"];
   E [label="Embedding + FAISS\nSemantic Ranking"];
   R [label="Top-K Retrieval Candidates\ndefault max 5"];
-  K [label="Adaptive Context Selection\nscore >= threshold • max Context-K"];
+  K [label="Adaptive Context Selection\nscore >= 0.30 • max Context-K"];
+  HAS [label="Context-K > 0?", shape=diamond];
   X [label="Context Builder"];
   S [label="Claude SUT"];
+  N [label="Deterministic no-context abstention\nSUT call skipped • 0 SUT tokens"];
   A [label="Answer"];
   M [label="Retrieval Metrics\nHit • Match • Precision@K"];
-  T [label="Telemetry\nIDs • ranks • scores • selected context_k • tokens • latency"];
+  T [label="Telemetry\nCandidates • selected/dropped • context_k • generation path • tokens • latency"];
 
   Q -> C -> D;
   D -> F [label="yes"];
   D -> ALL [label="no / no match"];
   F -> E;
   ALL -> E;
-  E -> R -> K -> X -> S -> A;
+  E -> R -> K -> HAS;
+  HAS -> X [label="yes"];
+  X -> S -> A;
+  HAS -> N [label="no"];
+  N -> A;
   R -> M;
   R -> T;
   K -> T;
   X -> T;
   S -> T;
+  N -> T;
 }
