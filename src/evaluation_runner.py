@@ -10,6 +10,7 @@ from llm_client import generate_answer
 BASE_DIR = Path(__file__).resolve().parent.parent
 NIGHTLY_RISK_METADATA = BASE_DIR / "datasets" / "evaluation_risk_metadata.json"
 NIGHTLY_ORACLE_METADATA = BASE_DIR / "datasets" / "evaluation_oracle_metadata.json"
+NIGHTLY_ASSERTION_METADATA = BASE_DIR / "datasets" / "evaluation_assertion_metadata.json"
 
 
 def parse_args():
@@ -44,10 +45,18 @@ def load_oracle_metadata(dataset_file):
         return json.load(file)
 
 
+def load_assertion_metadata(dataset_file):
+    if dataset_file.name != "evaluation_dataset.json":
+        return {}
+    with open(NIGHTLY_ASSERTION_METADATA, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
 def run_evaluation(dataset_file, results_file, top_k=5):
     dataset = load_dataset(dataset_file)
     risk_metadata = load_risk_metadata(dataset_file)
     oracle_metadata = load_oracle_metadata(dataset_file)
+    assertion_metadata = load_assertion_metadata(dataset_file)
     print(f"Dataset: {dataset_file}")
     print(f"Cases loaded: {len(dataset)}")
     print(f"Top-K: {top_k}")
@@ -79,9 +88,14 @@ def run_evaluation(dataset_file, results_file, top_k=5):
         if explicit_oracle is None and segment:
             explicit_oracle = oracle_metadata.get(str(segment).strip().lower())
 
+        deterministic_assertions = case.get("Deterministic Assertions")
+        if deterministic_assertions is None:
+            deterministic_assertions = assertion_metadata.get(case_id, [])
+
         results.append({
             "case_id": case_id,
             "oracle": explicit_oracle,
+            "deterministic_assertions": deterministic_assertions,
             "intent": case.get("Intent"),
             "query": query,
             "expected_product": case.get("Expected Product"),

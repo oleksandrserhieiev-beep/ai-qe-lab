@@ -1,5 +1,8 @@
 """Manually reviewed deterministic/semantic oracle routing for AI evaluation suites."""
 
+from deterministic_assertion_engine import evaluate_deterministic_assertions
+
+
 CRITICAL_DETERMINISTIC = {
     "G-001", "G-002", "G-003", "G-032", "G-033", "G-034",
 }
@@ -72,28 +75,43 @@ def build_evaluation_plan(case, retrieval_pass, constraint_retrieval=None):
     route = choose_oracle_route(case)
     constraint_retrieval = constraint_retrieval or {}
     constraint_applicable = bool(constraint_retrieval.get("applicable"))
-    constraint_score = constraint_retrieval.get("constraint_match_score")
-    constraint_pass = constraint_score == 100.0 if constraint_applicable else True
+
+    atomic_result = None
+    if route["route"] == "deterministic_only":
+        atomic_result = evaluate_deterministic_assertions(
+            case=case,
+            retrieval_pass=retrieval_pass,
+            constraint_retrieval=constraint_retrieval,
+        )
+
     return {
         **route,
         "constraint_assertion": {
             "applicable": constraint_applicable,
-            "passed": constraint_pass if constraint_applicable else None,
+            "passed": atomic_result.get("constraint_adherence") if atomic_result and constraint_applicable else None,
         },
-        "deterministic_pass": bool(retrieval_pass and constraint_pass),
-        "deterministic_signals": ["manual_oracle_route"] if route["route"] == "deterministic_only" else [],
+        "deterministic_pass": atomic_result["overall_pass"] if atomic_result else bool(retrieval_pass),
+        "deterministic_signals": ["atomic_assertion_engine"] if atomic_result and atomic_result["structured_assertions_configured"] else (["legacy_deterministic_route"] if route["route"] == "deterministic_only" else []),
+        "atomic_assertion_result": atomic_result,
+        "factual_assertion": atomic_result,
     }
 
 
-def deterministic_evaluation(retrieval_pass, constraint_retrieval=None, plan=None):
+def deterministic_evaluation(retrieval_pass, constraint_retrieval=None, plan=None, case=None):
+    """Evaluate deterministic route, using atomic assertions when configured."""
     constraint_retrieval = constraint_retrieval or {}
     plan = plan or {}
-    constraint_applicable = bool(constraint_retrieval.get("applicable"))
-    constraint_score = constraint_retrieval.get("constraint_match_score")
-    constraint_pass = constraint_score == 100.0 if constraint_applicable else True
-    overall = bool(retrieval_pass and constraint_pass and plan.get("deterministic_pass", True))
+    case = case or {}
+
+    engine_result = plan.get("atomic_assertion_result")
+    if engine_result is None:
+        engine_result = evaluate_deterministic_assertions(
+            case=case,
+            retrieval_pass=retrieval_pass,
+            constraint_retrieval=constraint_retrieval,
+        )
+
     return {
-        "retrieval_pass": bool(retrieval_pass),
-        "constraint_adherence": bool(constraint_pass),
-        "overall_pass": overall,
+        **engine_result,
+        "overall_pass": bool(engine_result["overall_pass"]),
     }

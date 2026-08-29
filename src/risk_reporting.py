@@ -46,9 +46,12 @@ def build_risk_summary(evaluated_cases):
             "passed": 0,
             "failed": 0,
             "retrieval_passed": 0,
+            "correctness_measured": 0,
             "correctness_passed": 0,
+            "groundedness_measured": 0,
             "groundedness_passed": 0,
             "constraint_passed": 0,
+            "hallucination_measured": 0,
             "hallucinations": 0,
             "context_coverage_scores": [],
         }
@@ -82,12 +85,17 @@ def build_risk_summary(evaluated_cases):
             bucket["retrieval_passed"] += int(
                 bool(evaluation.get("retrieval_pass", False))
             )
-            bucket["correctness_passed"] += int(
-                bool(evaluation.get("correctness", False))
-            )
-            bucket["groundedness_passed"] += int(
-                bool(evaluation.get("groundedness", False))
-            )
+
+            correctness = evaluation.get("correctness")
+            if correctness is not None:
+                bucket["correctness_measured"] += 1
+                bucket["correctness_passed"] += int(bool(correctness))
+
+            groundedness = evaluation.get("groundedness")
+            if groundedness is not None:
+                bucket["groundedness_measured"] += 1
+                bucket["groundedness_passed"] += int(bool(groundedness))
+
             bucket["constraint_passed"] += int(
                 bool(
                     evaluation.get(
@@ -96,9 +104,11 @@ def build_risk_summary(evaluated_cases):
                     )
                 )
             )
-            bucket["hallucinations"] += int(
-                bool(evaluation.get("hallucination", False))
-            )
+
+            hallucination = evaluation.get("hallucination")
+            if hallucination is not None:
+                bucket["hallucination_measured"] += 1
+                bucket["hallucinations"] += int(bool(hallucination))
 
             context_coverage = evaluation.get(
                 "context_coverage"
@@ -114,6 +124,9 @@ def build_risk_summary(evaluated_cases):
     for risk in sorted(buckets):
         bucket = buckets[risk]
         total = bucket["total_cases"]
+        correctness_measured = bucket["correctness_measured"]
+        groundedness_measured = bucket["groundedness_measured"]
+        hallucination_measured = bucket["hallucination_measured"]
 
         risk_summary[risk] = {
             "total_cases": total,
@@ -127,22 +140,28 @@ def build_risk_summary(evaluated_cases):
                 bucket["retrieval_passed"],
                 total,
             ),
-            "correctness_rate": percentage(
-                bucket["correctness_passed"],
-                total,
+            "correctness_rate": (
+                percentage(bucket["correctness_passed"], correctness_measured)
+                if correctness_measured
+                else None
             ),
-            "groundedness_rate": percentage(
-                bucket["groundedness_passed"],
-                total,
+            "correctness_measured_cases": correctness_measured,
+            "groundedness_rate": (
+                percentage(bucket["groundedness_passed"], groundedness_measured)
+                if groundedness_measured
+                else None
             ),
+            "groundedness_measured_cases": groundedness_measured,
             "constraint_adherence_rate": percentage(
                 bucket["constraint_passed"],
                 total,
             ),
-            "hallucination_rate": percentage(
-                bucket["hallucinations"],
-                total,
+            "hallucination_rate": (
+                percentage(bucket["hallucinations"], hallucination_measured)
+                if hallucination_measured
+                else None
             ),
+            "hallucination_measured_cases": hallucination_measured,
         }
 
         if bucket["context_coverage_scores"]:
@@ -160,6 +179,13 @@ def build_risk_summary(evaluated_cases):
     }
 
 
+def _semantic_metric_text(name, rate, measured_cases):
+    if not measured_cases or rate is None:
+        return f"{name} N/A (0 semantic cases)"
+
+    return f"{name} {rate}% ({measured_cases} semantic cases)"
+
+
 def print_risk_summary(risk_report):
     print("\nAI Risk Summary")
     print("---------------")
@@ -173,12 +199,22 @@ def print_risk_summary(risk_report):
         print("No classified AI risks found.")
     else:
         for risk, metrics in risk_summary.items():
+            groundedness_text = _semantic_metric_text(
+                "Groundedness",
+                metrics.get("groundedness_rate"),
+                metrics.get("groundedness_measured_cases", 0),
+            )
+            hallucination_text = _semantic_metric_text(
+                "Hallucination",
+                metrics.get("hallucination_rate"),
+                metrics.get("hallucination_measured_cases", 0),
+            )
             print(
                 f"{risk}: "
                 f"{metrics['passed']}/{metrics['total_cases']} PASS "
                 f"({metrics['pass_rate']}%), "
-                f"Groundedness {metrics['groundedness_rate']}%, "
-                f"Hallucination {metrics['hallucination_rate']}%"
+                f"{groundedness_text}, "
+                f"{hallucination_text}"
             )
 
     unclassified_count = risk_report.get(
