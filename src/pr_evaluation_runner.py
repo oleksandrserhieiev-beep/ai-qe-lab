@@ -19,13 +19,6 @@ def load_dataset():
 
 
 def select_context_results(retrieved):
-    """Keep retrieval depth for metrics while minimizing LLM context.
-
-    Structured filtering is already applied inside search(). When it leaves a
-    single strong result, send only that result. Otherwise send the top three
-    retrieved documents instead of all five. Retrieval metrics still operate
-    on the complete Top-5 list stored in the result.
-    """
     if len(retrieved) <= 1:
         return retrieved
     return retrieved[:DEFAULT_CONTEXT_K]
@@ -51,13 +44,7 @@ def run_evaluation():
         print(f"\n[{number}/{len(dataset)}] Running {case_id}")
         print(f"Query: {query}")
 
-        retrieved = search(
-            query=query,
-            model=model,
-            index=index,
-            documents=documents,
-            top_k=RETRIEVAL_K,
-        )
+        retrieved = search(query=query, model=model, index=index, documents=documents, top_k=RETRIEVAL_K)
         context_results = select_context_results(retrieved)
         retrieved_context = build_retrieved_context(context_results)
         final_context = build_context(query=query, results=context_results)
@@ -65,6 +52,7 @@ def run_evaluation():
 
         result = {
             "case_id": case_id,
+            "oracle": case.get("Oracle"),
             "intent": case.get("Intent"),
             "query": query,
             "expected_product": case.get("Expected Product"),
