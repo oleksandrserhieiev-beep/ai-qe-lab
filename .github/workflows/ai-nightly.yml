@@ -35,6 +35,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Validate Nightly Dataset
+        run: >
+          python src/dataset_validator.py
+          datasets/evaluation_dataset.json
+
       - name: Run Full Evaluation Dataset
         run: >
           python src/evaluation_runner.py
