@@ -48,6 +48,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Validate PR Critical Dataset
+        run: |
+          python src/dataset_validator.py datasets/pr_critical_dataset.json
+
       - name: Build AI Risk Coverage Matrix
         run: |
           python src/risk_coverage.py --output reports/risk_coverage.json
