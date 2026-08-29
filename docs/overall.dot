@@ -5,31 +5,45 @@ digraph G {
   edge [fontname="Arial"];
 
   Dataset [label="User / Evaluation Dataset"];
-  Constraints [label="Constraint Extraction / Filtering"];
-  Embed [label="Embedding\nall-MiniLM-L6-v2"];
-  Vector [label="FAISS Vector Store"];
-  Retrieval [label="Top-K Retrieval"];
-  ContextK [label="Adaptive Context-K"];
+  Validation [label="Dataset / Oracle Validation\n(evaluation datasets)"];
+  Constraints [label="Constraint Extraction"];
+  Decision [label="Supported constraints\nand product match?", shape=diamond];
+  Filter [label="Structured Product Filtering"];
+  Corpus [label="Full Corpus"];
+  Retrieval [label="Embedding + FAISS Ranking\nTop-K Candidates"];
+  ContextK [label="Adaptive Context Selection\nSimilarity Threshold + Max Context-K"];
   Context [label="Context Builder"];
   SUT [label="Claude SUT\nShopping Assistant"];
   Answer [label="Generated Answer"];
 
-  Py [label="Deterministic Python Metrics\nRetrieval Hit • Constraint Match • Precision@K"];
-  Judge [label="Claude Judge\nCorrectness • Groundedness • Hallucination\nConstraint Adherence • Context Coverage/Sufficiency"];
+  Py [label="Deterministic Evidence\nRetrieval • Atomic Assertions"];
+  Oracle [label="Oracle Resolution"];
+  Judge [label="Semantic LLM Judge"];
   Risk [label="AI Risk Reporting + Coverage Matrix"];
   Gate [label="Quality Gate"];
-  CI [label="GitHub Actions\nPR PASS / FAIL"];
-  Telemetry [label="Observability\nRetrieval • Context • LLM • Latency • Tokens"];
-  Governance [label="Dataset Governance\nExcel review layer → JSON execution"];
+  CI [label="GitHub Actions\nPASS / FAIL"];
+  Telemetry [label="Observability\nRetrieval • Selection • Context • LLM • Tokens • Latency"];
+  Governance [label="Governed JSON Datasets\nDataset authoritative • Mapper derived"];
 
-  Dataset -> Constraints -> Embed -> Vector -> Retrieval -> ContextK -> Context -> SUT -> Answer;
+  Dataset -> Validation -> Constraints -> Decision;
+  Decision -> Filter [label="yes"];
+  Decision -> Corpus [label="no / no match"];
+  Filter -> Retrieval;
+  Corpus -> Retrieval;
+  Retrieval -> ContextK -> Context -> SUT -> Answer;
+
   Retrieval -> Py;
-  ContextK -> Judge [label="retrieved evidence"];
-  Answer -> Judge;
-  Py -> Risk;
+  ContextK -> Py;
+  Context -> Py;
+  Answer -> Oracle;
+  Py -> Oracle;
+  Oracle -> Judge [label="semantic_llm"];
+  Oracle -> Risk [label="deterministic evidence"];
   Judge -> Risk;
   Risk -> Gate -> CI;
+
   Retrieval -> Telemetry;
+  ContextK -> Telemetry;
   Context -> Telemetry;
   SUT -> Telemetry;
   Telemetry -> Risk;
