@@ -82,6 +82,7 @@ def run_evaluation(dataset_file, results_file, top_k=5):
         results.append({
             "case_id": case_id,
             "oracle": explicit_oracle,
+            "deterministic_assertions": case.get("Deterministic Assertions", []),
             "intent": case.get("Intent"),
             "query": query,
             "expected_product": case.get("Expected Product"),
