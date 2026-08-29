@@ -6,31 +6,40 @@ digraph G {
 
   Dataset [label="User / Evaluation Dataset"];
   Validation [label="Dataset / Oracle Validation\n(evaluation datasets)"];
+  Fixtures [label="Case-scoped Test Fixtures\nonly when declared by evaluation case"];
   Constraints [label="Constraint Extraction"];
   Decision [label="Supported constraints\nand product match?", shape=diamond];
   Filter [label="Structured Product Filtering"];
-  Corpus [label="Full Corpus"];
+  Corpus [label="Approved Corpus"];
   Retrieval [label="Embedding + FAISS Ranking\nTop-K Candidates"];
-  ContextK [label="Adaptive Context Selection\nSimilarity Threshold + Max Context-K"];
+  ContextK [label="Adaptive Context Selection\nSimilarity >= 0.30 + Max Context-K"];
+  HasContext [label="Context-K > 0?", shape=diamond];
   Context [label="Context Builder"];
   SUT [label="Claude SUT\nShopping Assistant"];
-  Answer [label="Generated Answer"];
+  Abstain [label="Deterministic No-Context Abstention\nNo SUT API call • 0 SUT tokens"];
+  Answer [label="Answer"];
 
-  Py [label="Deterministic Evidence\nRetrieval • Atomic Assertions"];
+  Py [label="Deterministic Evidence\nRetrieval • Context Selection • Atomic Assertions"];
   Oracle [label="Oracle Resolution"];
   Judge [label="Semantic LLM Judge"];
   Risk [label="AI Risk Reporting + Coverage Matrix"];
   Gate [label="Quality Gate"];
   CI [label="GitHub Actions\nPASS / FAIL"];
-  Telemetry [label="Observability\nRetrieval • Selection • Context • LLM • Tokens • Latency"];
+  Telemetry [label="Observability\nRetrieval • Selection • Generation Path • Tokens • Latency"];
   Governance [label="Governed JSON Datasets\nDataset authoritative • Mapper derived"];
 
   Dataset -> Validation -> Constraints -> Decision;
+  Validation -> Fixtures;
   Decision -> Filter [label="yes"];
   Decision -> Corpus [label="no / no match"];
+  Fixtures -> Corpus [label="evaluation-only augmentation"];
   Filter -> Retrieval;
   Corpus -> Retrieval;
-  Retrieval -> ContextK -> Context -> SUT -> Answer;
+  Retrieval -> ContextK -> HasContext;
+  HasContext -> Context [label="yes"];
+  Context -> SUT -> Answer;
+  HasContext -> Abstain [label="no"];
+  Abstain -> Answer;
 
   Retrieval -> Py;
   ContextK -> Py;
@@ -46,6 +55,7 @@ digraph G {
   ContextK -> Telemetry;
   Context -> Telemetry;
   SUT -> Telemetry;
+  Abstain -> Telemetry;
   Telemetry -> Risk;
   Governance -> Dataset;
 }
