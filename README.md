@@ -2,6 +2,10 @@
 
 Practical AI Quality Engineering lab for building, testing, evaluating, observing and governing AI-enabled systems.
 
+## Quick start
+
+New to the lab? Follow [`QUICKSTART.md`](QUICKSTART.md) to clone the repository, configure the local environment and run the project on Windows.
+
 ## Current SUT
 
 The implemented System Under Test is a Shopping RAG Assistant. The surrounding QE framework combines governed datasets, deterministic Python assertions, LLM-as-a-Judge evaluation, AI-risk metadata, CI quality gates, operational telemetry, failure localization and human governance.
@@ -109,6 +113,7 @@ The framework records retrieval IDs/ranks/scores, selected context size and IDs,
 
 ## Documentation
 
+- [`QUICKSTART.md`](QUICKSTART.md) — clone, configure and run locally;
 - [`docs/architecture.md`](docs/architecture.md) — implemented architecture and failure localization;
 - [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) — Oracle routing and evaluation architecture;
 - [`docs/metric_contract.md`](docs/metric_contract.md) — canonical metric definitions and denominators;
