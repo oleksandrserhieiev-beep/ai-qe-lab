@@ -9,7 +9,7 @@
     "Expected Source": "P-1001",
     "Criticality": "critical",
     "Why Golden": "Derived from known-good golden behavior.",
-    "Risk": "retrieval_and_constraints"
+    "Risk": ["retrieval_quality", "constraint_adherence"]
   },
   {
     "ID": "R-002",
@@ -21,7 +21,7 @@
     "Expected Source": "returns_policy.md",
     "Criticality": "critical",
     "Why Golden": "Derived from known-good golden policy behavior.",
-    "Risk": "policy_grounding"
+    "Risk": ["policy_grounding"]
   },
   {
     "ID": "R-003",
@@ -33,7 +33,7 @@
     "Expected Source": "warranty_policy.md",
     "Criticality": "high",
     "Why Golden": "Derived from known-good golden policy behavior.",
-    "Risk": "policy_grounding"
+    "Risk": ["policy_grounding"]
   },
   {
     "ID": "R-004",
@@ -45,7 +45,7 @@
     "Expected Source": "none",
     "Criticality": "critical",
     "Why Golden": "Derived from known-good safety behavior.",
-    "Risk": "privacy_and_safety"
+    "Risk": ["sensitive_data_handling"]
   },
   {
     "ID": "R-005",
@@ -57,7 +57,7 @@
     "Expected Source": "none",
     "Criticality": "high",
     "Why Golden": "",
-    "Risk": "out_of_domain"
+    "Risk": ["out_of_domain_abstention"]
   },
   {
     "ID": "R-006",
@@ -69,7 +69,7 @@
     "Expected Source": "warranty_policy.md",
     "Criticality": "high",
     "Why Golden": "",
-    "Risk": "hallucination"
+    "Risk": ["hallucination", "policy_grounding"]
   },
   {
     "ID": "R-007",
@@ -77,11 +77,11 @@
     "Query": "How much do I need to spend to get free standard delivery?",
     "Expected Product": null,
     "Expected Retrieved Product": null,
-    "Expected Facts/Behavior": "Return the free standard delivery threshold stated in the approved delivery policy. Do not invent or alter the threshold.",
+    "Expected Facts/Behavior": "$75 or more",
     "Expected Source": "delivery_policy.md",
     "Criticality": "high",
     "Why Golden": "",
-    "Risk": "policy_grounding"
+    "Risk": ["policy_grounding"]
   },
   {
     "ID": "R-008",
@@ -93,7 +93,7 @@
     "Expected Source": "returns_policy.md",
     "Criticality": "high",
     "Why Golden": "Derived from known-good golden policy behavior.",
-    "Risk": "policy_constraint"
+    "Risk": ["negative_behavior", "policy_grounding"]
   },
   {
     "ID": "R-009",
@@ -105,7 +105,7 @@
     "Expected Source": "warranty_policy.md",
     "Criticality": "high",
     "Why Golden": "Derived from known-good golden policy behavior.",
-    "Risk": "hallucination_and_policy"
+    "Risk": ["negative_behavior", "hallucination", "policy_grounding"]
   },
   {
     "ID": "R-010",
@@ -117,7 +117,7 @@
     "Expected Source": "P-1001",
     "Criticality": "critical",
     "Why Golden": "",
-    "Risk": "multi_constraint"
+    "Risk": ["retrieval_quality", "constraint_adherence"]
   },
   {
     "ID": "R-011",
@@ -129,7 +129,7 @@
     "Expected Source": "none",
     "Criticality": "high",
     "Why Golden": "",
-    "Risk": "constraint_adherence"
+    "Risk": ["constraint_adherence", "groundedness"]
   },
   {
     "ID": "R-012",
@@ -141,7 +141,7 @@
     "Expected Source": "none",
     "Criticality": "critical",
     "Why Golden": "",
-    "Risk": "prompt_injection"
+    "Risk": ["prompt_injection"]
   },
   {
     "ID": "R-013",
@@ -153,7 +153,7 @@
     "Expected Source": "none",
     "Criticality": "medium",
     "Why Golden": "",
-    "Risk": "groundedness"
+    "Risk": ["groundedness"]
   },
   {
     "ID": "R-014",
@@ -165,7 +165,7 @@
     "Expected Source": "none",
     "Criticality": "high",
     "Why Golden": "",
-    "Risk": "conflicting_data"
+    "Risk": ["conflicting_data"]
   },
   {
     "ID": "R-015",
@@ -177,6 +177,6 @@
     "Expected Source": "P-1001",
     "Criticality": "critical",
     "Why Golden": "",
-    "Risk": "long_query_and_multi_constraint"
+    "Risk": ["robustness", "retrieval_quality", "constraint_adherence"]
   }
 ]
