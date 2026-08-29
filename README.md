@@ -55,10 +55,15 @@ Both paths are **test automation**. The difference is the oracle used to decide 
 
 ```mermaid
 flowchart TD
-    A[Automated AI Evaluation] --> AT[Atomic Evaluation Assertions]
-    AT --> Q{Objectively formalizable?}
-    Q -->|Yes| D[Deterministic Oracle]
-    Q -->|No| S[Semantic Oracle]
+    A[Automated AI Evaluation] --> O{Explicit Oracle?}
+    O -->|deterministic| D[Deterministic route]
+    O -->|semantic_llm| S[Semantic route]
+    O -->|missing / null / empty| F[Fallback: judge_routing.py]
+    F --> ID[Normalize case_id / id / ID]
+    ID --> M{ID in reviewed mapping?}
+    M -->|deterministic| D
+    M -->|semantic_llm| S
+    M -->|unknown| S
     D --> P[Python Assertions]
     S --> L[LLM Judge]
     P --> R[Evaluation Aggregation]
@@ -69,6 +74,10 @@ flowchart TD
 The design rule is:
 
 > **Automate deterministically everything that can be expressed as an objective assertion. Use an LLM Judge only where semantic interpretation is genuinely required.**
+
+The explicit dataset/runtime `Oracle` is the primary source of truth. `judge_routing.py` is a fallback registry for missing Oracle metadata and backward compatibility. It normalizes `case_id`, `id`, or `ID` as field-name variants for the same case identifier and looks up the manually reviewed classification. If neither an explicit Oracle nor a known mapped ID exists, the safe default is `semantic_llm`.
+
+The LLM Judge does **not** decide whether an unknown case is deterministic or semantic. Routing has already selected the semantic fallback; the Judge then evaluates the response for PASS/FAIL. Unknown cases are never guessed to be deterministic because deterministic evaluation requires a known formal assertion.
 
 Examples of deterministic assertions: IDs, numbers, booleans, ranges, schemas, catalogue membership, exact policy facts and structured product constraints. Examples of semantic assertions: safe refusal, ambiguity handling, out-of-domain abstention, prompt-injection resistance and unsupported semantic claims.
 
@@ -82,8 +91,6 @@ Critical, Regression and Nightly were manually reviewed case by case. All 105 ca
 | Regression | 15 | 7 | 8 | 46.7% |
 | Nightly | 80 | 48 | 32 | 60.0% |
 | **Total** | **105** | **61 (58.1%)** | **44 (41.9%)** | **58.1%** |
-
-This is the reviewed **target routing**, not yet a claim that CI already achieves the reduction. Runtime implementation and validation are handled separately.
 
 Full oracle rationale and case lists: [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md).
 
@@ -188,6 +195,8 @@ Requirement / Risk / Test Intent
  -> Evidence / Defect / Regression
 ```
 
+New governed cases should explicitly declare `Oracle: deterministic` or `Oracle: semantic_llm`. Missing Oracle metadata may currently use the routing fallback for compatibility; unsupported non-empty Oracle values should be treated as dataset-validation errors rather than silently reclassified.
+
 ---
 
 ## Repository Structure
@@ -209,9 +218,9 @@ tests/                Software-level tests
 
 ## Current State vs Planned Extensions
 
-Implemented: Shopping RAG SUT, structured constraint filtering, FAISS retrieval/telemetry, controlled datasets, deterministic retrieval diagnostics, semantic Judge, AI-risk metadata/coverage, CI gates, retry policies, operational telemetry and cost optimization.
+Implemented: Shopping RAG SUT, structured constraint filtering, FAISS retrieval/telemetry, controlled datasets, deterministic retrieval diagnostics, semantic Judge, manually reviewed oracle routing with safe semantic fallback, AI-risk metadata/coverage, CI gates, retry policies, operational telemetry and cost optimization.
 
-Planned: finalized deterministic/semantic routing implementation, Defect -> Regression automation, Jira traceability, Requirements Readiness Agent, AI Risk Analysis Agent, test-design agents, duplicate detection, human approval, Excel -> JSON export, QA Agent evaluation, Test Management Lifecycle Agent and programme-level release governance.
+Planned: complete deterministic atomic assertion coverage, dataset Oracle validation, Defect -> Regression automation, Jira traceability, Requirements Readiness Agent, AI Risk Analysis Agent, test-design agents, duplicate detection, human approval, Excel -> JSON export, QA Agent evaluation, Test Management Lifecycle Agent and programme-level release governance.
 
 ---
 
@@ -230,6 +239,7 @@ Requirement
 -> Governance Repository
 -> JSON Dataset
 -> CI Evaluation
+-> Oracle Resolution / Fallback
 -> Atomic Assertions
 -> Deterministic / Semantic Oracle
 -> Quality Gate
