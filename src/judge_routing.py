@@ -1,5 +1,8 @@
 """Manually reviewed deterministic/semantic oracle routing for AI evaluation suites."""
 
+from deterministic_assertion_engine import evaluate_deterministic_assertions
+
+
 CRITICAL_DETERMINISTIC = {
     "G-001", "G-002", "G-003", "G-032", "G-033", "G-034",
 }
@@ -85,15 +88,19 @@ def build_evaluation_plan(case, retrieval_pass, constraint_retrieval=None):
     }
 
 
-def deterministic_evaluation(retrieval_pass, constraint_retrieval=None, plan=None):
+def deterministic_evaluation(retrieval_pass, constraint_retrieval=None, plan=None, case=None):
+    """Evaluate deterministic route, using atomic assertions when configured."""
     constraint_retrieval = constraint_retrieval or {}
     plan = plan or {}
-    constraint_applicable = bool(constraint_retrieval.get("applicable"))
-    constraint_score = constraint_retrieval.get("constraint_match_score")
-    constraint_pass = constraint_score == 100.0 if constraint_applicable else True
-    overall = bool(retrieval_pass and constraint_pass and plan.get("deterministic_pass", True))
+    case = case or {}
+
+    engine_result = evaluate_deterministic_assertions(
+        case=case,
+        retrieval_pass=retrieval_pass,
+        constraint_retrieval=constraint_retrieval,
+    )
+    overall = bool(engine_result["overall_pass"] and plan.get("deterministic_pass", True))
     return {
-        "retrieval_pass": bool(retrieval_pass),
-        "constraint_adherence": bool(constraint_pass),
+        **engine_result,
         "overall_pass": overall,
     }
