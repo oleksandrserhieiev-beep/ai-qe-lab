@@ -27,12 +27,15 @@ DETERMINISTIC_PRODUCT_RISKS = {
     "long_query_and_multi_constraint",
 }
 
-# policy_grounding and robustness are intentionally not globally semantic.
-# A case carrying one of these risks may still be deterministic when the
-# expected oracle is a concrete factual value (for example 30 days or $75).
-CONDITIONALLY_DETERMINISTIC_RISKS = {
+# These risks are semantic in general, but a case may be deterministic when
+# its complete oracle is an exact factual value such as 30 days, 12 months,
+# $75, or price+stock. Risk labels do not override case-level testability.
+EXACT_FACT_COMPATIBLE_RISKS = {
+    "factual_correctness",
     "policy_grounding",
     "robustness",
+    "groundedness",
+    "retrieval_quality",
 }
 
 BEHAVIORAL_MARKERS = {
@@ -73,11 +76,8 @@ def _simple_fact_parts(expected_behavior):
     expected = _normalize_text(expected_behavior)
     if not expected:
         return []
-
     if any(marker in expected for marker in BEHAVIORAL_MARKERS):
         return []
-
-    # Yes/no statements require semantic polarity handling; keep them judged.
     if expected.startswith("yes") or expected.startswith("no;") or expected.startswith("no "):
         return []
 
@@ -100,16 +100,12 @@ def _simple_fact_parts(expected_behavior):
 def _fact_part_matches(part, actual_answer):
     actual = _normalize_text(actual_answer)
     part = _normalize_text(part)
-
-    # Normalize common formatting differences without using semantic judgment.
     actual_compact = actual.replace(",", "")
     part_compact = part.replace(",", "")
 
     if part_compact in actual_compact:
         return True
 
-    # key=value expectations such as stock=14 may be rendered as "stock: 14"
-    # or "stock is 14" in the model response.
     key_value = re.fullmatch(r"([a-z_ ]+)\s*=\s*([^;]+)", part_compact)
     if key_value:
         key = key_value.group(1).strip()
@@ -121,7 +117,6 @@ def _fact_part_matches(part, actual_answer):
             )
         )
 
-    # Currency/unit facts: compare the meaningful numeric tokens and units.
     expected_numbers = re.findall(r"\d+(?:\.\d+)?", part_compact)
     if expected_numbers and all(number in actual_compact for number in expected_numbers):
         units = [
@@ -133,7 +128,6 @@ def _fact_part_matches(part, actual_answer):
             if "$" in part_compact and "$" not in actual_compact:
                 return False
             return True
-
     return False
 
 
@@ -155,8 +149,6 @@ def _expected_product_match(case):
     if expected in answer:
         return {"applicable": True, "passed": True}
 
-    # Accept the retrieved product name as a deterministic representation of
-    # the expected product when the assistant answers with the name, not ID.
     for item in case.get("retrieval", []):
         if _normalize_text(item.get("id")) != expected:
             continue
@@ -178,10 +170,16 @@ def build_evaluation_plan(case, retrieval_pass, constraint_retrieval=None):
     )
     product = _expected_product_match(case)
 
-    if risks & BLOCKING_SEMANTIC_RISKS:
+    exact_fact_case = (
+        factual["applicable"]
+        and bool(risks)
+        and risks <= (EXACT_FACT_COMPATIBLE_RISKS | DETERMINISTIC_PRODUCT_RISKS)
+    )
+
+    if risks & BLOCKING_SEMANTIC_RISKS and not exact_fact_case:
         return {
             "route": "semantic_judge",
-            "reason": "case contains behavior/safety/groundedness risk requiring semantic judgment",
+            "reason": "case contains behavior/safety/semantic risk requiring model judgment",
             "factual_assertion": factual,
             "product_assertion": product,
         }
@@ -206,13 +204,10 @@ def build_evaluation_plan(case, retrieval_pass, constraint_retrieval=None):
         deterministic_signals.append("structured_constraints")
         deterministic_passes.append(bool(constraint_pass))
 
-    # Concrete policy facts and paraphrases can be asserted in Python even
-    # though the broad risk label is policy_grounding/robustness.
-    conditional_only = bool(risks) and risks <= (
-        CONDITIONALLY_DETERMINISTIC_RISKS | DETERMINISTIC_PRODUCT_RISKS
-    )
+    deterministic_risk_set = EXACT_FACT_COMPATIBLE_RISKS | DETERMINISTIC_PRODUCT_RISKS
+    deterministically_coverable = bool(risks) and risks <= deterministic_risk_set
 
-    if deterministic_signals and (conditional_only or product_or_constraint_risk):
+    if deterministic_signals and deterministically_coverable:
         return {
             "route": "deterministic_only",
             "reason": "case oracle is fully represented by deterministic assertions",
