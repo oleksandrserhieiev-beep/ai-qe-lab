@@ -3,6 +3,11 @@ from pathlib import Path
 
 from vector_store import build_documents, build_vector_store, search
 from context_builder import build_context, build_retrieved_context, PROMPT_VERSION
+from context_selector import (
+    build_context_selection_metadata,
+    get_context_selection_config,
+    select_context_results,
+)
 from llm_client import generate_answer
 
 
@@ -10,7 +15,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATASET_FILE = BASE_DIR / "datasets" / "pr_critical_dataset.json"
 RESULTS_FILE = BASE_DIR / "reports" / "pr_results.json"
 RETRIEVAL_K = 5
-DEFAULT_CONTEXT_K = 3
 
 
 def load_dataset():
@@ -18,16 +22,17 @@ def load_dataset():
         return json.load(file)
 
 
-def select_context_results(retrieved):
-    if len(retrieved) <= 1:
-        return retrieved
-    return retrieved[:DEFAULT_CONTEXT_K]
-
-
 def run_evaluation():
     dataset = load_dataset()
+    selection_config = get_context_selection_config()
     print(f"Critical cases loaded: {len(dataset)}")
-    print(f"Retrieval-K: {RETRIEVAL_K}; max Context-K: {DEFAULT_CONTEXT_K}")
+    print(
+        "Adaptive context selection: "
+        f"retrieval_k={RETRIEVAL_K}, "
+        f"target_min_k={selection_config['min_k']}, "
+        f"max_k={selection_config['max_k']}, "
+        f"min_similarity={selection_config['min_similarity']:.2f}"
+    )
     print("Initializing RAG...")
 
     documents = build_documents()
@@ -44,8 +49,19 @@ def run_evaluation():
         print(f"\n[{number}/{len(dataset)}] Running {case_id}")
         print(f"Query: {query}")
 
-        retrieved = search(query=query, model=model, index=index, documents=documents, top_k=RETRIEVAL_K)
+        retrieved = search(
+            query=query,
+            model=model,
+            index=index,
+            documents=documents,
+            top_k=RETRIEVAL_K,
+        )
         context_results = select_context_results(retrieved)
+        selection_metadata = build_context_selection_metadata(
+            retrieved,
+            context_results,
+            selection_config,
+        )
         retrieved_context = build_retrieved_context(context_results)
         final_context = build_context(query=query, results=context_results)
         answer, telemetry = generate_answer(final_context)
@@ -76,13 +92,17 @@ def run_evaluation():
                 }
                 for item in retrieved
             ],
+            "context_selection": selection_metadata,
             "prompt_version": PROMPT_VERSION,
             "retrieval_k": RETRIEVAL_K,
             "context_k": len(context_results),
             "telemetry": telemetry,
         }
         results.append(result)
-        print(f"Context-K used: {len(context_results)}")
+        print(
+            f"Context-K selected: {len(context_results)} / {len(retrieved)} "
+            f"candidate(s)"
+        )
         print("Answer:")
         print(answer)
 
