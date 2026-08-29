@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from cost_reporting import summarize_usage, print_usage_summary
+from judge_routing import build_evaluation_plan, deterministic_evaluation
 from llm_evaluator import evaluate_ai_response
 from retrieval_metrics import evaluate_constraint_retrieval
 from risk_reporting import build_risk_summary, print_risk_summary
@@ -40,7 +41,45 @@ def evaluate_retrieval(case):
 def evaluate_case(case):
     query = case.get("query", "")
     retrieval_pass = evaluate_retrieval(case)
-    constraint_retrieval = evaluate_constraint_retrieval(query=query, retrieval=case.get("retrieval", []))
+    constraint_retrieval = evaluate_constraint_retrieval(
+        query=query,
+        retrieval=case.get("retrieval", []),
+    )
+    plan = build_evaluation_plan(
+        case=case,
+        retrieval_pass=retrieval_pass,
+        constraint_retrieval=constraint_retrieval,
+    )
+
+    if plan["route"] == "deterministic_only":
+        deterministic = deterministic_evaluation(
+            retrieval_pass=retrieval_pass,
+            constraint_retrieval=constraint_retrieval,
+            plan=plan,
+        )
+        return {
+            **case,
+            "evaluation": {
+                "retrieval_pass": retrieval_pass,
+                "constraint_retrieval": constraint_retrieval,
+                "deterministic_assertions": {
+                    "factual": plan.get("factual_assertion"),
+                    "product": plan.get("product_assertion"),
+                    "signals": plan.get("deterministic_signals", []),
+                },
+                "context_coverage": None,
+                "context_sufficient": None,
+                "correctness": None,
+                "groundedness": None,
+                "hallucination": None,
+                "constraint_adherence": deterministic["constraint_adherence"],
+                "overall_pass": deterministic["overall_pass"],
+                "reason": plan["reason"],
+                "judge_route": plan["route"],
+                "judge_telemetry": {},
+            },
+        }
+
     ai_evaluation = evaluate_ai_response(
         query=query,
         expected_behavior=case.get("expected_facts_behavior", ""),
@@ -62,6 +101,10 @@ def evaluate_case(case):
         "evaluation": {
             "retrieval_pass": retrieval_pass,
             "constraint_retrieval": constraint_retrieval,
+            "deterministic_assertions": {
+                "factual": plan.get("factual_assertion"),
+                "product": plan.get("product_assertion"),
+            },
             "context_coverage": context_coverage,
             "context_sufficient": context_sufficient,
             "correctness": correctness,
@@ -70,6 +113,7 @@ def evaluate_case(case):
             "constraint_adherence": constraint_adherence,
             "overall_pass": overall_pass,
             "reason": ai_evaluation.get("reason"),
+            "judge_route": plan["route"],
             "judge_telemetry": ai_evaluation.get("_telemetry", {}),
         },
     }
@@ -81,6 +125,18 @@ def percentage(value, total):
 
 def average(values):
     return round(sum(values) / len(values), 2) if values else 0.0
+
+
+def semantic_rate(cases, metric, positive=True):
+    measured = [
+        c["evaluation"][metric]
+        for c in cases
+        if c["evaluation"].get(metric) is not None
+    ]
+    if not measured:
+        return 100.0, 0
+    passed = sum(bool(value) == positive for value in measured)
+    return percentage(passed, len(measured)), len(measured)
 
 
 def percentile(values, percentile_value):
@@ -106,22 +162,50 @@ def run_evaluator(results_file, evaluated_file):
     total = len(evaluated_cases)
     overall_passed = sum(c["evaluation"]["overall_pass"] for c in evaluated_cases)
     retrieval_passed = sum(c["evaluation"]["retrieval_pass"] for c in evaluated_cases)
-    correctness_passed = sum(c["evaluation"]["correctness"] for c in evaluated_cases)
-    groundedness_passed = sum(c["evaluation"]["groundedness"] for c in evaluated_cases)
     constraint_passed = sum(c["evaluation"]["constraint_adherence"] for c in evaluated_cases)
-    hallucinations = sum(c["evaluation"]["hallucination"] for c in evaluated_cases)
-    context_coverage_scores = [c["evaluation"]["context_coverage"] for c in evaluated_cases]
-    context_sufficient_cases = sum(c["evaluation"]["context_sufficient"] for c in evaluated_cases)
+
+    correctness_rate, correctness_cases = semantic_rate(evaluated_cases, "correctness")
+    groundedness_rate, groundedness_cases = semantic_rate(evaluated_cases, "groundedness")
+    hallucination_pass_rate, hallucination_cases = semantic_rate(
+        evaluated_cases, "hallucination", positive=False
+    )
+    hallucination_rate = round(100.0 - hallucination_pass_rate, 2)
+    context_sufficiency_rate, context_sufficiency_cases = semantic_rate(
+        evaluated_cases, "context_sufficient"
+    )
+    context_coverage_scores = [
+        c["evaluation"]["context_coverage"]
+        for c in evaluated_cases
+        if c["evaluation"].get("context_coverage") is not None
+    ]
 
     constraint_metric_cases = [
         c["evaluation"]["constraint_retrieval"]
         for c in evaluated_cases
         if c["evaluation"]["constraint_retrieval"]["applicable"]
     ]
-    constraint_match_scores = [m["constraint_match_score"] for m in constraint_metric_cases if m["constraint_match_score"] is not None]
-    constraint_precision_scores = [m["constraint_precision_at_k"] for m in constraint_metric_cases if m["constraint_precision_at_k"] is not None]
+    constraint_match_scores = [
+        m["constraint_match_score"]
+        for m in constraint_metric_cases
+        if m["constraint_match_score"] is not None
+    ]
+    constraint_precision_scores = [
+        m["constraint_precision_at_k"]
+        for m in constraint_metric_cases
+        if m["constraint_precision_at_k"] is not None
+    ]
 
-    latencies = [float(c.get("telemetry", {}).get("latency_ms")) for c in evaluated_cases if c.get("telemetry", {}).get("latency_ms") is not None]
+    semantic_judge_cases = sum(
+        c["evaluation"].get("judge_route") == "semantic_judge"
+        for c in evaluated_cases
+    )
+    deterministic_only_cases = total - semantic_judge_cases
+
+    latencies = [
+        float(c.get("telemetry", {}).get("latency_ms"))
+        for c in evaluated_cases
+        if c.get("telemetry", {}).get("latency_ms") is not None
+    ]
     risk_report = build_risk_summary(evaluated_cases)
     usage = summarize_usage(evaluated_cases)
 
@@ -134,12 +218,23 @@ def run_evaluator(results_file, evaluated_file):
         "average_constraint_match_score": average(constraint_match_scores),
         "average_constraint_precision_at_k": average(constraint_precision_scores),
         "constraint_metric_cases": len(constraint_metric_cases),
-        "average_context_coverage": average(context_coverage_scores),
-        "context_sufficiency_rate": percentage(context_sufficient_cases, total),
-        "correctness_rate": percentage(correctness_passed, total),
-        "groundedness_rate": percentage(groundedness_passed, total),
+        "average_context_coverage": average(context_coverage_scores) if context_coverage_scores else 100.0,
+        "context_sufficiency_rate": context_sufficiency_rate,
+        "correctness_rate": correctness_rate,
+        "groundedness_rate": groundedness_rate,
         "constraint_adherence_rate": percentage(constraint_passed, total),
-        "hallucination_rate": percentage(hallucinations, total),
+        "hallucination_rate": hallucination_rate,
+        "semantic_metric_case_counts": {
+            "correctness": correctness_cases,
+            "groundedness": groundedness_cases,
+            "hallucination": hallucination_cases,
+            "context_sufficiency": context_sufficiency_cases,
+        },
+        "judge_routing": {
+            "semantic_judge_cases": semantic_judge_cases,
+            "deterministic_only_cases": deterministic_only_cases,
+            "judge_call_reduction_percent": percentage(deterministic_only_cases, total),
+        },
         "risk_count": risk_report["risk_count"],
         "unclassified_risk_cases": risk_report["unclassified_count"],
         "risk_summary": risk_report["risk_summary"],
@@ -166,10 +261,15 @@ def run_evaluator(results_file, evaluated_file):
     print(f"Average Constraint Precision@K: {summary['average_constraint_precision_at_k']}%")
     print(f"Average Context Coverage: {summary['average_context_coverage']}%")
     print(f"Context Sufficiency Rate: {summary['context_sufficiency_rate']}%")
-    print(f"Correctness Rate: {summary['correctness_rate']}%")
-    print(f"Groundedness Rate: {summary['groundedness_rate']}%")
+    print(f"Correctness Rate: {summary['correctness_rate']}% ({correctness_cases} judged)")
+    print(f"Groundedness Rate: {summary['groundedness_rate']}% ({groundedness_cases} judged)")
     print(f"Constraint Adherence Rate: {summary['constraint_adherence_rate']}%")
-    print(f"Hallucination Rate: {summary['hallucination_rate']}%")
+    print(f"Hallucination Rate: {summary['hallucination_rate']}% ({hallucination_cases} judged)")
+    print("\nJudge Routing")
+    print("-------------")
+    print(f"Semantic Judge cases: {semantic_judge_cases}/{total}")
+    print(f"Deterministic-only cases: {deterministic_only_cases}/{total}")
+    print(f"Judge call reduction: {summary['judge_routing']['judge_call_reduction_percent']}%")
     print_risk_summary(risk_report)
     print_usage_summary(usage)
     print(f"\nSaved to: {evaluated_file}")
