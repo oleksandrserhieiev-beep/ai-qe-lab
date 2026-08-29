@@ -27,9 +27,6 @@ DETERMINISTIC_PRODUCT_RISKS = {
     "long_query_and_multi_constraint",
 }
 
-# These risks are semantic in general, but a case may be deterministic when
-# its complete oracle is an exact factual value such as 30 days, 12 months,
-# $75, or price+stock. Risk labels do not override case-level testability.
 EXACT_FACT_COMPATIBLE_RISKS = {
     "factual_correctness",
     "policy_grounding",
@@ -75,6 +72,8 @@ def _simple_fact_parts(expected_behavior):
     """Return deterministic literal facts or [] when the oracle is behavioral."""
     expected = _normalize_text(expected_behavior)
     if not expected:
+        return []
+    if "<=" in expected or ">=" in expected or "<" in expected or ">" in expected:
         return []
     if any(marker in expected for marker in BEHAVIORAL_MARKERS):
         return []
@@ -141,6 +140,10 @@ def evaluate_factual_oracle(expected_behavior, actual_answer):
 
 def _expected_product_match(case):
     expected_product = case.get("expected_product") or case.get("expected_retrieved_product")
+    if not expected_product:
+        expected_behavior = _normalize_text(case.get("expected_facts_behavior"))
+        match = re.search(r"\bp-\d+\b", expected_behavior)
+        expected_product = match.group(0).upper() if match else None
     if not expected_product:
         return {"applicable": False, "passed": None}
 
