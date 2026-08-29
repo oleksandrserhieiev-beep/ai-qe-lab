@@ -10,7 +10,6 @@ from generation_policy import generate_grounded_answer
 BASE_DIR = Path(__file__).resolve().parent.parent
 POLICIES_DIR = BASE_DIR / "policies"
 NIGHTLY_RISK_METADATA = BASE_DIR / "datasets" / "evaluation_risk_metadata.json"
-NIGHTLY_ORACLE_METADATA = BASE_DIR / "datasets" / "evaluation_oracle_metadata.json"
 NIGHTLY_ASSERTION_METADATA = BASE_DIR / "datasets" / "evaluation_assertion_metadata.json"
 
 
@@ -55,7 +54,6 @@ def build_case_documents(base_documents, fixture_files):
 def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
     dataset = load_dataset(dataset_file)
     risk_metadata = _sidecar(dataset_file, NIGHTLY_RISK_METADATA)
-    oracle_metadata = _sidecar(dataset_file, NIGHTLY_ORACLE_METADATA)
     assertion_metadata = _sidecar(dataset_file, NIGHTLY_ASSERTION_METADATA)
     selection_config = get_context_selection_config()
     print(f"Dataset: {dataset_file}")
@@ -93,11 +91,8 @@ def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
         final_context = build_context(query=query, results=context_results)
         answer, telemetry = generate_grounded_answer(final_context, context_results, retrieval_metadata=retrieval_routing)
 
-        segment = case.get("Segment")
         explicit_risk = case.get("Risk") if case.get("Risk") is not None else risk_metadata.get(case_id)
         explicit_oracle = case.get("Oracle")
-        if explicit_oracle is None and segment:
-            explicit_oracle = oracle_metadata.get(str(segment).strip().lower())
         deterministic_assertions = case.get("Deterministic Assertions")
         if deterministic_assertions is None:
             deterministic_assertions = assertion_metadata.get(case_id, [])
@@ -109,9 +104,10 @@ def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
             "expected_facts_behavior": case.get("Expected Facts/Behavior", case.get("Expected Behavior")),
             "expected_source": case.get("Expected Source"), "expected_context_sources": case.get("Expected Context Sources", []),
             "context_fixtures": list(fixture_files), "criticality": case.get("Criticality"), "why_golden": case.get("Why Golden"),
-            "risk": explicit_risk, "segment": segment, "actual_answer": answer, "retrieved_context": evidence,
+            "risk": explicit_risk, "segment": case.get("Segment"), "actual_answer": answer, "retrieved_context": evidence,
             "final_context": final_context,
             "retrieval": [{"id": item["id"], "type": item["type"], "rank": item["rank"], "similarity_score": item["score"], "metadata": item.get("metadata", {})} for item in retrieved],
+            "retrieval_strategy": retrieval_routing["strategy"],
             "retrieval_routing": retrieval_routing, "context_selection": selection_metadata, "prompt_version": PROMPT_VERSION,
             "top_k": top_k, "context_k": len(context_results), "telemetry": telemetry,
         })
