@@ -9,10 +9,11 @@ from context_selector import (
     get_context_selection_config,
     select_context_results,
 )
-from llm_client import generate_answer
+from generation_policy import generate_grounded_answer
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+POLICIES_DIR = BASE_DIR / "policies"
 NIGHTLY_RISK_METADATA = BASE_DIR / "datasets" / "evaluation_risk_metadata.json"
 NIGHTLY_ORACLE_METADATA = BASE_DIR / "datasets" / "evaluation_oracle_metadata.json"
 NIGHTLY_ASSERTION_METADATA = BASE_DIR / "datasets" / "evaluation_assertion_metadata.json"
@@ -57,6 +58,30 @@ def load_assertion_metadata(dataset_file):
         return json.load(file)
 
 
+def build_case_documents(base_documents, fixture_files):
+    documents = list(base_documents)
+    existing_ids = {item.get("id") for item in documents}
+
+    for filename in fixture_files or []:
+        if filename in existing_ids:
+            continue
+        path = POLICIES_DIR / filename
+        with open(path, "r", encoding="utf-8") as file:
+            content = file.read()
+        documents.append({
+            "id": filename,
+            "type": "policy",
+            "text": content,
+            "metadata": {
+                "document_id": filename,
+                "source": str(path),
+                "content": content,
+                "test_fixture": True,
+            },
+        })
+    return documents
+
+
 def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
     dataset = load_dataset(dataset_file)
     risk_metadata = load_risk_metadata(dataset_file)
@@ -74,8 +99,9 @@ def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
     )
     print("Initializing RAG...")
 
-    documents = build_documents()
-    model, index = build_vector_store(documents)
+    base_documents = build_documents()
+    base_model, base_index = build_vector_store(base_documents)
+    fixture_rag_cache = {}
     results = []
 
     for number, case in enumerate(dataset, start=1):
@@ -86,6 +112,18 @@ def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
             continue
 
         print(f"\n[{number}/{len(dataset)}] Running {case_id}")
+
+        fixture_files = tuple(case.get("Context Fixtures", []) or [])
+        if fixture_files:
+            if fixture_files not in fixture_rag_cache:
+                case_documents = build_case_documents(base_documents, fixture_files)
+                case_model, case_index = build_vector_store(case_documents)
+                fixture_rag_cache[fixture_files] = (case_documents, case_model, case_index)
+            documents, model, index = fixture_rag_cache[fixture_files]
+            print(f"Case-scoped context fixtures: {', '.join(fixture_files)}")
+        else:
+            documents, model, index = base_documents, base_model, base_index
+
         retrieved = search(
             query=query,
             model=model,
@@ -101,7 +139,7 @@ def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
         )
         evidence = build_retrieved_context(context_results)
         final_context = build_context(query=query, results=context_results)
-        answer, telemetry = generate_answer(final_context)
+        answer, telemetry = generate_grounded_answer(final_context, context_results)
 
         explicit_risk = case.get("Risk")
         if explicit_risk is None:
@@ -126,6 +164,8 @@ def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
             "expected_retrieved_product": case.get("Expected Retrieved Product"),
             "expected_facts_behavior": case.get("Expected Facts/Behavior", case.get("Expected Behavior")),
             "expected_source": case.get("Expected Source"),
+            "expected_context_sources": case.get("Expected Context Sources", []),
+            "context_fixtures": list(fixture_files),
             "criticality": case.get("Criticality"),
             "why_golden": case.get("Why Golden"),
             "risk": explicit_risk,
@@ -152,6 +192,8 @@ def run_evaluation(dataset_file, results_file, top_k=DEFAULT_TOP_K):
         print(
             f"Context-K selected: {len(context_results)} / {len(retrieved)} candidate(s)"
         )
+        if telemetry.get("llm_call_skipped"):
+            print("Generation path: deterministic no-context abstention (SUT call skipped)")
         print("Answer:")
         print(answer)
 
