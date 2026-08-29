@@ -21,6 +21,7 @@ NIGHTLY_RISK_METADATA = (
 CANONICAL_RISK_MAP = {
     "retrieval_quality": ["retrieval_quality"],
     "constraint_adherence": ["constraint_adherence"],
+    "factual_correctness": ["factual_correctness"],
     "policy_grounding": ["policy_grounding"],
     "sensitive_data_handling": ["sensitive_data_handling"],
     "out_of_domain_abstention": ["out_of_domain_abstention"],
