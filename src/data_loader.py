@@ -20,10 +20,15 @@ def load_products():
         return json.load(file)
 
 
-def load_policies():
+def load_policies(extra_policy_files=None):
     policies = []
+    filenames = list(APPROVED_POLICIES)
 
-    for filename in APPROVED_POLICIES:
+    for filename in extra_policy_files or []:
+        if filename not in filenames:
+            filenames.append(filename)
+
+    for filename in filenames:
         path = POLICIES_DIR / filename
 
         with open(path, "r", encoding="utf-8") as file:
@@ -33,6 +38,7 @@ def load_policies():
             "document_id": filename,
             "source": str(path),
             "content": content,
+            "test_fixture": filename not in APPROVED_POLICIES,
         })
 
     return policies

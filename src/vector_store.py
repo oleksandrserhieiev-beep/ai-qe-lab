@@ -1,10 +1,11 @@
 import os
+import re
 
 from context_builder import build_context, PROMPT_VERSION
 from context_logger import log_context
 from context_selector import select_context_results
 from retrieval_logger import log_retrieval
-from llm_client import generate_answer
+from generation_policy import generate_grounded_answer
 from llm_logger import log_llm_call
 
 from sentence_transformers import SentenceTransformer
@@ -20,6 +21,7 @@ from constraint_filter import (
 
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 DEFAULT_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
+CHEAPEST_PATTERN = re.compile(r"\b(?:cheapest|least expensive|lowest[- ]priced?)\b", re.IGNORECASE)
 
 
 def product_to_text(product):
@@ -140,41 +142,96 @@ def semantic_search(query, model, documents, top_k=DEFAULT_TOP_K):
     return results
 
 
-def search(query, model, index, documents, top_k=DEFAULT_TOP_K):
-    """Return ranked retrieval candidates before adaptive context selection."""
-    constraints = extract_constraints(query)
+def _rank_documents_deterministically(documents):
+    """Return deterministic evidence using a synthetic selector-safe score."""
+    return [
+        {
+            "rank": rank,
+            "score": 1.0,
+            "id": document["id"],
+            "type": document["type"],
+            "text": document["text"],
+            "metadata": document["metadata"],
+        }
+        for rank, document in enumerate(documents, start=1)
+    ]
 
+
+def _cheapest_products(product_documents):
+    priced = [
+        document
+        for document in product_documents
+        if document.get("metadata", {}).get("price") is not None
+    ]
+    if not priced:
+        return []
+
+    minimum_price = min(float(document["metadata"]["price"]) for document in priced)
+    return [
+        document
+        for document in priced
+        if float(document["metadata"]["price"]) == minimum_price
+    ]
+
+
+def search_with_metadata(query, model, index, documents, top_k=DEFAULT_TOP_K):
+    """Return ranked candidates plus deterministic retrieval-routing evidence."""
+    constraints = extract_constraints(query)
     has_product_constraints = any(
         value is not None
         for value in constraints.values()
     )
+    cheapest_requested = bool(CHEAPEST_PATTERN.search(query or ""))
+    product_documents = [document for document in documents if document["type"] == "product"]
+
+    candidate_products = product_documents
+    if has_product_constraints:
+        candidate_products = [
+            document
+            for document in product_documents
+            if product_matches_constraints(document["metadata"], constraints)
+        ]
+
+        if not candidate_products:
+            print("Structured filter matched: 0 product(s) — deterministic no-match path")
+            return [], {
+                "strategy": "structured_no_match",
+                "structured_constraints_detected": True,
+                "structured_match_count": 0,
+                "no_product_match": True,
+                "cheapest_requested": cheapest_requested,
+            }
+
+        print(f"Structured filter matched: {len(candidate_products)} product(s)")
+
+    if cheapest_requested:
+        cheapest = _cheapest_products(candidate_products)
+        print(
+            "Deterministic cheapest-product routing: "
+            f"{len(cheapest)} catalogue minimum-price product(s)"
+        )
+        return _rank_documents_deterministically(cheapest[:top_k]), {
+            "strategy": "catalogue_min_price",
+            "structured_constraints_detected": has_product_constraints,
+            "structured_match_count": len(candidate_products) if has_product_constraints else None,
+            "no_product_match": False,
+            "cheapest_requested": True,
+        }
 
     if has_product_constraints:
-        filtered_products = []
+        return semantic_search(
+            query=query,
+            model=model,
+            documents=candidate_products,
+            top_k=top_k,
+        ), {
+            "strategy": "structured_filter_then_semantic",
+            "structured_constraints_detected": True,
+            "structured_match_count": len(candidate_products),
+            "no_product_match": False,
+            "cheapest_requested": False,
+        }
 
-        for document in documents:
-            if document["type"] != "product":
-                continue
-
-            product = document["metadata"]
-
-            if product_matches_constraints(product, constraints):
-                filtered_products.append(document)
-
-        if filtered_products:
-            print(
-                f"Structured filter matched: "
-                f"{len(filtered_products)} product(s)"
-            )
-
-            return semantic_search(
-                query=query,
-                model=model,
-                documents=filtered_products,
-                top_k=top_k,
-            )
-
-    # Fallback when no structured constraints were detected or no product matched.
     query_embedding = model.encode(
         [query],
         convert_to_numpy=True,
@@ -206,22 +263,35 @@ def search(query, model, index, documents, top_k=DEFAULT_TOP_K):
             }
         )
 
+    return results, {
+        "strategy": "semantic_faiss",
+        "structured_constraints_detected": False,
+        "structured_match_count": None,
+        "no_product_match": False,
+        "cheapest_requested": False,
+    }
+
+
+def search(query, model, index, documents, top_k=DEFAULT_TOP_K):
+    """Compatibility wrapper returning ranked candidates only."""
+    results, _ = search_with_metadata(
+        query=query,
+        model=model,
+        index=index,
+        documents=documents,
+        top_k=top_k,
+    )
     return results
 
 
 if __name__ == "__main__":
-    # 1. Load product catalogue and approved policies.
     documents = build_documents()
     print(f"Documents loaded: {len(documents)}")
 
-    # 2. Build embeddings and FAISS vector index.
     model, index = build_vector_store(documents)
-
-    # 3. Test query.
     query = "Find me a waterproof black jacket under $150 in size L"
 
-    # 4. Retrieve ranked Top-K candidates.
-    retrieved = search(
+    retrieved, retrieval_metadata = search_with_metadata(
         query=query,
         model=model,
         index=index,
@@ -229,32 +299,22 @@ if __name__ == "__main__":
         top_k=DEFAULT_TOP_K,
     )
 
-    # 5. Apply adaptive context selection.
     context_results = select_context_results(retrieved)
 
-    # 6. Log retrieval candidates.
-    log_retrieval(
-        query=query,
-        results=retrieved,
-    )
+    log_retrieval(query=query, results=retrieved)
 
-    # 7. Build augmented RAG context from selected evidence only.
-    final_context = build_context(
-        query=query,
-        results=context_results,
-    )
-
-    # 8. Log exact context supplied to LLM.
+    final_context = build_context(query=query, results=context_results)
     log_context(
         query=query,
         final_context=final_context,
         prompt_version=PROMPT_VERSION,
     )
 
-    # 9. Call Claude.
-    answer, telemetry = generate_answer(final_context)
-
-    # 10. Log LLM call.
+    answer, telemetry = generate_grounded_answer(
+        final_context,
+        context_results,
+        retrieval_metadata=retrieval_metadata,
+    )
     log_llm_call(
         query=query,
         answer=answer,
@@ -262,9 +322,7 @@ if __name__ == "__main__":
         prompt_version=PROMPT_VERSION,
     )
 
-    # 11. Print retrieval candidates and selection size.
     print(f"\nQuery: {query}\n")
-
     for result in retrieved:
         print(
             f"Rank: {result['rank']} | "
@@ -277,14 +335,10 @@ if __name__ == "__main__":
         f"\nAdaptive context selected: "
         f"{len(context_results)} / {len(retrieved)} candidate(s)"
     )
-
-    # 12. Print context.
+    print(f"Retrieval strategy: {retrieval_metadata['strategy']}")
     print("\nFINAL CONTEXT:\n")
     print(final_context)
-
-    # 13. Print answer and telemetry.
     print("\nCLAUDE ANSWER:\n")
     print(answer)
-
     print("\nLLM TELEMETRY:\n")
     print(telemetry)

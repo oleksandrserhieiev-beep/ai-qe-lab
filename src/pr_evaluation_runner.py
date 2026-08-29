@@ -1,14 +1,14 @@
 import json
 from pathlib import Path
 
-from vector_store import DEFAULT_TOP_K, build_documents, build_vector_store, search
+from vector_store import DEFAULT_TOP_K, build_documents, build_vector_store, search_with_metadata
 from context_builder import build_context, build_retrieved_context, PROMPT_VERSION
 from context_selector import (
     build_context_selection_metadata,
     get_context_selection_config,
     select_context_results,
 )
-from llm_client import generate_answer
+from generation_policy import generate_grounded_answer
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -49,7 +49,7 @@ def run_evaluation():
         print(f"\n[{number}/{len(dataset)}] Running {case_id}")
         print(f"Query: {query}")
 
-        retrieved = search(
+        retrieved, retrieval_routing = search_with_metadata(
             query=query,
             model=model,
             index=index,
@@ -64,7 +64,11 @@ def run_evaluation():
         )
         retrieved_context = build_retrieved_context(context_results)
         final_context = build_context(query=query, results=context_results)
-        answer, telemetry = generate_answer(final_context)
+        answer, telemetry = generate_grounded_answer(
+            final_context,
+            context_results,
+            retrieval_metadata=retrieval_routing,
+        )
 
         result = {
             "case_id": case_id,
@@ -76,6 +80,7 @@ def run_evaluation():
             "expected_retrieved_product": case.get("Expected Retrieved Product"),
             "expected_facts_behavior": case.get("Expected Facts/Behavior"),
             "expected_source": case.get("Expected Source"),
+            "expected_context_sources": case.get("Expected Context Sources", []),
             "criticality": case.get("Criticality"),
             "risk": case.get("Risk"),
             "why_golden": case.get("Why Golden"),
@@ -92,6 +97,7 @@ def run_evaluation():
                 }
                 for item in retrieved
             ],
+            "retrieval_routing": retrieval_routing,
             "context_selection": selection_metadata,
             "prompt_version": PROMPT_VERSION,
             "retrieval_k": RETRIEVAL_K,
@@ -103,6 +109,9 @@ def run_evaluation():
             f"Context-K selected: {len(context_results)} / {len(retrieved)} "
             f"candidate(s)"
         )
+        print(f"Retrieval strategy: {retrieval_routing['strategy']}")
+        if telemetry.get("llm_call_skipped"):
+            print(f"Generation path: {telemetry['generation_path']} (SUT call skipped)")
         print("Answer:")
         print(answer)
 

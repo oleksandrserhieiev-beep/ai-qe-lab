@@ -8,7 +8,9 @@ on:
       - "src/**"
       - "data/**"
       - "datasets/**"
+      - "policies/**"
       - "tests/**"
+      - "docs/**"
       - ".github/workflows/ai-evaluation.yml"
       - "requirements.txt"
 
@@ -25,6 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SHOW_COST_USD: ${{ inputs.show_cost_usd }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      SUT_MODEL: ${{ vars.SUT_MODEL }}
+      JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
 
     steps:
       - name: Checkout repository
@@ -57,24 +62,14 @@ jobs:
           python src/risk_coverage.py --output reports/risk_coverage.json
 
       - name: Run PR Critical Dataset
-        env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          SUT_MODEL: ${{ vars.SUT_MODEL }}
         run: |
           python src/pr_evaluation_runner.py
 
       - name: Evaluate PR Critical Dataset
-        env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
         run: |
           python src/pr_evaluator.py
 
       - name: Hallucination Retry Policy
-        env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          SUT_MODEL: ${{ vars.SUT_MODEL }}
-          JUDGE_MODEL: ${{ vars.JUDGE_MODEL }}
         run: |
           python src/hallucination_retry.py
 
