@@ -2,13 +2,11 @@
 
 ## 1. Purpose
 
-This document describes the **current implemented architecture** of the AI QE Lab and the **planned target lifecycle**. These are intentionally separated so planned agents are not confused with functionality that already exists.
-
-The current executable System Under Test (SUT) is the Shopping RAG Assistant. The surrounding framework provides retrieval diagnostics, semantic evaluation, AI-risk reporting, CI/CD quality gates, telemetry, and evidence.
+The current executable SUT is the Shopping RAG Assistant. The surrounding AI QE framework provides controlled datasets, retrieval/context diagnostics, automated deterministic and semantic evaluation, AI-risk reporting, CI/CD quality gates, telemetry, evidence and governance.
 
 ---
 
-## 2. Current Implemented Architecture
+## 2. System and Evaluation Architecture
 
 ```mermaid
 flowchart TD
@@ -21,45 +19,125 @@ flowchart TD
     B --> S[Claude SUT]
     S --> A[Generated Answer]
 
-    R --> RM[Retrieval Metrics\nPython]
+    R --> RM[Retrieval Evidence + Metrics]
     AK --> EV[Retrieved Evidence]
-    EV --> J[Claude Judge]
-    A --> J
+    A --> AE[Automated AI Evaluation]
+    RM --> AE
+    EV --> AE
 
-    RM --> AGG[Evaluation Aggregation]
-    J --> AGG
+    AE --> AGG[Evaluation Aggregation]
     AGG --> RR[AI Risk Reporting]
     RR --> G[Quality Gate]
     G --> CI[GitHub Actions PASS / FAIL]
-
-    R --> RT[Retrieval Telemetry]
-    B --> CT[Context Telemetry]
-    S --> LT[LLM Telemetry]
-    RT --> AGG
-    CT --> AGG
-    LT --> AGG
 ```
-
-### Implemented components
-
-| Layer | Implementation | Responsibility |
-|---|---|---|
-| Data | product catalogue + policy files | controlled knowledge sources |
-| Constraints | `constraint_filter.py` | extract/apply structured product constraints |
-| Embedding | `all-MiniLM-L6-v2` | convert text to semantic vectors |
-| Retrieval | FAISS `IndexFlatIP` | retrieve ranked candidate evidence |
-| Context | `context_builder.py` | select evidence and build SUT context |
-| SUT | Claude via `llm_client.py` | generate Shopping Assistant answer |
-| Retrieval diagnostics | `retrieval_metrics.py` | deterministic retrieval/context indicators |
-| Semantic evaluation | `llm_evaluator.py` | Judge answer/context quality |
-| Risk reporting | `risk_reporting.py` | aggregate outcomes by canonical AI risk |
-| Risk coverage | `risk_coverage.py` | inventory risk coverage across suites |
-| Operational reporting | `cost_reporting.py` | token/cost aggregation |
-| CI gate | `quality_gate.py` | enforce blocking thresholds |
 
 ---
 
-## 3. Retrieval and Generation Flow
+## 3. Automated AI Evaluation Hierarchy
+
+The evaluation layer is not `automation versus AI`. Both oracle paths are automated. The distinction is how an **atomic evaluation assertion** is proven.
+
+```mermaid
+flowchart TD
+    AE[Automated AI Evaluation] --> AT[Atomic Evaluation Assertions]
+    AT --> Q{Can assertion be formalized objectively?}
+    Q -->|Yes| DO[Deterministic Oracle]
+    Q -->|No| SO[Semantic Oracle]
+
+    DO --> PY[Python Assertions]
+    PY --> ID[IDs / catalogue membership]
+    PY --> NUM[Numbers / thresholds / ranges]
+    PY --> BOOL[Booleans / enums / schemas]
+    PY --> CON[Structured constraints]
+    PY --> FACT[Exact policy facts]
+
+    SO --> LLM[LLM Judge]
+    LLM --> SAFE[Safety / refusal behavior]
+    LLM --> AMB[Ambiguity handling]
+    LLM --> OOD[Out-of-domain behavior]
+    LLM --> ADV[Prompt-injection behavior]
+    LLM --> SEM[Unsupported semantic claims]
+
+    ID --> AG[Evaluation Aggregation]
+    NUM --> AG
+    BOOL --> AG
+    CON --> AG
+    FACT --> AG
+    SAFE --> AG
+    AMB --> AG
+    OOD --> AG
+    ADV --> AG
+    SEM --> AG
+    AG --> G[Quality Gate]
+```
+
+### Atomicity principle
+
+Do not ask whether an entire AI case is inherently deterministic or semantic before decomposing what it must prove.
+
+```text
+Case
+ -> one or more evaluation assertions
+ -> oracle selection per assertion
+ -> deterministic and/or semantic evidence
+ -> aggregate case result
+```
+
+This prevents an LLM Judge from being used for assertions such as `30 == 30`, `price <= 150`, `stock > 0`, `product_id == P-1001`, or `final_sale_returnable == false`.
+
+The engineering rule is:
+
+> **Formal rule -> deterministic oracle. Meaning/behavior judgment -> semantic oracle.**
+
+---
+
+## 4. Manually Reviewed Oracle Classification
+
+Critical, Regression and Nightly were manually reviewed. All 105 cases have a target oracle route; no case remains unresolved for deterministic-vs-semantic classification.
+
+| Suite | Total | Deterministic | Semantic Judge | Target Judge-call reduction |
+|---|---:|---:|---:|---:|
+| PR Critical | 10 | 6 | 4 | 60.0% |
+| Regression | 15 | 7 | 8 | 46.7% |
+| Nightly | 80 | 48 | 32 | 60.0% |
+| **Total** | **105** | **61 (58.1%)** | **44 (41.9%)** | **58.1%** |
+
+These figures describe the approved routing design. They become measured runtime savings only after implementation and CI validation.
+
+### Critical
+
+Deterministic: `G-001`, `G-002`, `G-003`, `G-032`, `G-033`, `G-034`.
+
+Semantic: `G-004`, `G-005`, `G-031`, `G-035`.
+
+### Regression
+
+Deterministic: `R-001`, `R-007`, `R-008`, `R-010`, `R-011`, `R-013`, `R-015`.
+
+Semantic: `R-002`, `R-003`, `R-004`, `R-005`, `R-006`, `R-009`, `R-012`, `R-014`.
+
+### Nightly
+
+Deterministic segments: `normal`, `negative`, `multi_constraint`, `conflict`, `paraphrase`, `long_query` = 48 cases.
+
+Semantic segments: `ambiguous`, `out_of_domain`, `missing_info`, `adversarial` = 32 cases.
+
+---
+
+## 5. Risk, Assertion and Oracle Are Different Dimensions
+
+```mermaid
+flowchart LR
+    R[AI Risk\nWhat can fail?] --> A[Evaluation Assertion\nWhat must be proven?]
+    A --> O[Oracle\nHow can it be proven?]
+    O --> E[Evidence / Result]
+```
+
+Risk labels must not automatically select the Judge. The same risk can contain deterministic and semantic assertions depending on expected behavior.
+
+---
+
+## 6. Retrieval and Generation Flow
 
 ```mermaid
 flowchart LR
@@ -74,174 +152,70 @@ flowchart LR
     LLM --> OUT[Answer]
 ```
 
-### Retrieval-K is not Context-K
-
-The retrieval layer may retain a broader Top-K for diagnostic metrics while sending fewer documents to the LLM when the relevant evidence is already clear.
-
-This preserves retrieval observability while reducing context/token cost.
-
-```text
-Retrieval Top-K = evidence candidates used for retrieval diagnostics
-Context-K       = evidence actually sent to the SUT/Judge
-```
+Retrieval Top-K is the broader evidence candidate set used for diagnostics. Context-K is the smaller evidence set actually sent to generation/evaluation when appropriate.
 
 ---
 
-## 4. Evaluation Architecture
-
-The framework deliberately separates **deterministic Python metrics** from **semantic LLM judgment**.
-
-```mermaid
-flowchart TD
-    CASE[Executed Case] --> PY[Python Metrics]
-    CASE --> JD[LLM Judge]
-
-    PY --> RH[Retrieval Hit]
-    PY --> CM[Constraint Match]
-    PY --> PK[Constraint Precision@K]
-    PY --> OP[Latency / Tokens / Cost / Pass Rates]
-
-    JD --> COR[Correctness]
-    JD --> GR[Groundedness]
-    JD --> HAL[Hallucination]
-    JD --> CA[Constraint Adherence]
-    JD --> CC[Context Coverage]
-    JD --> CS[Context Sufficiency]
-
-    RH --> AG[Aggregate Result]
-    CM --> AG
-    PK --> AG
-    OP --> AG
-    COR --> AG
-    GR --> AG
-    HAL --> AG
-    CA --> AG
-    CC --> AG
-    CS --> AG
-```
-
-### Python-computed
-
-- Retrieval Hit Rate;
-- Constraint Match Score;
-- Constraint Precision@K;
-- average and P95 latency;
-- SUT/Judge input/output token aggregation;
-- cache token counters from Anthropic usage telemetry;
-- estimated cost and cost per case;
-- risk coverage matrix;
-- quality-gate threshold checks.
-
-### LLM Judge
-
-- Correctness;
-- Groundedness;
-- Hallucination;
-- Constraint Adherence;
-- Context Coverage;
-- Context Sufficiency.
-
-The Judge receives **raw retrieved evidence** rather than the complete SUT prompt. This avoids paying to judge duplicated system/augmentation text that is not needed for semantic comparison.
-
----
-
-## 5. Diagnostic Chain and Failure Localization
-
-The framework uses the following diagnostic sequence:
+## 7. Diagnostic Chain and Failure Localization
 
 ```text
 Retrieval Hit
-    ↓
-Constraint Match / Precision@K
-    ↓
-Context Coverage / Sufficiency
-    ↓
-Correctness / Groundedness / Hallucination / Constraint Adherence
+ -> Constraint Match / Precision@K
+ -> Context Coverage / Sufficiency
+ -> Deterministic factual/constraint assertions
+ -> Semantic behavior assertions where required
+ -> Quality Gate
 ```
 
-Interpretation examples:
+Typical localization:
 
 | Failure signal | Primary investigation layer |
 |---|---|
-| Retrieval Hit fail | retrieval, source oracle, expected-source contract |
-| Constraint Match weak | constraint extraction/filtering/retrieval |
-| Precision@K weak | noisy retrieval candidates |
-| Context Coverage weak | evidence selection / context builder |
-| Context Sufficiency false | missing evidence / context selection |
-| Correctness fail with sufficient context | generation |
-| Groundedness fail | unsupported generation |
-| Hallucination fail | generation / prompt / evidence use |
-| Provider 429/5xx/529 | external dependency / infrastructure |
-
-A quality-gate failure is therefore not automatically classified as an LLM defect.
+| Retrieval Hit fail | retrieval / source oracle |
+| Constraint Match weak | extraction/filtering/retrieval |
+| Precision@K weak | retrieval noise |
+| Context insufficient | evidence selection/context builder |
+| Deterministic factual assertion fail | SUT fact/business-rule behavior or oracle data |
+| Semantic groundedness/safety fail | generation/prompt/evidence use |
+| Provider 429/5xx/529 | external dependency/infrastructure |
 
 ---
 
-## 6. Dataset and Execution Architecture
-
-Datasets are organized by **execution purpose**, not inheritance.
+## 8. Dataset and Execution Architecture
 
 ```mermaid
 flowchart TD
     INV[Evaluation Inventory] --> CR[PR Critical\n10 cases]
     INV --> RG[Regression\n15 cases]
-    INV --> EV[Nightly Evaluation\n80 cases]
+    INV --> EV[Nightly\n80 cases]
     INV --> GD[Golden\n35 cases]
-
-    CR --> PR[Pull Request Merge Gate]
+    CR --> PR[Merge Gate]
     RG --> MAIN[Main Health Gate]
     EV --> NIGHT[Broad AI Risk Signal]
     GD --> REL[Baseline / Release Validation]
 ```
 
-Overlap between datasets is valid. A business-critical behaviour may be represented in Golden, Critical, and Regression because each suite serves a different execution purpose.
-
-### Canonical AI risk metadata
-
-Critical and other cases carry explicit AI-risk metadata. Nightly uses an explicit sidecar:
-
-`datasets/evaluation_risk_metadata.json`
-
-`Segment` is preserved independently as a test-design category and is not treated as the canonical Risk field.
+Datasets are organized by execution purpose, not inheritance. Nightly keeps `Segment` separate from canonical AI-risk metadata in `datasets/evaluation_risk_metadata.json`.
 
 ---
 
-## 7. AI Risk Coverage Architecture
-
-```mermaid
-flowchart LR
-    C[Critical Dataset] --> M[Risk Coverage Matrix]
-    R[Regression Dataset] --> M
-    N[Nightly Dataset + Risk Sidecar] --> M
-    M --> REP[Coverage Report]
-```
-
-The matrix reports how canonical risks are represented across suite inventories.
-
-`FULL`, `PARTIAL`, and `SINGLE_SUITE` represent suite distribution only. They do not mean pass/fail and do not prove statistical adequacy.
-
----
-
-## 8. CI/CD Architecture
-
-### Pull Request
+## 9. CI/CD Architecture
 
 ```mermaid
 flowchart TD
-    PR[Pull Request] --> PF[Path Filter]
-    PF --> CO[Checkout]
-    CO --> PY[Python + pip cache]
-    PY --> HF[Hugging Face cache]
-    HF --> DEP[Install Dependencies]
-    DEP --> RM[Build AI Risk Coverage Matrix]
-    RM --> RUN[Run PR Critical Dataset]
-    RUN --> EVA[Evaluate SUT + Judge]
-    EVA --> RET[Hallucination Retry Policy]
+    PR[Pull Request] --> RUN[PR Critical]
+    RUN --> SUT[SUT Execution]
+    SUT --> ASSERT[Atomic Assertions]
+    ASSERT --> DET[Deterministic Oracle where applicable]
+    ASSERT --> SEM[Semantic Judge where required]
+    DET --> AGG[Aggregate]
+    SEM --> AGG
+    AGG --> RET[Hallucination Retry Policy where applicable]
     RET --> G[Quality Gate]
-    G --> ART[Upload Reports]
+    G --> ART[Reports / Evidence]
 ```
 
-Current policy:
+Policy:
 
 ```text
 PR Critical = merge gate
@@ -250,86 +224,19 @@ Nightly     = broad AI-risk signal
 Release     = release validation gate
 ```
 
-### Quality-gate thresholds
-
-```text
-Correctness           >= 95%
-Groundedness          >= 95%
-Retrieval Hit Rate    >= 95%
-Constraint Adherence  >= 95%
-Hallucination Rate    <= 2%
-```
-
-Critical case failures also block the PR.
-
 ---
 
-## 9. Resilience Architecture
+## 10. Resilience and Operational Telemetry
 
-Two retry mechanisms solve different problems.
+Provider/API retry handles transient service failures. Hallucination retry investigates stochastic semantic quality failures. They solve different problems.
 
-### API/provider retry
+Operational telemetry includes SUT/Judge tokens, cache counters, latency, P95, model IDs, API attempts and estimated standard token cost. Python records/aggregates these values.
 
-`llm_evaluator.py` retries bounded transient Judge failures such as:
-
-- 429;
-- 500;
-- 502;
-- 503;
-- 504;
-- 529.
-
-The retry is infrastructure resilience. It does not change evaluation semantics.
-
-### Hallucination retry
-
-`hallucination_retry.py` reruns the Critical evaluation only when hallucination breaches the configured tolerance, allowing stochastic quality failures to be distinguished from reproducible ones.
-
-```text
-API retry            = can the provider deliver the request?
-Hallucination retry  = is the semantic failure reproducible?
-```
-
----
-
-## 10. Operational Telemetry and Cost Engineering
-
-```mermaid
-flowchart LR
-    S[SUT API Usage] --> C[Cost/Token Aggregator]
-    J[Judge API Usage] --> C
-    L[Measured Latency] --> C
-    C --> REP[Operational Metrics]
-```
-
-Operational values are not LLM opinions. Anthropic returns usage counters; Python records and aggregates them.
-
-Current telemetry includes:
-
-- SUT input/output tokens;
-- Judge input/output tokens;
-- prompt-cache creation/read tokens;
-- average latency;
-- P95 latency;
-- estimated standard token cost;
-- cost per case;
-- API attempt count.
-
-Optimization principles:
-
-1. deterministic Python checks before LLM judgment where appropriate;
-2. minimize duplicated Judge context;
-3. Judge only the evidence needed for the metric;
-4. separate Retrieval-K from Context-K;
-5. use caching only when token volume and provider cache rules make it worthwhile;
-6. validate model tiering before making it default;
-7. compare controlled BEFORE/AFTER runs and reject optimizations that degrade quality.
+The oracle-routing design adds another cost-control layer: deterministic assertions should not incur Judge tokens when semantic reasoning provides no additional value.
 
 ---
 
 ## 11. Governance Layer
-
-`AI_QE_Lab_Datasets_and_Governance.xlsx` is the current human-readable dataset/governance artifact.
 
 ```mermaid
 flowchart TD
@@ -340,81 +247,32 @@ flowchart TD
     CI --> E[Evidence / Defect / Regression]
 ```
 
-Excel is the stakeholder-facing review layer. JSON is the runtime representation.
+`AI_QE_Lab_Datasets_and_Governance.xlsx` remains the human-readable governance layer; JSON is the executable representation.
 
 ---
 
-## 12. Current Implementation vs Planned Agent Architecture
+## 12. Current vs Planned Architecture
 
-### Implemented now
+Implemented: Shopping RAG Assistant, retrieval/constraint/context pipeline, telemetry, controlled datasets, deterministic retrieval diagnostics, semantic Judge, risk reporting/coverage, CI gates, retry policies and operational cost reporting.
 
-- Shopping RAG Assistant;
-- product/policy retrieval;
-- constraint filtering;
-- FAISS retrieval;
-- retrieval/context/LLM telemetry;
-- Golden, PR Critical, Regression, and Nightly datasets;
-- retrieval diagnostics;
-- semantic LLM Judge;
-- AI-risk metadata/reporting;
-- risk coverage matrix;
-- CI quality gate;
-- hallucination retry;
-- provider retry/backoff;
-- token/cost reporting and optimization.
+Next implementation step: encode the manually approved 61 deterministic / 44 semantic routes in the evaluator and datasets, then validate actual Judge-call reduction and unchanged quality behavior in CI.
 
-### Planned extensions
-
-```mermaid
-flowchart TD
-    JIRA[Jira User Story] --> RR[Requirements Review]
-    RR --> EG{Readiness Gate}
-    EG -->|Fail| MISS[Missing Information Report]
-    EG -->|Pass| RISK[AI Risk Analysis]
-    RISK --> TD[Test Design]
-    TD --> FT[Functional Tests]
-    TD --> AE[AI Evaluation Cases]
-    FT --> DD[Duplicate Detection]
-    AE --> DD
-    DD --> CL[Priority / Suite Classification]
-    CL --> HITL[Human Approval]
-    HITL --> GOV[Governance Repository]
-    GOV --> JSON[JSON Export]
-    JSON --> PIPE[Existing Evaluation Pipeline]
-```
-
-Planned modules include:
-
-- Requirements Readiness Agent;
-- AI Risk Analysis Agent;
-- classical + AI-specific Test Design Agent;
-- semantic duplicate detection;
-- suite recommendation;
-- Jira traceability;
-- defect draft/create workflow;
-- defect → Regression automation;
-- QA Agent evaluation;
-- Test Management Lifecycle Agent;
-- residual-risk and GO / NO-GO reporting.
-
-These components are target architecture, not current runtime functionality.
+Planned after that: Defect -> Regression lifecycle, Jira traceability, Requirements Readiness Agent, AI Risk Analysis Agent, Test Design Agent, duplicate detection, human approval, QA Agent evaluation and Test Management Lifecycle Agent.
 
 ---
 
-## 13. Target End-to-End Traceability
+## 13. Target Traceability
 
 ```text
 Requirement
-→ AI Risk
-→ Functional Test / AI Evaluation Case
-→ Dataset
-→ Execution Level
-→ Metric
-→ Threshold
-→ Evidence
-→ Defect / Regression
-→ Residual Risk
-→ Release Decision
+-> AI Risk
+-> Test / Evaluation Case
+-> Atomic Assertion
+-> Deterministic or Semantic Oracle
+-> Dataset / CI Level
+-> Metric / Evidence
+-> Quality Gate
+-> Defect / Regression
+-> Residual Risk
+-> Release Decision
 ```
-
-This traceability model is the long-term architecture goal of the repository.
