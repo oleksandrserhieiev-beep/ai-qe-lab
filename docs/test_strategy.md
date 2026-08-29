@@ -2,49 +2,54 @@
 
 ## 1. Purpose
 
-This Test Strategy defines how the AI QE Lab validates quality across the implemented Shopping RAG Assistant and the planned QA/Test Management agent lifecycle. It combines conventional software testing, AI-specific evaluation, risk-based testing, observability, CI/CD quality gates, and release governance.
+This Test Strategy defines how the AI QE Lab validates the implemented Shopping RAG Assistant and how the same QE model will evolve toward QA/Test Management agents. It combines conventional software testing, AI-specific evaluation, risk-based testing, observability, CI/CD quality gates, failure localization and release governance.
 
-The strategy is designed to answer five questions:
+The strategy answers five questions:
 
 1. What can fail?
 2. How will that failure be detected?
-3. At which test level should it be detected?
-4. What evidence is required to classify the failure?
-5. What quality decision follows from the evidence?
+3. At which lifecycle level should it be detected?
+4. What evidence is required to localize the failure?
+5. What quality decision follows from that evidence?
 
 ---
 
-## 2. Scope
+## 2. Current scope
 
-### In scope now
+Implemented now:
 
-- Shopping AI Assistant
-- RAG retrieval over products and policies
-- structured constraint filtering
-- prompt/context construction
-- Claude SUT generation
-- deterministic retrieval/context metrics
-- LLM-as-a-Judge semantic evaluation
-- Golden, PR Critical, Regression and Nightly datasets
-- AI Risk metadata and Risk Coverage Matrix
-- GitHub Actions execution
-- quality gates
-- retry/resilience logic
-- latency/token/cost observability
-- defect localization
+- Shopping RAG Assistant;
+- product/policy retrieval;
+- structured constraint extraction and product filtering;
+- `all-MiniLM-L6-v2` embeddings and FAISS semantic ranking;
+- Top-K retrieval candidates;
+- adaptive similarity-based context selection;
+- deterministic context construction;
+- Claude SUT generation;
+- Dataset/Oracle Validation in PR Critical, Regression and Nightly CI;
+- deterministic retrieval/context/generation assertions;
+- semantic LLM-as-a-Judge evaluation;
+- Golden, PR Critical, Regression and Nightly datasets;
+- AI Risk metadata and Risk Coverage Matrix;
+- GitHub Actions execution and quality gates;
+- provider/hallucination retry controls;
+- latency/token/cost observability;
+- defect localization.
 
-### Planned scope
+Planned:
 
-- Jira requirement intake
-- Requirements Readiness Agent
-- AI Risk Analysis Agent
-- Test Design Agent
-- duplicate/coverage analysis
-- Human-in-the-Loop approval
-- Excel governance to executable JSON flow
-- QA Agent evaluation
-- Test Management Lifecycle Agent
-- release/residual-risk reporting
+- automatically generated fallback Oracle mapper from validated datasets;
+- Jira requirement intake and traceability;
+- Requirements Readiness Agent;
+- AI Risk Analysis Agent;
+- Test Design Agent;
+- duplicate/coverage analysis;
+- Human-in-the-Loop approval;
+- QA Agent evaluation;
+- Test Management Lifecycle Agent;
+- automated Defect -> Regression lifecycle and release/residual-risk reporting.
+
+Governed JSON is the target authoritative agent output. Excel is not required as an intermediate execution or governance layer.
 
 ---
 
@@ -53,16 +58,17 @@ The strategy is designed to answer five questions:
 The system should:
 
 - return answers that satisfy expected business behavior;
-- use the intended product/policy evidence;
+- retrieve the intended product/policy evidence;
 - avoid unsupported claims and hallucinations;
-- obey structured constraints such as price, size, color and availability;
-- abstain safely when information is unavailable or out of scope;
+- obey structured constraints such as price, size, color and product attributes;
+- avoid adding weak retrieval evidence to generation context;
+- abstain safely when evidence is insufficient or the request is out of scope;
 - remain robust to paraphrases, ambiguity and adversarial prompts;
-- preserve traceability from test intent to risk, dataset, execution and result;
+- preserve traceability from risk/test intent to dataset, execution and evidence;
 - localize failures to the correct pipeline layer;
 - detect regressions before merge, after merge and before release;
-- provide operational evidence for latency, token consumption and reliability;
-- use AI evaluation economically without weakening quality confidence.
+- provide operational evidence for latency, tokens and reliability;
+- minimize unnecessary Judge/context cost without weakening quality confidence.
 
 ---
 
@@ -71,528 +77,402 @@ The system should:
 ```mermaid
 flowchart TD
     A[User / Dataset Case] --> B[Constraint Extraction]
-    B --> C[Embedding Model]
-    C --> D[FAISS Vector Search]
-    D --> E[Top-K Retrieval]
-    E --> F[Structured Filtering]
-    F --> G[Adaptive Context-K]
-    G --> H[Context Builder]
-    H --> I[Claude SUT]
-    I --> J[Generated Answer]
+    B --> C{Supported product constraints?}
+    C -->|yes| D[Structured Product Filtering]
+    C -->|no / no match| E[Full Corpus]
+    D --> F[Embedding + FAISS Semantic Ranking]
+    E --> F
+    F --> G[Top-K Retrieval Candidates]
+    G --> H[Adaptive Context Selection]
+    H --> I[Context Builder]
+    I --> J[Claude SUT]
+    J --> K[Generated Answer]
 
-    E --> K[Deterministic Retrieval Metrics]
-    G --> L[Context Evidence]
-    J --> M[LLM Judge]
-    L --> M
-
-    K --> N[Case Evaluation]
-    M --> N
-    N --> O[Risk Reporting]
-    O --> P[Quality Gate]
-    P --> Q[PR / Main / Nightly / Release Decision]
+    G --> RM[Retrieval Metrics / Evidence]
+    H --> CS[Context Selection Evidence]
+    I --> CE[Context Evidence]
+    K --> EV[Automated Evaluation]
+    RM --> EV
+    CS --> EV
+    CE --> EV
+    EV --> OR[Oracle Resolution]
+    OR --> RR[Risk Reporting]
+    RR --> QG[Quality Gate]
+    QG --> CI[PR / Main / Nightly / Release Decision]
 ```
 
-The diagnostic principle is:
+The actual diagnostic chain is:
 
 ```text
 Query
-→ Retrieval
-→ Constraint quality
-→ Context sufficiency
-→ Generation
-→ Semantic evaluation
-→ Operational behavior
-→ Gate decision
+-> Constraint Extraction / Filtering
+-> Retrieval Candidates
+-> Adaptive Context Selection
+-> Constructed Context
+-> Generation
+-> Oracle Evaluation
+-> Operational Evidence
+-> Gate Decision
 ```
 
-A failed final answer is not automatically classified as an LLM defect.
+A failed answer is never automatically classified as an LLM defect.
 
 ---
 
-## 5. Test approach
+## 5. Retrieval and context-selection strategy
 
-The strategy combines:
+Retrieval-K and Context-K are intentionally different controls.
 
-- **risk-based testing** — prioritize by likelihood, impact and AI failure mode;
-- **requirements-based testing** — validate defined expected behavior and acceptance criteria;
-- **data-driven testing** — execute governed datasets through common runners;
-- **deterministic testing** — Python checks for facts that do not require semantic judgment;
-- **model-based/semantic evaluation** — LLM Judge for correctness, groundedness and related semantic qualities;
-- **exploratory AI evaluation** — broader Nightly campaigns for ambiguity, robustness, adversarial and conflicting-data behavior;
-- **regression testing** — preserve stable behavior and fixed defects;
-- **shift-left CI validation** — small critical subset blocks unsafe PRs;
-- **observability-driven diagnosis** — retain evidence from retrieval, context, generation and evaluation layers.
+Default current configuration:
+
+```text
+RAG_TOP_K=5
+RAG_MIN_CONTEXT_K=2
+RAG_MAX_CONTEXT_K=5
+RAG_MIN_SIMILARITY=0.30
+```
+
+Rules:
+
+1. retrieve up to Top-K ranked candidates;
+2. keep retrieval candidates as diagnostic evidence;
+3. pass only candidates above the minimum similarity threshold to generation;
+4. cap selected context by `RAG_MAX_CONTEXT_K`;
+5. treat `RAG_MIN_CONTEXT_K` as a target floor, not a hard padding rule;
+6. never add below-threshold evidence simply to reach a fixed number of documents.
+
+This layer is tested for both quality and cost. Too-low thresholds increase context noise and token use; too-high thresholds can remove evidence that the answer requires.
 
 ---
 
-## 6. Test levels
+## 6. Test approach and levels
+
+The strategy combines risk-based, requirements-based, data-driven, deterministic, semantic, exploratory, regression and observability-driven testing.
 
 | Level | Primary purpose | Typical coverage | Execution |
 |---|---|---|---|
-| Component | Validate deterministic Python logic | constraint extraction, filtering, metric calculation, parsing | local / CI where enabled |
-| Retrieval/RAG | Validate retrieval and context construction | expected source, constraints, Top-K, Context-K, context evidence | dataset runs |
-| AI Generation | Validate generated behavior | correctness, groundedness, hallucination, adherence | Judge evaluation |
-| Integration | Validate end-to-end RAG + LLM + evaluator interaction | telemetry propagation, raw evidence, report creation | PR / Regression / Nightly |
-| System | Validate user-visible assistant behavior | complete business scenarios | Golden / Evaluation |
+| Component | Validate deterministic Python behavior | constraints, selection rules, metrics, parsing | local / software tests |
+| Retrieval/RAG | Validate candidate retrieval and selected evidence | expected source, constraints, Top-K, similarity threshold, Context-K | dataset runs |
+| AI Generation | Validate user-visible generated behavior | correctness, groundedness, hallucination, adherence | deterministic assertions / Judge |
+| Integration | Validate end-to-end RAG + LLM + evaluator interaction | metadata propagation, context evidence, reports | PR / Regression / Nightly |
+| System | Validate complete assistant scenarios | business behavior | Golden / Evaluation |
 | Regression | Protect stable/fixed behavior | known behavior and historical defects | main / release |
 | Release | Establish release confidence | Golden + Regression + repeated Critical | release candidate |
-| Agent Evaluation | Validate future agent actions and decisions | requirements review, risk identification, tests, permissions, HITL | planned |
+| Agent Evaluation | Validate future agent decisions/actions | requirements, risks, tests, tools, permissions, HITL | planned |
 
 ---
 
 ## 7. Dataset strategy
 
-Datasets are classified by **purpose**, not by hierarchy.
+Datasets are organized by **purpose**, not inheritance.
 
-### Golden Dataset
+| Dataset | Purpose | Typical execution |
+|---|---|---|
+| Golden | trusted canonical/reference behavior | architecture/model/prompt changes and release |
+| PR Critical | fast risk-based blocking coverage | pull request merge gate |
+| Regression | stable behavior plus fixed defects | `main` health / release |
+| Nightly Evaluation | broad AI risk, robustness, adversarial/edge coverage | nightly |
+| Agent Evaluation | future tool/action/HITL behavior | planned |
 
-Trusted canonical behaviors and reference truth. Used for baseline and release confidence.
+Overlap is expected when one case supports multiple lifecycle purposes.
 
-### PR Critical Dataset
+Current reviewed Oracle inventory:
 
-Small risk-based subset used as a merge gate. It is not simply a list of severity-P1 cases; it represents fast, high-value blocking coverage.
+| Suite | Deterministic | Semantic |
+|---|---:|---:|
+| PR Critical | 6 | 4 |
+| Regression | 7 | 8 |
+| Nightly | 48 | 32 |
+| **Total** | **61** | **44** |
 
-### Regression Dataset
-
-Stable behavior, historically fixed defects and important edge cases. It grows as confirmed defects are fixed.
-
-### Nightly Evaluation Dataset
-
-Broad AI-risk surface including ambiguity, missing information, conflicts, prompt injection, paraphrases, robustness and long/multi-constraint queries.
-
-### Future Agent Evaluation Dataset
-
-Will validate both expected and prohibited agent actions, including tool usage, permissions and Human-in-the-Loop behavior.
-
-```mermaid
-flowchart LR
-    A[Test Inventory] --> B[PR Critical]
-    A --> C[Regression]
-    A --> D[Nightly Evaluation]
-    A --> E[Golden]
-
-    B --> F[Merge Gate]
-    C --> G[Main Health]
-    D --> H[Broad AI Risk Signal]
-    E --> I[Release Confidence]
-```
-
-Overlap between datasets is allowed when the same case serves more than one lifecycle purpose.
+All 61 deterministic cases have structured atomic assertions. Nightly assertions are maintained in `datasets/evaluation_assertion_metadata.json`.
 
 ---
 
-## 8. AI risk model
+## 8. Dataset validation and Oracle governance
 
-Each evaluation case should carry one or more explicit canonical AI Risk labels. Risk and priority are separate dimensions.
+All three active workflows validate the dataset before SUT/Judge execution.
 
-### Core risks
+```text
+deterministic      -> valid + deterministic assertions required
+semantic_llm       -> valid
+missing/null/empty -> warning + fallback mapper allowed
+invalid non-empty  -> validation ERROR
+missing/duplicate ID -> validation ERROR
+```
+
+The dataset is authoritative. `judge_routing.py` is a runtime safety/fallback mechanism, not a competing manually maintained business truth. The next governance step is generating/refeshing that mapper from validated approved datasets.
+
+---
+
+## 9. AI risk model
+
+Risk and priority are separate dimensions. Applicable risks include:
 
 - retrieval quality failure;
+- context-selection/evidence-loss failure;
 - hallucination;
 - groundedness failure;
 - constraint non-adherence;
 - missing-information handling;
 - ambiguity handling;
-- conflicting-data handling;
-- stale-data behavior;
+- conflicting/stale data;
 - out-of-domain behavior;
 - prompt injection / adversarial manipulation;
-- robustness to paraphrase and input variation;
+- robustness to paraphrase/input variation;
 - non-determinism / flaky behavior;
 - policy grounding;
 - sensitive-data handling;
-- privacy/security concerns;
+- privacy/security where applicable;
 - bias/fairness where architecture/use-case makes them applicable;
-- operational degradation such as latency/error/token explosion.
+- latency/error/token/context-cost degradation.
 
-### Future agent risks
+Future agent risks include hallucinated requirements, incorrect risk identification, omitted/duplicate coverage, unauthorized tool actions, missing HITL approval and unsafe release recommendations.
 
-- hallucinated requirements;
-- incorrect AI-risk identification;
-- omitted coverage;
-- duplicate test creation;
-- unauthorized Jira/Xray actions;
-- incorrect tool usage;
-- missing Human-in-the-Loop approval;
-- unsafe autonomous action;
-- incorrect release recommendation.
-
-Risk identification must be architecture-aware. A component should not receive RAG-specific risks if it does not use retrieval.
+Risk identification must remain architecture-aware; RAG-specific risks should not be assigned to components that do not use retrieval.
 
 ---
 
-## 9. Test design techniques
-
-Classical and AI-specific techniques are used together.
+## 10. Test design techniques
 
 | Technique | Use |
 |---|---|
-| Equivalence Partitioning | valid/invalid classes, category groupings, input classes |
-| Boundary Value Analysis | price/limits/thresholds/token/context boundaries |
-| Decision Tables | combinations of business rules and policy conditions |
-| Pairwise / Combinatorial | multiple interacting constraints |
-| State/transition testing | lifecycle/workflow states where applicable |
-| Negative Testing | unavailable products, invalid constraints, missing data |
-| Error Guessing | known weak points and observed failure patterns |
-| Metamorphic Testing | expected relation after controlled input transformation |
-| Paraphrase Testing | semantic robustness across equivalent wording |
-| Adversarial Testing | prompt injection and manipulation attempts |
-| Back-to-back / Model comparison | controlled model/prompt comparisons |
-| Repeated-run Testing | non-determinism and flaky behavior |
+| Equivalence Partitioning | valid/invalid input classes |
+| Boundary Value Analysis | prices, thresholds, token/context boundaries |
+| Decision Tables | interacting business rules |
+| Pairwise / Combinatorial | multiple constraints |
+| Negative Testing | unavailable/missing/invalid evidence |
+| Error Guessing | observed weak points |
+| Metamorphic Testing | expected relationships after controlled input changes |
+| Paraphrase Testing | semantic robustness |
+| Adversarial Testing | prompt injection/manipulation |
+| Back-to-back Comparison | model/prompt/retrieval comparison |
+| Repeated-run Testing | non-determinism/flakiness |
 
 Example BVA:
 
 ```text
 Requirement: price <= 150
-149.99 → valid
-150.00 → valid boundary
-150.01 → invalid
+149.99 -> valid
+150.00 -> valid boundary
+150.01 -> invalid
 ```
 
 ---
 
-## 10. Metrics and evaluation model
+## 11. Metrics and Oracle model
 
-### Deterministic Python metrics
+Deterministic Python evidence includes:
 
-- Retrieval Hit Rate
-- Constraint Match Score
-- Constraint Precision@K
-- latency
-- P95 latency
-- token aggregation
-- cache telemetry aggregation
-- estimated cost when explicitly enabled
-- risk coverage counts
-- pass rates and threshold checks
+- Retrieval Hit Rate;
+- Constraint Match Score;
+- Constraint Precision@K;
+- atomic retrieval/context/generation assertions;
+- adaptive selected Context-K and selected IDs/scores;
+- latency/P95;
+- token/cache/cost aggregation;
+- risk coverage counts;
+- pass rates and gate checks.
 
-### LLM Judge metrics
+Semantic Judge metrics include:
 
-- Correctness
-- Groundedness
-- Hallucination
-- Constraint Adherence
-- Context Coverage
-- Context Sufficiency
+- Correctness;
+- Groundedness;
+- Hallucination;
+- Constraint Adherence where semantic judgment is required;
+- Context Coverage;
+- Context Sufficiency.
+
+The governing rule is:
+
+> **Formal assertion -> deterministic Python. Meaning/behavior judgment -> semantic LLM Judge.**
 
 Diagnostic chain:
 
 ```text
-Retrieval Hit
-→ Constraint Match / Precision@K
-→ Context Coverage / Sufficiency
-→ Correctness / Groundedness / Hallucination / Adherence
+Retrieval Hit / Match / Precision
+-> Adaptive Context Selection
+-> Context Evidence
+-> Deterministic or Semantic Generation Evaluation
 ```
-
-This enables failure localization rather than generic “AI failed” reporting.
 
 ---
 
-## 11. Quality gates
-
-Current blocking dimensions include:
-
-- critical case failures;
-- Correctness threshold;
-- Groundedness threshold;
-- Retrieval Hit threshold;
-- Constraint Adherence threshold;
-- Hallucination maximum threshold.
+## 12. Quality gates and CI/CD
 
 Current policy:
 
 ```text
 PR Critical = merge gate
-Regression = main health gate
-Nightly = broad risk signal
-Release Validation = release gate
+Regression  = main health gate
+Nightly     = broad AI-risk signal
+Release     = release validation gate
 ```
 
-Risk/reporting metrics may initially be observational before becoming blocking thresholds. Thresholds should only be introduced after a stable baseline exists and their business meaning is understood.
-
----
-
-## 12. CI/CD strategy
+Current blocking dimensions include critical-case failures and thresholds for Correctness, Groundedness, Retrieval Hit, Constraint Adherence and Hallucination.
 
 ```mermaid
 flowchart TD
     A[Code / Dataset Change] --> B{Trigger}
-    B -->|Pull Request| C[PR Critical]
+    B -->|PR| C[PR Critical]
     B -->|Push main| D[Regression]
     B -->|Schedule| E[Nightly Evaluation]
     B -->|Release| F[Golden + Regression + Repeated Critical]
-
-    C --> G[Evaluate]
-    D --> G
-    E --> G
-    F --> G
-
-    G --> H[Risk Summary + Operational Metrics]
-    H --> I[Quality Gate]
-    I --> J{Pass?}
-    J -->|Yes| K[Proceed]
-    J -->|No| L[Investigate / Fix / Revert / Block Release]
+    C --> V[Dataset Validation]
+    D --> V
+    E --> V
+    F --> X[Release Validation]
+    V --> R[Run SUT + Evaluation]
+    R --> G[Risk Summary + Operational Metrics]
+    G --> Q[Quality Gate]
+    Q --> P{Pass?}
+    P -->|yes| OK[Proceed]
+    P -->|no| FAIL[Investigate / Fix / Revert / Block]
 ```
 
-Documentation-only changes should not unnecessarily consume LLM evaluation cost.
+Documentation-only changes should not unnecessarily spend LLM API cost.
 
 ---
 
-## 13. Entry criteria
+## 13. Entry and exit criteria
 
-Typical entry criteria for an executable evaluation include:
+Entry criteria include:
 
-- testable expected behavior exists;
-- required dataset and expected source are available;
-- environment/model variables are configured;
-- required API secret is available to CI;
-- SUT/evaluator code can execute;
-- relevant risk metadata is defined where required;
-- quality-gate configuration is available;
-- no known blocking infrastructure incident invalidates the run.
+- testable expected behavior;
+- valid dataset/schema/Oracle metadata;
+- required source data available;
+- environment/model variables and API secrets configured;
+- relevant risk/assertion metadata available;
+- no infrastructure incident that invalidates execution.
 
-Future story-level agent entry criteria will also require sufficient Description, Acceptance Criteria, constraints, data/source information and failure/no-result behavior.
-
----
-
-## 14. Exit criteria
-
-A test level can be considered complete when:
+Exit criteria include:
 
 - required scope executed;
-- blocking cases passed or accepted exceptions are explicitly documented;
-- quality metrics satisfy defined gates;
-- unresolved failures are classified;
-- known defects have owners/severity/risk disposition;
-- residual risk is understood;
-- required evidence/reports are retained;
-- release-level evidence supports GO/NO-GO recommendation.
-
-100% metric perfection is not assumed to be universally achievable for probabilistic AI systems; release decisions are based on defined thresholds, risk and evidence.
+- blocking cases passed or explicitly dispositioned;
+- thresholds satisfied;
+- failures localized/classified;
+- known defects and residual risks understood;
+- evidence retained;
+- release-level evidence supports the decision.
 
 ---
 
-## 15. Failure localization and defect taxonomy
+## 14. Failure localization and defect taxonomy
 
 ```mermaid
 flowchart TD
-    A[Evaluation Failure] --> B{Retrieval Hit?}
-    B -->|No| C[Retrieval / Ranking / Filtering defect]
-    B -->|Yes| D{Constraint / Context sufficient?}
-    D -->|No| E[Context / Augmentation defect]
-    D -->|Yes| F{Semantic metrics pass?}
-    F -->|No| G[Generation / Prompt / Model defect]
-    F -->|Yes| H{Operational issue?}
-    H -->|Yes| I[Latency / Provider / Pipeline defect]
-    H -->|No| J[Dataset / Oracle / Evaluator investigation]
+    A[Evaluation Failure] --> B{Retrieval evidence correct?}
+    B -->|no| C[Constraint / Retrieval / Ranking defect]
+    B -->|yes| D{Expected evidence selected?}
+    D -->|no| E[Adaptive Context Selection / Threshold defect]
+    D -->|yes| F{Context preserves evidence?}
+    F -->|no| G[Context Builder / Augmentation defect]
+    F -->|yes| H{Generated behavior correct?}
+    H -->|no| I[Generation / Prompt / Model defect]
+    H -->|yes| J[Dataset / Oracle / Evaluator / Infrastructure investigation]
 ```
 
-Defect categories include:
-
-- SUT / generation;
-- retrieval/filtering/ranking;
-- augmentation/context;
-- dataset;
-- expected-result/oracle;
-- evaluator/Judge;
-- provider/infrastructure;
-- non-deterministic/flaky behavior;
-- security/guardrail;
-- operational/performance.
-
-A failed evaluator must not be mistaken for a product defect.
+Defect categories include SUT/generation, retrieval/filtering/ranking, context selection, context construction, dataset, expected-result/oracle, evaluator/Judge, provider/infrastructure, stochastic behavior, security/guardrail and operational/performance.
 
 ---
 
-## 16. Defect → Regression policy
+## 15. Defect -> Regression policy
 
 Target lifecycle:
 
 ```text
 Failed evaluation
-→ telemetry review
-→ failure localization
-→ defect classification
-→ human confirmation
-→ fix
-→ verification
-→ regression case added/updated
-→ permanent regression protection
+-> evidence review
+-> failure localization
+-> defect classification
+-> human confirmation
+-> fix
+-> verification
+-> regression case added/updated
+-> permanent regression protection
 ```
 
-This closes the learning loop so real failures improve future coverage.
-
 ---
 
-## 17. Non-functional testing
+## 16. Non-functional and cost testing
 
-The strategy includes:
+The strategy includes latency/P95, provider error/retry handling, rate limits/timeouts, throughput/concurrency when introduced, tokens, context-size growth, cost trends and repeated-run stability.
 
-- response latency and P95;
-- API/provider error handling;
-- retry behavior;
-- throughput/concurrency when introduced;
-- token consumption;
-- context-size growth;
-- cost trends;
-- rate-limit behavior;
-- timeout handling;
-- resilience to transient 429/5xx/529 responses;
-- stability across repeated executions.
+Provider retry and hallucination retry are separate controls:
 
-Provider retry and hallucination retry are different controls:
+- provider retry handles delivery/infrastructure failures;
+- hallucination retry investigates stochastic quality instability.
 
-- **provider retry** handles infrastructure delivery failures;
-- **hallucination retry** investigates stochastic quality instability.
-
----
-
-## 18. Cost and evaluation efficiency
-
-Evaluation cost is a QE concern because unnecessary context or Judge usage can make broad evaluation economically impractical.
-
-Principles:
+Cost principles:
 
 1. deterministic Python first;
-2. semantic LLM Judge only where semantic judgment is required;
-3. minimize duplicated prompt/context;
-4. separate Retrieval-K from Context-K;
-5. use prompt caching where technically/economically meaningful;
-6. use model tiering only after quality validation;
-7. risk-based judging should reduce expensive uniform evaluation;
-8. preserve BEFORE/AFTER evidence for optimization changes;
-9. do not weaken thresholds merely to save tokens.
-
-Exact USD values should be hidden in public CI output by default and exposed only through explicit opt-in.
+2. semantic Judge only when needed;
+3. separate retrieval candidates from generation context;
+4. filter low-value evidence before generation;
+5. preserve BEFORE/AFTER evidence for optimizations;
+6. use model tiering/caching only after quality validation;
+7. never weaken quality thresholds just to reduce spend.
 
 ---
 
-## 19. Traceability and governance
+## 17. Traceability and future governance
 
-Target traceability model:
+Current/target traceability:
 
-```mermaid
-flowchart LR
-    A[Requirement] --> B[AI Risk]
-    B --> C[Test / Evaluation Case]
-    C --> D[Dataset]
-    D --> E[CI Level]
-    E --> F[Metric]
-    F --> G[Quality Gate]
-    G --> H[Evidence / Defect]
-    H --> I[Residual Risk / Release Decision]
+```text
+Requirement
+-> AI Risk
+-> Test / Evaluation Case
+-> Governed JSON Dataset
+-> Dataset Validation
+-> Oracle / Atomic Assertions
+-> CI Level
+-> Retrieval / Context / Generation Evidence
+-> Deterministic Engine or Semantic Judge
+-> Metric / Quality Gate
+-> Defect / Regression
+-> Residual Risk / Release Decision
 ```
 
-For future agent-generated coverage:
+Future agent-generated flow:
 
 ```text
 Jira Story
-→ Readiness Gate
-→ Applicable AI Risks
-→ Test Design
-→ Functional Tests + AI Evaluation Cases
-→ Duplicate/Coverage Check
-→ Human Approval
-→ Excel Governance
-→ JSON Export
-→ CI Execution
+-> Readiness Gate
+-> Applicable AI Risks
+-> Test Design
+-> Functional Tests + AI Evaluation Cases
+-> Duplicate / Coverage Check
+-> Human Approval
+-> Governed JSON
+-> Dataset Validation
+-> Derived Oracle Mapper
+-> CI Execution
 ```
 
-Excel remains the human-readable governance/review layer; JSON remains the executable representation.
+JSON is authoritative. Human review can occur before approval, but no Excel export is required for the executable lifecycle.
 
 ---
 
-## 20. Roles and responsibilities
+## 18. Roles and reporting
 
-### Test Lead / Quality Owner
+The Test Lead / Quality Owner owns strategy, risks, gates, residual-risk and release recommendations. QA engineers design/evaluate coverage and analyze evidence. Development/AI Engineering fixes SUT/retrieval/prompt defects. Product/business stakeholders validate expected behavior and risk acceptance. Future agents assist under defined permissions and HITL controls; they do not replace human accountability.
 
-- owns the strategy and quality model;
-- approves risk/coverage priorities;
-- defines/accepts gates;
-- reviews residual risk;
-- provides release recommendation.
-
-### QA Engineer
-
-- designs and executes deterministic and AI-specific coverage;
-- analyzes telemetry;
-- classifies failures;
-- maintains datasets and regression coverage.
-
-### Development / AI Engineering
-
-- supports architecture observability;
-- fixes SUT/retrieval/prompt defects;
-- maintains model/integration behavior.
-
-### Product / Business Stakeholder
-
-- validates expected behavior and business criticality;
-- approves ambiguous requirements and risk acceptance.
-
-### Future QA Agents
-
-- assist with requirements review, risk analysis and test design;
-- do not replace human accountability;
-- must operate under defined permissions and HITL controls.
+Reports should expose executed/passed/failed, blocking failures, risk-level outcomes, retrieval/context-selection/context/generation evidence, latency/tokens, trend vs baseline, defect classification and residual-risk recommendation.
 
 ---
 
-## 21. Reporting
+## 19. Release readiness
 
-Reports should provide both aggregate and case-level evidence.
-
-Minimum views:
-
-- executed / passed / failed;
-- blocking failures;
-- risk-level pass/fail;
-- retrieval/context/generation metric breakdown;
-- latency and token telemetry;
-- trend vs baseline where available;
-- defect classification;
-- residual risk and recommendation.
-
-The reporting objective is not to maximize metric count; it is to support diagnosis and decisions.
-
----
-
-## 22. Release readiness
-
-Release validation should combine:
-
-- Golden Dataset;
-- Regression Dataset;
-- repeated PR Critical coverage where stability matters;
-- unresolved defect review;
-- operational telemetry;
-- risk coverage and residual-risk assessment.
-
-Release recommendation model:
+Release validation should combine Golden, Regression, repeated Critical where stability matters, unresolved-defect review, operational telemetry, risk coverage and residual-risk assessment.
 
 ```text
-Evidence acceptable + residual risk acceptable
-→ GO
-
-Blocking quality gate failure
-or unacceptable residual risk
-→ NO-GO / FIX-FORWARD / EXPLICIT RISK ACCEPTANCE
+Evidence acceptable + residual risk acceptable -> GO
+Blocking gate failure or unacceptable residual risk -> NO-GO / FIX-FORWARD / EXPLICIT RISK ACCEPTANCE
 ```
 
 ---
 
-## 23. Strategy evolution
+## 20. Strategy evolution
 
-This strategy is a living document. It must be updated when:
-
-- architecture changes;
-- a new AI component or agent is introduced;
-- new risks are discovered;
-- datasets or execution levels change;
-- metrics/gates are added or retired;
-- significant production/evaluation defects reveal missing controls;
-- release governance changes.
-
-The guiding principle is:
-
-> Quality confidence must come from traceable evidence across the whole AI system, not from a single model score or a single successful answer.
+This is a living strategy. Implementation, architecture diagrams and documentation must be updated together. A capability must not be presented as current until it exists in executable code; planned capabilities remain explicitly labeled as planned.
