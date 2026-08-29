@@ -132,16 +132,34 @@ RAG_MAX_CONTEXT_K=5
 RAG_MIN_SIMILARITY=0.30
 ```
 
+`RAG_MIN_SIMILARITY` is an application-level threshold implemented by the Adaptive Context Selection layer. It is **not** a built-in FAISS minimum. FAISS still returns the ranked retrieval candidates; `context_selector.py` then decides which of those candidates are strong enough to enter the generation context.
+
+The similarity score is a normalized embedding-similarity signal used for ranking/filtering in this POC. It should not be interpreted as a calibrated probability that a document is correct or relevant. The `0.30` default is therefore an engineering threshold that must be validated against quality, recall/context sufficiency and token-cost evidence rather than treated as a universal semantic-relevance constant.
+
 Rules:
 
 1. retrieve up to Top-K ranked candidates;
-2. keep retrieval candidates as diagnostic evidence;
-3. pass only candidates above the minimum similarity threshold to generation;
+2. keep retrieval candidates as diagnostic evidence even when some are not passed to the SUT;
+3. pass only candidates with similarity `>= RAG_MIN_SIMILARITY` to generation;
 4. cap selected context by `RAG_MAX_CONTEXT_K`;
 5. treat `RAG_MIN_CONTEXT_K` as a target floor, not a hard padding rule;
-6. never add below-threshold evidence simply to reach a fixed number of documents.
+6. never add below-threshold evidence simply to reach a fixed number of documents;
+7. allow Context-K to be lower than the target minimum, including zero, when no retrieved evidence clears the threshold.
 
-This layer is tested for both quality and cost. Too-low thresholds increase context noise and token use; too-high thresholds can remove evidence that the answer requires.
+Example:
+
+```text
+Retrieval Top-K scores: 0.72, 0.51, 0.27, 0.18, 0.11
+RAG_MIN_SIMILARITY:    0.30
+
+Retrieval evidence kept: 5 candidates
+Generation context:     first 2 candidates only
+Context-K:              2
+```
+
+If the scores are `0.72, 0.22, 0.18, 0.12, 0.09`, Context-K becomes `1`; the selector does not inject the `0.22` candidate merely to satisfy `RAG_MIN_CONTEXT_K=2`.
+
+This layer is tested for both quality and cost. Too-low thresholds increase context noise and token use; too-high thresholds can remove evidence that the answer requires. Threshold changes therefore require before/after evaluation rather than isolated tuning.
 
 ---
 
@@ -201,7 +219,7 @@ invalid non-empty  -> validation ERROR
 missing/duplicate ID -> validation ERROR
 ```
 
-The dataset is authoritative. `judge_routing.py` is a runtime safety/fallback mechanism, not a competing manually maintained business truth. The next governance step is generating/refeshing that mapper from validated approved datasets.
+The dataset is authoritative. `judge_routing.py` is a runtime safety/fallback mechanism, not a competing manually maintained business truth. The next governance step is generating/refreshing that mapper from validated approved datasets.
 
 ---
 
