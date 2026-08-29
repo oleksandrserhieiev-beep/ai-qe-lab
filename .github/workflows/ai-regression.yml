@@ -36,6 +36,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Validate Regression Dataset
+        run: >
+          python src/dataset_validator.py
+          datasets/regression_dataset.json
+
       - name: Run Regression Dataset
         run: >
           python src/evaluation_runner.py
