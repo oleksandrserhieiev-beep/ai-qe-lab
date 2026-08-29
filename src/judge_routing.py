@@ -1,8 +1,5 @@
 """Manually reviewed deterministic/semantic oracle routing for AI evaluation suites."""
 
-# These decisions are intentionally explicit. Risk classification answers what can fail;
-# oracle classification answers how the expected behavior can be proven reliably.
-
 CRITICAL_DETERMINISTIC = {
     "G-001", "G-002", "G-003", "G-032", "G-033", "G-034",
 }
@@ -26,8 +23,6 @@ NIGHTLY_SEMANTIC_SEGMENTS = {
 
 
 def _case_id(case):
-    # Dataset files use "ID", while execution runners normalize it to "case_id".
-    # Accept all supported representations so routing works both before and after execution.
     return str(case.get("case_id") or case.get("id") or case.get("ID") or "").strip().upper()
 
 
@@ -35,10 +30,22 @@ def _segment(case):
     return str(case.get("segment") or case.get("Segment") or "").strip().lower()
 
 
-def choose_oracle_route(case):
-    """Return the manually approved oracle route for Critical/Regression/Nightly."""
-    case_id = _case_id(case)
+def _explicit_oracle(case):
+    value = str(case.get("oracle") or case.get("Oracle") or "").strip().lower()
+    if value == "deterministic":
+        return {"route": "deterministic_only", "reason": "explicit dataset oracle classification"}
+    if value in {"semantic_llm", "semantic", "llm"}:
+        return {"route": "semantic_judge", "reason": "explicit dataset oracle classification"}
+    return None
 
+
+def choose_oracle_route(case):
+    """Return explicit reviewed route; use ID/segment mappings as compatibility fallback."""
+    explicit = _explicit_oracle(case)
+    if explicit:
+        return explicit
+
+    case_id = _case_id(case)
     if case_id.startswith("G-"):
         if case_id in CRITICAL_DETERMINISTIC:
             return {"route": "deterministic_only", "reason": "manual Critical oracle classification"}
@@ -62,13 +69,11 @@ def choose_oracle_route(case):
 
 
 def build_evaluation_plan(case, retrieval_pass, constraint_retrieval=None):
-    """Compatibility entry point used by evaluators; routing is now explicit/manual."""
     route = choose_oracle_route(case)
     constraint_retrieval = constraint_retrieval or {}
     constraint_applicable = bool(constraint_retrieval.get("applicable"))
     constraint_score = constraint_retrieval.get("constraint_match_score")
     constraint_pass = constraint_score == 100.0 if constraint_applicable else True
-
     return {
         **route,
         "constraint_assertion": {
