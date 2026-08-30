@@ -2,21 +2,30 @@
 
 Canonical current documentation:
 
-- `architecture.md` — implemented RAG/SUT, adaptive context selection, evaluation and CI architecture;
-- `no_context_hardening.md` — zero-context abstention, case-scoped conflict fixtures, generation-path telemetry and temporary three-suite verification;
-- `automated_ai_evaluation.md` — Dataset Validation, Oracle routing and deterministic/semantic evaluation;
-- `metric_contract.md` — canonical current metric definitions, owners, pipeline layers, denominators, N/A rules and metric evolution;
-- `test_strategy.md` — quality strategy, risks, test levels, metrics, gates and failure localization;
-- `dataset_design.md` — purpose-based dataset model;
-- `dataset_lifecycle_evolution.md` — current validation/governance and Jira-driven lifecycle evolution;
+- `architecture.md` — canonical implemented reference-SUT architecture, Dataset Validation, evaluation, CI/CD execution and target Agentic QE flow;
+- `current_status.md` — concise authoritative statement of what is implemented on `main` and the immediate next phase;
+- `project_overview.md` — target/end-state AI QE operating model, intentionally written in present tense as the completed-product description;
+- `test_strategy.md` — reusable test strategy: risks, techniques, datasets, Oracles, metrics, CI levels, entry/exit criteria, failure localization and release governance;
+- `automated_ai_evaluation.md` — Dataset Validation, Oracle routing and deterministic/semantic evaluation architecture;
+- `metric_contract.md` — canonical metric definitions, owners, pipeline layers, denominators and N/A rules;
+- `dataset_design.md` — purpose-based dataset model and current Oracle metadata contract;
+- `dataset_lifecycle_evolution.md` — current governed test-asset controls and Jira/Confluence-driven lifecycle evolution;
 - `oracle_routing_fallback.md` — canonical Oracle fallback mechanism;
-- `current_status.md` — concise implemented state;
-- `project_overview.md` — target end-state AI QE operating model, intentionally written in present tense as the completed product description.
+- `no_context_hardening.md` — historical hardening record for zero-context, conflict-fixture and generation-path behavior.
 
-`project_overview.md` is descriptive rather than a claim that every target-state capability is already implemented. Use `current_status.md`, the current architecture docs and `main` code when determining actual implementation status.
+`project_overview.md` is descriptive rather than a claim that every target-state capability is already implemented. Use `current_status.md`, current workflows and `main` code to determine actual implementation status.
 
-Metric interpretation rule: semantic metrics (`Correctness`, `Groundedness`, `Hallucination`, `Context Coverage`, `Context Sufficiency`) use judged cases only. A mixed 10-case suite with 4 semantic cases reports semantic outcomes as `x/4 judged`, not `x/10`. An empty semantic population is `N/A`, not `100%`.
+## Canonical interpretation rules
 
-Adaptive Context Selection rule: `Retrieval-K` is diagnostic candidate evidence; `Context-K` is the selected evidence sent to generation. If `Context-K=0`, the SUT LLM call is skipped and a deterministic no-context abstention is returned.
+- The Shopping RAG Assistant is the reference SUT; the reusable product is the AI QE framework around it.
+- `Retrieval-K` is diagnostic candidate evidence; `Context-K` is selected evidence actually eligible for generation.
+- `Context-K=0` produces deterministic abstention and skips Claude.
+- Valid hard constraints with zero matching catalogue products produce deterministic No-Product-Match and skip Claude.
+- Unresolved governed input produces deterministic Clarification before retrieval.
+- Explicit dataset Oracle metadata is primary; the fallback registry is resilience only.
+- Semantic metrics use only the semantic/Judge population. Empty semantic populations are N/A.
+- Release Validation is a separate workflow level using Golden plus broad Nightly validation/evidence.
 
-DOT sources `rag.dot` and `overall.dot` represent the maintained generated-diagram source architecture and include the no-context generation branch.
+## Diagram sources
+
+`rag.dot` and `overall.dot` are maintained architecture sources and must stay aligned with the canonical Constraint Validation → Clarification, No-Product-Match and Context-K=0 branches described in `architecture.md` and README.

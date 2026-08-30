@@ -1,107 +1,88 @@
 # AI QE Lab — Architecture
 
-## 1. Purpose
+## 1. Purpose and architectural boundary
 
-The executable SUT is the Shopping RAG Assistant. The AI QE framework tests that real application through governed datasets, dataset validation, deterministic and semantic evaluation, telemetry, failure localization and CI/CD quality gates.
+The executable reference SUT is the Shopping RAG Assistant. We built it because the POC needed a real AI application to test. On a real project, Development / AI Engineering normally already owns the application pipeline; QE first understands its architecture and observability, then builds the reusable quality framework around it.
 
-The architecture is separated into pipelines so application behavior, test-asset validation, evaluation logic and CI orchestration are not confused.
+```text
+Reference SUT / Application Pipeline
+        ↓
+observable behavior + evidence
+        ↓
+AI QE Framework
+Dataset Governance -> Validation -> Execution -> Evaluation -> Metrics -> Localization -> Gates -> CI/Release Evidence
+```
 
 ---
 
-## 2. Master Architecture
+## 2. Master architecture
 
 ```mermaid
 flowchart TD
-    U[User / Evaluation Case] --> SUT
+    U[User / Evaluation Case] --> CE[Constraint Extraction]
+    CE --> CV{Constraint Validation / Classification}
 
-    subgraph SUT[Shopping RAG Assistant — SUT]
-      CE[Constraint Extraction] --> CV[Constraint Validation / Classification]
-      CV -->|unresolved input| CL[Deterministic Clarification]
-      CV -->|resolved| SF[Structured Product Filtering when applicable]
-      SF --> SR[Embedding + FAISS Semantic Ranking]
-      SR --> RK[Retrieval-K / Top-K Candidates]
-      RK --> AS[Adaptive Context Selection]
-      AS --> CK{Context-K}
-      CK -->|0| AB[Deterministic Abstention]
-      CK -->|> 0| CB[Context Builder]
-      CB --> LLM[Claude Generation]
-      LLM --> ANS[Answer]
-    end
+    CV -->|unresolved input| CL[Deterministic Clarification]
+    CV -->|resolved| SF[Structured Product Filtering]
 
-    CL --> OUT[User / Evaluation Output]
+    SF --> HM{Matching products?}
+    HM -->|no| NM[Deterministic No-Product-Match]
+    HM -->|yes| SR[Embedding + FAISS Semantic Ranking]
+    SR --> RK[Retrieval-K / Top-K Candidates]
+    RK --> AS[Adaptive Context Selection]
+    AS --> CK{Context-K}
+
+    CK -->|0| AB[Deterministic Abstention]
+    CK -->|>0| CB[Context Builder]
+    CB --> LLM[Claude Generation]
+    LLM --> ANS[Generated Answer]
+
+    CL --> OUT[SUT Output]
+    NM --> OUT
     AB --> OUT
     ANS --> OUT
 
-    OUT --> EV[Automated Evaluation]
+    OUT --> EV[Evaluation Evidence]
     RK --> EV
     AS --> EV
-    EV --> OR[Oracle Resolution]
-    OR -->|deterministic| PY[Python Assertions]
+    EV --> OR{Oracle Resolution}
+    OR -->|deterministic| PY[Python Assertion Engine]
     OR -->|semantic_llm| J[LLM Judge]
     PY --> AG[Metric + Risk Aggregation]
     J --> AG
-    AG --> G[Quality Gate]
-    G --> CI[PASS / FAIL + Evidence]
+    AG --> LOC[Failure Localization]
+    LOC --> G[Quality Gate]
+    G --> CI[CI/CD PASS / FAIL + Evidence]
 ```
 
-Deterministic early responses have different causes:
+Deterministic early responses are distinct behaviors:
 
-- **Clarification** — input is unresolved; the user must supply a governed value, such as a maximum price for `cheap`.
-- **No-product-match response** — resolved hard constraints match no catalogue products.
-- **Abstention** — the request is understood but no governed evidence survives context selection (`Context-K=0`).
-
-All three avoid unnecessary Claude generation.
+- **Clarification** — input is unresolved and requires a governed user value; retrieval and Claude are skipped.
+- **No-Product-Match** — resolved hard constraints match zero catalogue products; Claude is skipped.
+- **Abstention** — request is understood but no evidence survives context selection (`Context-K=0`); Claude is skipped.
 
 ---
 
-## 3. SUT / Input and Retrieval Pipeline
-
-```mermaid
-flowchart LR
-    Q[User Query] --> X[Constraint Extraction]
-    X --> V[Constraint Validation]
-    V -->|needs user value| C[Clarification]
-    V -->|resolved| F[Structured Filter]
-    F --> S[Semantic Ranking]
-    S --> K[Retrieval-K]
-    K --> A[Adaptive Selector]
-    A --> CK[Context-K]
-    CK -->|0| AB[Abstain]
-    CK -->|>0| B[Context Builder]
-    B --> L[Claude]
-    L --> O[Answer]
-```
-
-### Structured Filter and Semantic Search solve different problems
-
-Constraint Extraction returns controlled conditions. Constraint Validation determines whether the extracted request is sufficiently resolved to continue. Structured Filtering applies exact conditions to catalogue records. Semantic Ranking then orders eligible evidence by vector similarity.
+## 3. Reference SUT pipeline
 
 ```text
-Input: "black waterproof jacket under $80 for hiking"
-
-Constraint Extraction:
-  color=black
-  waterproof=true
-  subcategory=Jackets
-  max_price=80
-
-Constraint Validation:
-  resolved
-
-Structured Filter:
-  catalogue -> only records satisfying those exact fields
-
-Semantic Ranking:
-  eligible records -> vector similarity ranking against the query
+Query
+-> Constraint Extraction
+-> Constraint Validation
+   -> unresolved -> Clarification
+   -> resolved   -> Structured Filter
+-> zero hard matches -> No-Product-Match
+-> eligible candidates -> Semantic Ranking
+-> Retrieval-K
+-> Adaptive Context Selection
+-> Context-K
+   -> 0  -> Abstention
+   -> >0 -> Context Builder -> Claude -> Answer
 ```
 
-For unresolved subjective price input such as `cheap black waterproof jacket`, Constraint Validation returns clarification before retrieval rather than silently inventing a price threshold.
+Current supported structured fields include `subcategory`, `waterproof`, `color`, `max_price`, and `size`.
 
-Hard constraints are applied before semantic relevance because a high similarity score must not override a known price/color/waterproof requirement.
-
-Current supported structured fields are `subcategory`, `waterproof`, `color`, `max_price`, and `size`.
-
-If structured constraints match zero products, the implementation takes a deterministic no-product-match path rather than falling back to irrelevant semantic candidates.
+Hard constraints are enforced before semantic relevance. A similarity score must not override a known price/color/waterproof/size/category requirement.
 
 ### Retrieval-K vs Context-K
 
@@ -112,63 +93,65 @@ RAG_MAX_CONTEXT_K=5
 RAG_MIN_SIMILARITY=0.30
 ```
 
-1. FAISS/semantic ranking returns up to Retrieval-K candidates.
-2. Adaptive Context Selection considers up to the configured maximum.
-3. Candidates below `RAG_MIN_SIMILARITY` are removed.
-4. Weak evidence is never padded merely to hit the minimum target.
-5. Context-K is therefore `0..Retrieval-K` and contains only evidence actually eligible for generation.
-6. `Context-K=0` skips Claude and returns deterministic abstention.
+1. Semantic ranking returns up to Retrieval-K candidates.
+2. Adaptive Context Selection filters weak evidence.
+3. Evidence below the threshold is not padded merely to meet the minimum target.
+4. Context-K is the actual evidence eligible for generation and can be `0..Retrieval-K`.
+5. `Context-K=0` skips Claude.
 
 ---
 
-## 4. Dataset Validation Pipeline
+## 4. Dataset Validation pipeline
 
-Dataset Validation protects the test contract before SUT/Judge model calls.
+Dataset Validation protects the executable test contract before expensive model calls.
 
 ```mermaid
 flowchart LR
-    D[Dataset] --> V[dataset_validator.py]
-    V -->|valid / recoverable warning| R[Evaluation Runner]
+    D[Governed Dataset] --> V[dataset_validator.py]
+    V -->|valid / recoverable warning| R[Test / Evaluation Execution]
     V -->|invalid| F[Fail before model calls]
 ```
 
-Core rules:
+Core contract:
 
 ```text
-deterministic      -> non-empty Deterministic Assertions required
+deterministic      -> non-empty deterministic assertions required
 semantic_llm       -> valid semantic route
-missing/null/empty -> warning; reviewed runtime fallback allowed
+missing/null/empty -> warning; reviewed fallback allowed
 invalid non-empty  -> validation ERROR
 missing/duplicate ID -> validation ERROR
 ```
 
-This applies to PR Critical, Regression and Nightly execution.
+PR Critical, Regression and Nightly are validated before execution. Golden is validated when executed by Release Validation.
 
 ---
 
-## 5. Evaluation Pipeline
+## 5. Test execution and evaluation pipeline
 
-The runner executes the real SUT and records answer plus retrieval/context/telemetry evidence. The evaluator then applies the case Oracle.
+An Evaluation Case is a machine-readable test case. The executor is not another product architecture; it automates what a tester would otherwise do manually.
 
 ```mermaid
 flowchart TD
-    C[Validated Case] --> R[Evaluation Runner]
-    R --> S[SUT Execution]
-    S --> E[Actual Answer + Retrieval + Context + Telemetry]
+    C[Validated Case] --> R[Test / Evaluation Executor]
+    R --> S[Real SUT]
+    S --> E[Answer + Retrieval + Context + Telemetry]
     E --> O{Oracle Resolution}
     O -->|deterministic| D[Deterministic Assertion Engine]
     O -->|semantic_llm| J[LLM Judge]
     O -->|missing| F[Reviewed Fallback Registry]
     F --> D
     F --> J
-    D --> A[Aggregation]
+    D --> A[Metric + Risk Aggregation]
     J --> A
-    A --> G[Quality Gate]
+    A --> L[Failure Localization]
+    L --> G[Quality Gate]
 ```
 
-The LLM Judge does not choose the Oracle. Dataset metadata is primary; the reviewed fallback exists only as a safety layer.
+The Oracle decides **how observed behavior is evaluated**. It does not decide whether Claude was called. Deterministic SUT exits may skip Claude and still be evaluated through the appropriate Oracle.
 
-Current reviewed populations:
+The Judge never chooses the Oracle. Explicit governed dataset metadata is primary; fallback routing is resilience only.
+
+Current reviewed routine-suite populations:
 
 | Suite | Total | Deterministic | Semantic Judge |
 |---|---:|---:|---:|
@@ -179,152 +162,126 @@ Current reviewed populations:
 
 ---
 
-## 6. Deterministic Assertion and Failure Localization
+## 6. Failure localization
 
-```mermaid
-flowchart LR
-    CASE[Deterministic Case] --> RET[Retrieval Assertions]
-    RET --> CTX[Context Assertions]
-    CTX --> GEN[Generation Assertions]
-    RET --> AGG[Assertion Aggregation]
-    CTX --> AGG
-    GEN --> AGG
-    AGG --> LOC[First Failure Layer]
-    LOC --> RES[PASS / FAIL]
-```
+Investigation targets the first layer where expected behavior diverged.
 
-Supported assertions include `retrieved_id`, `contains`, `regex`, `not_regex`, `no_constraint_match`, `answer_products_satisfy_constraints`, and `catalogue_min_price_product`.
-
-Typical localization:
-
-| Failure | Primary layer |
+| Failure signal | Primary layer |
 |---|---|
-| Retrieval Hit fail | retrieval / expected source |
-| Constraint mismatch | extraction / validation / structured filtering / ranking |
-| expected evidence retrieved but not selected | adaptive selector / threshold |
-| selected evidence lost or malformed | context builder |
-| retrieval/context pass but answer fails | generation / prompt / model |
-| semantic quality fail | generation / semantic behavior |
-| dataset validation error | dataset/oracle authoring |
+| Dataset validation error | dataset / Oracle authoring |
+| unresolved input handled incorrectly | constraint validation |
+| hard constraint mismatch | extraction / filtering |
+| expected evidence missing from Retrieval-K | retrieval / ranking |
+| evidence retrieved but dropped | adaptive selector / threshold |
+| selected evidence malformed or lost | context builder |
+| evidence correct but final answer wrong | generation / prompt / model |
+| semantic quality failure | generation / semantic behavior |
 | provider 429/5xx/529 | external dependency |
+| gate/report mismatch | evaluation / aggregation / quality gate |
 
 ---
 
-## 7. Dataset and CI/CD Execution Pipeline
+## 7. Dataset and CI/CD model
 
-Datasets are purpose-specific, not inheritance layers.
+Datasets are purpose-specific, not inheritance layers:
+
+- **PR Critical** — fast merge-blocking risk subset.
+- **Regression** — stable behavior and confirmed fixed-defect coverage.
+- **Nightly** — broad AI-risk, edge and adversarial coverage.
+- **Golden** — trusted canonical release/reference baseline.
+
+Current executable trigger state:
+
+```text
+PR Critical        = automatic for meaningful PR changes
+Regression         = manual-only
+Nightly            = manual-only
+Release Validation = manual-only
+```
+
+Release Validation is already implemented as a separate workflow level:
 
 ```mermaid
 flowchart TD
-    INV[Evaluation Inventory] --> PR[PR Critical]
-    INV --> RG[Regression]
-    INV --> N[Nightly]
-    INV --> G[Golden]
-    PR --> MG[Merge Gate]
-    RG --> MH[Main Health Gate]
-    N --> NR[Broad AI-Risk Signal]
-    G --> RV[Release Validation]
+    RC[Release Candidate / Manual Release Validation] --> RV[Release Validation]
+    RV --> G[Golden Validation]
+    RV --> N[Broad Nightly Validation / Evidence]
+    G --> Q[Release Quality Gate]
+    N --> Q
+    Q --> D[GO / NO-GO Evidence]
 ```
 
-Execution orchestration:
-
-```mermaid
-flowchart LR
-    T[Trigger] --> S[Setup]
-    S --> V[Validate Selected Dataset]
-    V --> R[Run SUT]
-    R --> E[Evaluate]
-    E --> G[Quality Gate]
-    G --> A[Reports / Evidence]
-```
-
-Policy:
-
-```text
-PR Critical = fast merge gate
-Regression  = main health gate
-Nightly     = broad AI-risk signal
-Golden      = trusted baseline / release validation
-```
-
-Documentation-only changes are excluded from the PR AI evaluation trigger.
+Golden and Nightly serve different purposes: Golden proves trusted canonical behavior; Nightly provides breadth. Target release governance requires both to represent the relevant release candidate/scope/SHA, with evidence reuse allowed when it is valid for that exact candidate.
 
 ---
 
-## 8. Current QE Responsibility Model
+## 8. Responsibility model
 
 ```text
-Engineering:
-  implement SUT/application logic
-  constraint/retrieval/context/generation code
+Development / AI Engineering
+  build and own the SUT/application pipeline
+  implement retrieval/context/model/tooling and observability hooks
 
-QE:
-  understand architecture and risks
-  define expected behavior / Oracle
-  build and validate datasets
-  execute SUT through evaluation cases
-  measure deterministic + semantic quality
-  run regression and quality gates
-  localize failures and provide evidence
+QE / Quality Architecture
+  understand architecture and failure points
+  define risks and expected behavior
+  govern tests/datasets/Oracle metadata
+  build Dataset Validation / evaluator / assertions / Judge routing
+  define metrics, failure localization and quality gates
+  design CI test levels and release evidence
+
+Shared / Product / Release Governance
+  business truth and risk acceptance
+  CI/CD integration support
+  release evidence and GO/NO-GO accountability
 ```
-
-The evaluation framework tests application behavior; it does not replace engineering ownership of production implementation.
 
 ---
 
-## 9. Current vs Next
+## 9. Current vs next
 
 ### Implemented
 
-- deterministic constraint extraction for supported fields;
-- Constraint Validation / Classification for unresolved subjective price input;
-- deterministic clarification before retrieval with Claude skipped;
-- structured product filtering before semantic ranking;
-- `all-MiniLM-L6-v2` embeddings + FAISS ranking;
-- Retrieval-K and adaptive Context-K selection;
-- deterministic no-product-match response;
-- `Context-K=0` deterministic abstention with Claude skipped;
-- context construction and Claude generation when evidence exists;
+- reference Shopping RAG SUT with Constraint Extraction, Validation, Clarification, Structured Filtering, No-Product-Match, FAISS ranking, adaptive Context-K, Abstention, Context Builder and Claude generation;
 - retrieval/context/model telemetry;
 - Golden, PR Critical, Regression and Nightly datasets;
-- dataset/oracle validation;
-- deterministic assertion engine and semantic LLM Judge;
-- metric/risk aggregation, quality gates and CI evidence;
-- PR Critical merge-gate workflow with documentation-only changes excluded.
+- Dataset/Oracle Validation;
+- deterministic assertion engine + semantic LLM Judge;
+- metric/risk aggregation, quality gates and failure localization;
+- PR Critical, Regression, Nightly and Release Validation workflows.
 
-### Next phase
-
-Continue toward Jira integration and the Requirements Review -> AI Risk Analysis -> Test Design -> Governance workflow.
-
-### Future Agentic QE layer
+### Next phase — Agentic QE / Governance
 
 ```mermaid
 flowchart LR
-    J[Jira Requirement] --> R[Requirements Review]
+    J[Jira Requirement] --> R[Requirements Review / Entry Gate]
+    C[Confluence / Project Knowledge] --> R
     R --> AR[AI Risk Analysis]
     AR --> T[Test Design]
     T --> H[Governance / HITL]
-    H --> D[Governed Dataset]
-    D --> V[Dataset Validation]
-    V --> E[Existing Evaluation + CI Framework]
+    H --> D[Governed Dataset / Test Management Update]
+    D --> V[Existing Dataset Validation]
+    V --> E[Existing SUT + Evaluation + CI Framework]
     E --> X[Defect / Regression / Release Evidence]
 ```
 
-Agents create and govern quality inputs; they do not replace the existing evaluator.
+Agents create and govern quality inputs; they do not replace the existing evaluator or human release accountability.
 
 ---
 
-## 10. Target Traceability
+## 10. Target traceability
 
 ```text
 Requirement
 -> Risk
 -> Test / Evaluation Case
+-> Governed Dataset / Test Management Asset
 -> Dataset Validation
 -> SUT Execution
--> Retrieval / Context / Generation Evidence
--> Deterministic Engine or Semantic Judge
+-> Evidence
+-> Oracle / Assertion / Judge
 -> Metric / Risk
+-> Failure Localization
 -> Quality Gate
 -> Defect / Regression
 -> Residual Risk
