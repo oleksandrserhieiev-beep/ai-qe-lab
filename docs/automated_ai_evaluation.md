@@ -2,23 +2,23 @@
 
 ## Purpose
 
-AI evaluation in this lab is automated test execution. Deterministic checks and LLM-as-a-Judge are two test-oracle mechanisms inside the same framework. The current SUT path includes retrieval candidates, adaptive context selection, context construction and Claude generation before Oracle evaluation.
+AI evaluation in this lab is automated test execution against the real reference SUT. Deterministic checks and LLM-as-a-Judge are two Oracle mechanisms inside the same QE framework.
 
 The canonical metric definitions and denominators are maintained in `docs/metric_contract.md`.
 
-## Pre-execution dataset validation
+## Pre-execution Dataset Validation
 
-Before any active CI evaluation starts, the dataset is validated by `src/dataset_validator.py`.
+Before active evaluation, the selected governed dataset is validated by `src/dataset_validator.py`.
 
 ```text
-deterministic      -> valid; non-empty Deterministic Assertions required
-semantic_llm       -> valid
-missing/null/empty -> warning; runtime mapper fallback allowed
+deterministic      -> valid only with non-empty deterministic assertions
+semantic_llm       -> valid semantic route
+missing/null/empty -> warning; reviewed runtime fallback allowed
 invalid non-empty  -> validation ERROR
 missing/duplicate ID -> validation ERROR
 ```
 
-PR Critical, Regression and Nightly all run this validation after dependency installation and before model calls.
+PR Critical, Regression and Nightly validate their selected datasets before SUT/Judge model calls. Golden is also validated when executed inside Release Validation.
 
 ## Oracle hierarchy
 
@@ -27,51 +27,67 @@ flowchart TD
     A[Validated Evaluation Case] --> O{Explicit Oracle?}
     O -->|deterministic| D[Deterministic Oracle]
     O -->|semantic_llm| S[Semantic Oracle]
-    O -->|missing / null / empty| F[Fallback Registry: judge_routing.py]
-    F --> ID[Normalize case_id / id / ID]
-    ID --> M{Known reviewed ID?}
+    O -->|missing / null / empty| F[Reviewed Fallback Registry]
+    F --> M{Known reviewed ID?}
     M -->|deterministic| D
     M -->|semantic_llm| S
     M -->|unknown| S
     D --> P[Deterministic Assertion Engine]
     S --> J[LLM Judge]
-    P --> R[Evaluation Aggregation]
+    P --> R[Metric + Risk Aggregation]
     J --> R
-    R --> G[Quality Gate]
+    R --> L[Failure Localization]
+    L --> G[Quality Gate]
 ```
 
-The SUT LLM generates the application answer in both routes. The Oracle controls how that answer is evaluated, not whether the SUT runs.
+The governed dataset Oracle is the primary routing source. The fallback registry is resilience only. The Judge never chooses the Oracle.
 
-> If a quality property can be represented as an objective, reproducible rule, evaluate it deterministically. Use an LLM Judge only when PASS/FAIL requires semantic interpretation of meaning or behavior.
+> **Oracle routing decides how observed behavior is evaluated. It does not decide whether the SUT calls Claude.**
 
-| Oracle | Appropriate for | Examples |
-|---|---|---|
-| Deterministic Oracle | objective formal rules | IDs, numbers, booleans, ranges, schemas, structured constraints, exact policy facts, catalogue membership |
-| Semantic Oracle | meaning and behavior | safe refusal, ambiguity handling, conflict interpretation, out-of-domain abstention, prompt-injection resistance, unsupported semantic claims |
+The SUT itself has deterministic early-response paths that can skip Claude:
 
-The Judge never classifies Oracle type. An unknown mapping is conservatively routed to `semantic_llm` before the Judge is called.
+```text
+unresolved governed input -> Clarification -> no retrieval / no Claude
+zero hard-constraint matches -> No-Product-Match -> no Claude
+Context-K=0 -> Abstention -> no Claude
+otherwise -> Context Builder -> Claude Generation
+```
+
+All of those behaviors can still be evaluated through deterministic or semantic Oracle logic according to the governed case contract.
 
 ## SUT evidence chain
 
 ```mermaid
-flowchart LR
-    Q[Query] --> R[Top-K Retrieval Candidates]
+flowchart TD
+    Q[Query] --> C[Constraint Extraction]
+    C --> V{Constraint Validation}
+    V -->|unresolved| CL[Clarification]
+    V -->|resolved| F[Structured Filter]
+    F --> M{Matching products?}
+    M -->|no| NM[No-Product-Match]
+    M -->|yes| R[Retrieval-K / Top-K]
     R --> A[Adaptive Context Selection]
-    A --> C[Constructed Context]
-    C --> S[SUT LLM]
-    S --> O[Output]
+    A --> K{Context-K}
+    K -->|0| AB[Abstention]
+    K -->|>0| B[Context Builder]
+    B --> S[Claude SUT]
+    S --> O[Generated Answer]
+    CL --> OUT[SUT Output]
+    NM --> OUT
+    AB --> OUT
+    O --> OUT
 ```
 
-Retrieval candidates remain available for retrieval metrics. Only the adaptively selected subset is passed to the Context Builder and generation. This separation allows a failure to be localized to retrieval, context selection, context construction or generation.
+Retrieval candidates remain available for retrieval diagnostics. Only selected Context-K evidence is eligible for generation. This allows failures to be separated across validation, filtering, retrieval, context selection, context construction and generation.
 
 ## Deterministic Assertion Engine
 
-Routing answers **who evaluates the case**. The engine answers **what Python must prove**.
+Routing answers **who/what evaluates the case**. The assertion engine defines **what Python must prove**.
 
 ```mermaid
 flowchart LR
     R[Retrieval Assertions] --> C[Selected-Context Assertions]
-    C --> G[Generation Assertions]
+    C --> G[Generation / Output Assertions]
     R --> A[Aggregation]
     C --> A
     G --> A
@@ -79,126 +95,72 @@ flowchart LR
     L --> P[Case PASS / FAIL]
 ```
 
-Supported assertion types include `retrieved_id`, `contains`, `regex`, `not_regex`, `no_constraint_match`, `answer_products_satisfy_constraints`, and `catalogue_min_price_product`.
+Supported assertions include `retrieved_id`, `contains`, `regex`, `not_regex`, `no_constraint_match`, `answer_products_satisfy_constraints`, and `catalogue_min_price_product`.
 
-All reviewed deterministic cases are migrated to structured atomic assertions:
+Current reviewed routine-suite routing:
 
 | Suite | Total | Deterministic | Semantic LLM Judge |
 |---|---:|---:|---:|
 | PR Critical | 10 | 6 | 4 |
 | Regression | 15 | 7 | 8 |
-| Nightly Evaluation | 80 | 48 | 32 |
-| **Total** | **105** | **61 (58.1%)** | **44 (41.9%)** |
+| Nightly | 80 | 48 | 32 |
+| **Total** | **105** | **61** | **44** |
 
-Nightly deterministic assertions are loaded from `datasets/evaluation_assertion_metadata.json`. The 61/44 split is the currently implemented case-level routing model.
+Golden is a separate trusted release/reference baseline and is not included in this 105-case routine-suite inventory.
 
-## Current metric population rules
+## Metric population rules
 
-The report intentionally uses different populations for different metrics.
-
-| Metric | Evaluation mechanism | Population |
+| Metric | Mechanism | Population |
 |---|---|---|
-| Overall Pass Rate | Python aggregation across both routes | all executed cases |
-| Retrieval Hit Rate | deterministic Python | all executed cases |
+| Overall Pass Rate | Python aggregation | all executed cases |
+| Retrieval Hit Rate | deterministic Python | all applicable executed cases according to metric contract |
 | Constraint Match / Precision@K | deterministic Python | applicable structured-constraint cases |
 | Correctness | LLM Judge | semantic/Judge cases only |
 | Groundedness | LLM Judge | semantic/Judge cases only |
 | Hallucination | LLM Judge | semantic/Judge cases only |
 | Context Coverage | LLM Judge | semantic/Judge cases only |
 | Context Sufficiency | LLM Judge | semantic/Judge cases only |
-| Constraint Adherence | deterministic Python or Judge depending on route | all executed cases |
-| Judge call reduction | Python routing aggregation | all executed cases |
+| Constraint Adherence | deterministic Python or Judge by route | applicable hybrid population |
 
-For PR Critical, the current split is 6 deterministic + 4 semantic. Therefore:
+Semantic-only fields are N/A for deterministic-only cases and are excluded from semantic denominators. An empty semantic population is **N/A**, never fabricated as 100%.
 
-```text
-Overall Pass 100%        = 10/10 complete routes
-Retrieval Hit 100%       = 10/10 cases
-Correctness 100%         = 4/4 judged, not 10/10
-Groundedness 100%        = 4/4 judged, not 10/10
-Hallucination 0%         = 0/4 judged cases hallucinated
-Context Sufficiency 100% = 4/4 judged
-Constraint Adherence 100%= 10/10 through hybrid route evaluation
-```
-
-Deterministic cases store semantic-only fields as `None` and are excluded from semantic denominators. If a run has zero semantic cases, those metrics are reported as **N/A**, not as an implicit `100%`.
-
-## Semantic route
-
-A semantic case can share exactly the same retrieval and context pipeline. The difference is that its expected behavior cannot be reduced to a complete objective assertion.
-
-The Judge currently evaluates `correctness`, `groundedness`, `hallucination`, `constraint_adherence`, `context_coverage` and `context_sufficient`. Only the semantic route contributes to semantic-only metric denominators.
-
-Example: two policies may be retrieved and preserved correctly, but the SUT must explain their interaction without unsupported assumptions. Retrieval/context evidence is still useful, while final behavioral PASS/FAIL requires the Judge.
-
-## Quality-gate semantics
-
-Current thresholds are:
+Current quality thresholds:
 
 ```text
-Correctness >= 95%           # semantic population when applicable
-Groundedness >= 95%          # semantic population when applicable
-Retrieval Hit >= 95%         # all executed cases
-Constraint Adherence >= 95%  # all executed cases / hybrid route
-Hallucination <= 2%           # semantic population when applicable
+Correctness >= 95%
+Groundedness >= 95%
+Retrieval Hit >= 95%
+Constraint Adherence >= 95%
+Hallucination <= 2%
 ```
 
-An empty semantic population is N/A and is not converted into a fabricated 100% score. Critical-case failures can additionally block the run.
+The final Quality Gate remains deterministic even when source metrics include semantic Judge outcomes.
 
-## Probabilistic generation and re-runs
+## Probabilistic generation and reruns
 
-The SUT remains probabilistic even if retrieval and selected context are correct.
-
-```mermaid
-flowchart TD
-    R[Retrieval PASS] --> C[Context PASS]
-    C --> G{Generation correct?}
-    G -->|yes| P[PASS evidence]
-    G -->|no| RR[Controlled re-run]
-    RR --> X{Reproducible?}
-    X -->|intermittent| ST[Stochastic generation failure]
-    X -->|repeated| SYS[Systematic generation failure]
-```
-
-A re-run measures reproducibility; it does not erase the original failure.
-
-## Relationship to AI risk
+When Claude generation is used, stochastic behavior remains possible. A rerun is evidence about reproducibility; it does not erase the original failure.
 
 ```text
-AI Risk           -> what quality failure are we protecting against?
-Assertion         -> what exactly must be proven?
-Oracle            -> what mechanism can prove it reliably?
-Failure Layer     -> where did evidence first diverge?
-Context Selection -> which retrieved evidence actually reached the SUT?
+original failure
+-> preserve evidence
+-> controlled rerun if required for diagnosis
+-> intermittent = stochastic stability signal
+-> repeated = systematic defect signal
 ```
 
-Risk-level semantic metrics use the same rule: the denominator is only the semantic cases carrying that risk. A deterministic-only risk group correctly reports semantic Groundedness/Hallucination as N/A.
-
-## Engineering outcome
+## Relationship to AI risk and failure localization
 
 ```text
-Dataset Validation
--> RAG SUT execution
-   -> Retrieval Candidates
-   -> Adaptive Context Selection
-   -> Context Builder
-   -> SUT LLM
--> Oracle resolution
--> Deterministic Assertion Engine or Semantic Judge
--> Layer-level evidence + aggregation
--> Quality Gate
+Risk          -> what can fail?
+Test Case     -> how do we exercise it?
+Oracle        -> how is PASS/FAIL decided?
+Assertion     -> what objective fact must Python prove?
+Judge         -> what meaning-level behavior needs interpretation?
+Evidence      -> what happened at each SUT layer?
+Localization  -> where did behavior first diverge?
+Quality Gate  -> what lifecycle decision follows?
 ```
-
-Benefits:
-
-- malformed Oracle metadata fails before expensive execution;
-- deterministic cases prove final expected facts without Judge calls;
-- retrieval and generation context are independently observable;
-- context-selection threshold mistakes are distinguishable from retrieval defects;
-- semantic percentages expose their actual judged population;
-- stochastic failures can be separated from systematic defects;
-- the same governed structure can later be produced from Jira-driven agent workflows.
 
 ## Engineering rule
 
-**Automate deterministically everything that can be expressed as an objective assertion. Use an LLM Judge only where the residual quality property genuinely requires semantic interpretation. Always report the population actually measured.**
+**Automate deterministically everything that can be expressed as an objective assertion. Use an LLM Judge only where the residual quality property genuinely requires semantic interpretation. Keep Oracle routing independent from the SUT generation path, and always report the population actually measured.**
