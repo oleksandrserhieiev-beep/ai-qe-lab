@@ -56,7 +56,7 @@ jobs:
         run: |
           python src/dataset_validator.py datasets/pr_critical_dataset.json
 
-      - name: Run PR Critical Evaluation — 10 cases
+      - name: Run PR Critical Evaluation
         run: |
           python src/evaluation_runner.py --dataset datasets/pr_critical_dataset.json --output reports/pr_critical_results.json
 
