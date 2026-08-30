@@ -14,38 +14,47 @@ Engineering owns the SUT implementation. QE defines risks and expected behavior,
 
 ## Master architecture
 
-```text
-User / Evaluation Case
-        |
-        v
-+---------------------- SUT ----------------------+
-| Constraint Extraction                           |
-| -> Constraint Validation / Classification*      |
-|    -> unresolved input -> Clarification*         |
-| -> Structured Product Filtering when applicable |
-| -> Embedding + FAISS Semantic Ranking            |
-| -> Retrieval-K (Top-K candidates)                |
-| -> Adaptive Context Selection                    |
-| -> Context-K (0..K selected evidence)            |
-|    -> 0 -> Deterministic Abstention               |
-|    -> >0 -> Context Builder -> Claude -> Answer  |
-+--------------------------------------------------+
-        |
-        | execution evidence
-        v
-Dataset Runner -> Automated Evaluation
-               -> Oracle Resolution
-                  -> deterministic -> Python assertions
-                  -> semantic_llm  -> LLM Judge
-               -> Metric / Risk Aggregation
-               -> Quality Gate
-               -> PASS / FAIL + reports
+```mermaid
+flowchart TD
+    U["User / Evaluation Case"] --> CE["Constraint Extraction"]
+    CE --> CV["Constraint Validation / Classification"]
 
-CI/CD selects the execution level:
-PR Critical -> Regression -> Nightly -> Release Validation
+    CV -->|unresolved input| CL["Deterministic Clarification"]
+    CV -->|resolved| SF["Structured Product Filtering"]
+
+    SF -->|zero matching products| NM["Deterministic No-Product-Match"]
+    SF -->|eligible candidates| SR["Embedding + FAISS Semantic Ranking"]
+    SR --> RK["Retrieval-K / Top-K Candidates"]
+    RK --> AS["Adaptive Context Selection"]
+    AS --> CK{"Context-K"}
+
+    CK -->|0| AB["Deterministic Abstention"]
+    CK -->|> 0| CB["Context Builder"]
+    CB --> LLM["Claude Generation"]
+    LLM --> ANS["Generated Answer"]
+
+    CL --> OUT["SUT Output"]
+    NM --> OUT
+    AB --> OUT
+    ANS --> OUT
+
+    OUT --> EV["Automated Evaluation"]
+    RK --> EV
+    AS --> EV
+    EV --> OR{"Oracle Resolution"}
+    OR -->|deterministic| PY["Python Assertion Engine"]
+    OR -->|semantic_llm| J["LLM Judge"]
+    PY --> AG["Metric + Risk Aggregation"]
+    J --> AG
+    AG --> G["Quality Gate"]
+    G --> CI["CI/CD PASS / FAIL + Evidence"]
 ```
 
-`*` Constraint Validation / deterministic clarification is the next SUT hardening change and is tracked separately until merged. Deterministic abstention for `Context-K=0` is already implemented.
+The deterministic exits have different meanings:
+
+- **Clarification** — user input is unresolved and needs a governed value before retrieval;
+- **No-Product-Match** — hard constraints are valid but the catalogue contains no matching product;
+- **Abstention** — the request is understood, but no governed evidence survives context selection (`Context-K=0`).
 
 ### Retrieval vs context
 
@@ -86,7 +95,7 @@ Datasets are organized by execution purpose, not inheritance:
 - **Nightly Evaluation — 80 cases:** broad AI-risk, edge and adversarial signal;
 - **Golden — 35 cases:** trusted baseline / release validation.
 
-All active evaluation workflows validate the selected dataset before SUT/Judge model calls.
+All active evaluation workflows validate the selected dataset before SUT/Judge model calls. Documentation-only changes do not trigger the PR AI evaluation workflow.
 
 ## Evaluation architecture
 
@@ -147,7 +156,7 @@ Requirement -> Risk -> Test -> Dataset -> CI Execution
 ## Documentation
 
 - [`QUICKSTART.md`](QUICKSTART.md) — clone, configure and run locally;
-- [`docs/architecture.md`](docs/architecture.md) — canonical implemented/next architecture and separate pipelines;
+- [`docs/architecture.md`](docs/architecture.md) — canonical current architecture and separate pipelines;
 - [`docs/current_status.md`](docs/current_status.md) — concise implementation status;
 - [`docs/project_overview.md`](docs/project_overview.md) — end-state operating model;
 - [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) — Oracle/evaluation details;

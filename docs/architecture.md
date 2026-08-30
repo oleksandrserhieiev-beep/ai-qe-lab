@@ -4,7 +4,7 @@
 
 The executable SUT is the Shopping RAG Assistant. The AI QE framework tests that real application through governed datasets, dataset validation, deterministic and semantic evaluation, telemetry, failure localization and CI/CD quality gates.
 
-The architecture is intentionally separated into pipelines so that application behavior, test-asset validation, evaluation logic and CI orchestration are not confused.
+The architecture is separated into pipelines so application behavior, test-asset validation, evaluation logic and CI orchestration are not confused.
 
 ---
 
@@ -15,7 +15,7 @@ flowchart TD
     U[User / Evaluation Case] --> SUT
 
     subgraph SUT[Shopping RAG Assistant — SUT]
-      CE[Constraint Extraction] --> CV[Constraint Validation / Classification — next hardening]
+      CE[Constraint Extraction] --> CV[Constraint Validation / Classification]
       CV -->|unresolved input| CL[Deterministic Clarification]
       CV -->|resolved| SF[Structured Product Filtering when applicable]
       SF --> SR[Embedding + FAISS Semantic Ranking]
@@ -44,10 +44,13 @@ flowchart TD
     G --> CI[PASS / FAIL + Evidence]
 ```
 
-Two deterministic early exits have different meanings:
+Deterministic early responses have different causes:
 
-- **Clarification** — the input itself is unresolved; the user must supply a governed value (for example a maximum price for `cheap`). This is the next SUT hardening change.
-- **Abstention** — the request is understood but no governed evidence survives context selection (`Context-K=0`). This is implemented now.
+- **Clarification** — input is unresolved; the user must supply a governed value, such as a maximum price for `cheap`.
+- **No-product-match response** — resolved hard constraints match no catalogue products.
+- **Abstention** — the request is understood but no governed evidence survives context selection (`Context-K=0`).
+
+All three avoid unnecessary Claude generation.
 
 ---
 
@@ -71,7 +74,7 @@ flowchart LR
 
 ### Structured Filter and Semantic Search solve different problems
 
-Constraint Extraction returns controlled conditions. Structured Filtering applies exact conditions to catalogue records. Semantic Ranking then orders eligible evidence by vector similarity.
+Constraint Extraction returns controlled conditions. Constraint Validation determines whether the extracted request is sufficiently resolved to continue. Structured Filtering applies exact conditions to catalogue records. Semantic Ranking then orders eligible evidence by vector similarity.
 
 ```text
 Input: "black waterproof jacket under $80 for hiking"
@@ -82,6 +85,9 @@ Constraint Extraction:
   subcategory=Jackets
   max_price=80
 
+Constraint Validation:
+  resolved
+
 Structured Filter:
   catalogue -> only records satisfying those exact fields
 
@@ -89,11 +95,13 @@ Semantic Ranking:
   eligible records -> vector similarity ranking against the query
 ```
 
+For unresolved subjective price input such as `cheap black waterproof jacket`, Constraint Validation returns clarification before retrieval rather than silently inventing a price threshold.
+
 Hard constraints are applied before semantic relevance because a high similarity score must not override a known price/color/waterproof requirement.
 
 Current supported structured fields are `subcategory`, `waterproof`, `color`, `max_price`, and `size`.
 
-If structured constraints match zero products, the current implementation takes a deterministic no-product-match path rather than falling back to irrelevant semantic candidates.
+If structured constraints match zero products, the implementation takes a deterministic no-product-match path rather than falling back to irrelevant semantic candidates.
 
 ### Retrieval-K vs Context-K
 
@@ -192,7 +200,7 @@ Typical localization:
 | Failure | Primary layer |
 |---|---|
 | Retrieval Hit fail | retrieval / expected source |
-| Constraint mismatch | extraction / structured filtering / ranking |
+| Constraint mismatch | extraction / validation / structured filtering / ranking |
 | expected evidence retrieved but not selected | adaptive selector / threshold |
 | selected evidence lost or malformed | context builder |
 | retrieval/context pass but answer fails | generation / prompt / model |
@@ -208,10 +216,10 @@ Datasets are purpose-specific, not inheritance layers.
 
 ```mermaid
 flowchart TD
-    INV[Evaluation Inventory] --> PR[PR Critical — 10]
-    INV --> RG[Regression — 15]
-    INV --> N[Nightly — 80]
-    INV --> G[Golden — 35]
+    INV[Evaluation Inventory] --> PR[PR Critical]
+    INV --> RG[Regression]
+    INV --> N[Nightly]
+    INV --> G[Golden]
     PR --> MG[Merge Gate]
     RG --> MH[Main Health Gate]
     N --> NR[Broad AI-Risk Signal]
@@ -238,6 +246,8 @@ Regression  = main health gate
 Nightly     = broad AI-risk signal
 Golden      = trusted baseline / release validation
 ```
+
+Documentation-only changes are excluded from the PR AI evaluation trigger.
 
 ---
 
@@ -267,6 +277,8 @@ The evaluation framework tests application behavior; it does not replace enginee
 ### Implemented
 
 - deterministic constraint extraction for supported fields;
+- Constraint Validation / Classification for unresolved subjective price input;
+- deterministic clarification before retrieval with Claude skipped;
 - structured product filtering before semantic ranking;
 - `all-MiniLM-L6-v2` embeddings + FAISS ranking;
 - Retrieval-K and adaptive Context-K selection;
@@ -277,13 +289,12 @@ The evaluation framework tests application behavior; it does not replace enginee
 - Golden, PR Critical, Regression and Nightly datasets;
 - dataset/oracle validation;
 - deterministic assertion engine and semantic LLM Judge;
-- metric/risk aggregation, quality gates and CI evidence.
+- metric/risk aggregation, quality gates and CI evidence;
+- PR Critical merge-gate workflow with documentation-only changes excluded.
 
-### Immediate hardening changes
+### Next phase
 
-- restore PR workflow to PR Critical-only after temporary broad verification;
-- add Constraint Validation / unresolved-input classification and deterministic clarification;
-- keep clarification and no-evidence abstention as distinct SUT paths.
+Continue toward Jira integration and the Requirements Review -> AI Risk Analysis -> Test Design -> Governance workflow.
 
 ### Future Agentic QE layer
 
