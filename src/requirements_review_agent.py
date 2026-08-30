@@ -77,7 +77,6 @@ def review_requirement(requirement: dict) -> tuple[dict, dict]:
     response = client.messages.create(
         model=model,
         max_tokens=1400,
-        temperature=0,
         system=system_prompt,
         messages=[
             {
