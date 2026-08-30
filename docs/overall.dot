@@ -22,13 +22,24 @@ digraph G {
 
   Oracle [label="Oracle Resolution"];
   Py [label="Deterministic Python Assertions"];
-  Judge [label="Semantic LLM Judge"];
+  Judge [label="Semantic LLM Judge\nApproved version-controlled config"];
   Risk [label="Metric + AI Risk Aggregation"];
   Loc [label="Failure Localization"];
-  Gate [label="Quality Gate"];
+  Gate [label="Product Quality Gate"];
   CI [label="CI/CD Evidence\nPASS / FAIL"];
   Release [label="Release Validation\nGolden + Broad Nightly Evidence"];
   Telemetry [label="Observability\nretrieval • context • generation path • tokens • latency"];
+
+  JudgeAssets [label="Approved Judge Assets on main\nModel • Prompt • Rubric"];
+  JudgeChange [label="Judge Change PR\nModel / Prompt / Rubric / Calibration Logic"];
+  OldJudge [label="OLD Judge\nPR base / main"];
+  NewJudge [label="NEW Judge\nPR head"];
+  Calibration [label="Human-Reviewed\nJudge Calibration Dataset"];
+  CalibrationGate [label="Judge Calibration Gate\nHuman agreement • Delta • False PASS"];
+
+  GoldenChange [label="Golden Dataset Change PR"];
+  GoldenMetadata [label="Required Governance Metadata\nChange Reason • Source of Truth"];
+  GoldenCheck [label="Golden Governance Check"];
 
   Dataset -> Validation -> Constraints -> ConstraintValidation;
   ConstraintValidation -> Clarify [label="unresolved"];
@@ -49,6 +60,7 @@ digraph G {
   ContextK -> Oracle [label="evidence"];
   Oracle -> Py [label="deterministic"];
   Oracle -> Judge [label="semantic_llm"];
+  JudgeAssets -> Judge;
   Py -> Risk;
   Judge -> Risk;
   Risk -> Loc -> Gate -> CI;
@@ -62,4 +74,15 @@ digraph G {
   SUT -> Telemetry;
   Abstain -> Telemetry;
   Telemetry -> Risk;
+
+  JudgeChange -> OldJudge;
+  JudgeChange -> NewJudge;
+  Calibration -> OldJudge;
+  Calibration -> NewJudge;
+  OldJudge -> CalibrationGate;
+  NewJudge -> CalibrationGate;
+  CalibrationGate -> CI [label="Judge-change evidence"];
+  CalibrationGate -> JudgeAssets [label="after approved merge"];
+
+  GoldenChange -> GoldenMetadata -> GoldenCheck -> CI;
 }
