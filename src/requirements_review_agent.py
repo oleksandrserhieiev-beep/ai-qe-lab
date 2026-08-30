@@ -14,8 +14,8 @@ from cost_reporting import estimate_cost
 load_dotenv()
 
 PROMPT_PATH = Path(__file__).resolve().parents[1] / "config" / "requirements_review_prompt.txt"
-PRIMARY_MAX_TOKENS = 3000
-RETRY_MAX_TOKENS = 4000
+PRIMARY_MAX_TOKENS = 1800
+RETRY_MAX_TOKENS = 2800
 
 
 class RequirementGap(BaseModel):
@@ -122,13 +122,14 @@ def review_requirement(requirement: dict) -> tuple[dict, dict]:
     system_prompt = PROMPT_PATH.read_text(encoding="utf-8")
     client = Anthropic(api_key=api_key)
 
-    user_payload = json.dumps(requirement, ensure_ascii=False, indent=2)
+    # Compact JSON avoids paying input tokens for indentation/whitespace on every run.
+    user_payload = json.dumps(requirement, ensure_ascii=False, separators=(",", ":"))
     primary_messages = [
         {
             "role": "user",
             "content": (
                 "Review this normalized Jira requirement. Treat absent information as absent; "
-                "do not infer hidden acceptance criteria. Return one complete valid JSON object only.\n\n"
+                "do not infer hidden acceptance criteria. Return one complete concise JSON object only.\n"
                 f"{user_payload}"
             ),
         }
@@ -151,9 +152,8 @@ def review_requirement(requirement: dict) -> tuple[dict, dict]:
             {
                 "role": "user",
                 "content": (
-                    "Your previous response was not a complete valid JSON object. "
-                    "Return the full review again from the beginning as one complete valid JSON object only. "
-                    "Do not add markdown or explanatory text."
+                    "Return the full review again as one complete valid JSON object only. "
+                    "Keep it concise and do not add markdown or explanation."
                 ),
             },
         ]
