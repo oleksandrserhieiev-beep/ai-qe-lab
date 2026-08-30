@@ -14,6 +14,10 @@ EXPECTED_FIELDS = (
     "constraint_adherence",
 )
 
+CALIBRATION_RESPONSE_ATTEMPTS = int(
+    os.getenv("JUDGE_CALIBRATION_RESPONSE_ATTEMPTS", "3")
+)
+
 
 def load_text(path: Path) -> str:
     return path.read_text(encoding="utf-8").strip()
@@ -24,14 +28,46 @@ def load_json(path: Path):
 
 
 def normalize_json_text(text: str):
-    text = text.strip()
+    text = (text or "").strip()
+    if not text:
+        raise ValueError("Judge returned an empty text response")
+
     if text.startswith("```json"):
         text = text[7:]
-    if text.startswith("```"):
+    elif text.startswith("```"):
         text = text[3:]
     if text.endswith("```"):
         text = text[:-3]
-    return json.loads(text.strip())
+
+    cleaned = text.strip()
+    if not cleaned:
+        raise ValueError("Judge response contained no JSON after code-fence cleanup")
+
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        # Be tolerant of a short textual prefix/suffix while still requiring one JSON object.
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(cleaned[start : end + 1])
+        raise
+
+
+def _response_text(response) -> str:
+    return "".join(
+        block.text for block in response.content if block.type == "text"
+    ).strip()
+
+
+def _response_diagnostics(response, text: str) -> str:
+    content_types = [getattr(block, "type", type(block).__name__) for block in response.content]
+    preview = (text or "<EMPTY>").replace("\n", "\\n")[:500]
+    return (
+        f"model={getattr(response, 'model', None)}, "
+        f"stop_reason={getattr(response, 'stop_reason', None)}, "
+        f"content_types={content_types}, raw_text={preview!r}"
+    )
 
 
 def evaluate_case(client, model, system_prompt, rubric, case):
@@ -40,24 +76,45 @@ def evaluate_case(client, model, system_prompt, rubric, case):
         f"X:{case['expected_behavior']}\n"
         f"E:{case['retrieved_context']}\n"
         f"A:{case['actual_answer']}\n"
-        'JSON:{"correctness":true,"groundedness":true,"hallucination":false,'
+        'Return exactly one JSON object and no prose. '
+        'Schema:{"correctness":true,"groundedness":true,"hallucination":false,'
         '"constraint_adherence":true,"context_coverage":100,'
         '"context_sufficient":true,"reason":null}'
     )
 
-    response = client.messages.create(
-        model=model,
-        max_tokens=220,
-        thinking={"type": "disabled"},
-        system=f"{system_prompt}\n\n{rubric}",
-        messages=[{"role": "user", "content": prompt}],
-    )
+    last_error = None
 
-    text = "".join(
-        block.text for block in response.content if block.type == "text"
-    ).strip()
-    result = normalize_json_text(text)
-    return result, response
+    for attempt in range(1, CALIBRATION_RESPONSE_ATTEMPTS + 1):
+        response = client.messages.create(
+            model=model,
+            max_tokens=220,
+            thinking={"type": "disabled"},
+            system=f"{system_prompt}\n\n{rubric}",
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        text = _response_text(response)
+        try:
+            result = normalize_json_text(text)
+            return result, response, attempt
+        except (ValueError, json.JSONDecodeError) as exc:
+            last_error = exc
+            print(
+                f"WARN: case={case['id']} Judge response was not valid JSON "
+                f"on attempt {attempt}/{CALIBRATION_RESPONSE_ATTEMPTS}: {exc}",
+                file=sys.stderr,
+            )
+            print(
+                f"WARN: case={case['id']} response diagnostics: "
+                f"{_response_diagnostics(response, text)}",
+                file=sys.stderr,
+            )
+
+    raise RuntimeError(
+        f"Judge calibration infrastructure failure for case {case['id']}: "
+        f"no valid JSON after {CALIBRATION_RESPONSE_ATTEMPTS} attempts. "
+        f"Last parsing error: {last_error}"
+    )
 
 
 def run_calibration(root: Path, dataset_path: Path, output_path: Path):
@@ -80,11 +137,13 @@ def run_calibration(root: Path, dataset_path: Path, output_path: Path):
     false_fails = 0
     input_tokens = 0
     output_tokens = 0
+    response_attempts = 0
 
     for case in dataset:
-        actual, response = evaluate_case(
+        actual, response, attempts = evaluate_case(
             client, model, system_prompt, rubric, case
         )
+        response_attempts += attempts
         expected = case["expected"]
         field_results = {}
 
@@ -101,10 +160,12 @@ def run_calibration(root: Path, dataset_path: Path, output_path: Path):
             matching_fields += int(match)
 
         expected_case_pass = all(
-            expected[field] for field in ("correctness", "groundedness", "constraint_adherence")
+            expected[field]
+            for field in ("correctness", "groundedness", "constraint_adherence")
         ) and not expected["hallucination"]
         actual_case_pass = all(
-            bool(actual.get(field)) for field in ("correctness", "groundedness", "constraint_adherence")
+            bool(actual.get(field))
+            for field in ("correctness", "groundedness", "constraint_adherence")
         ) and not bool(actual.get("hallucination"))
 
         if actual_case_pass and not expected_case_pass:
@@ -123,6 +184,7 @@ def run_calibration(root: Path, dataset_path: Path, output_path: Path):
                 "expected_case_pass": expected_case_pass,
                 "actual_case_pass": actual_case_pass,
                 "reason": actual.get("reason"),
+                "response_attempts": attempts,
             }
         )
 
@@ -141,6 +203,7 @@ def run_calibration(root: Path, dataset_path: Path, output_path: Path):
         "false_fails": false_fails,
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
+        "response_attempts": response_attempts,
         "case_results": case_results,
     }
 
