@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines how the evaluator resolves the Oracle when explicit Oracle metadata is present or absent. Dataset Validation runs before active CI evaluation; runtime fallback remains a resilience mechanism.
+This document defines how the evaluator resolves the Oracle when explicit Oracle metadata is present or absent. Dataset Validation runs before active evaluation; runtime fallback remains a resilience mechanism.
 
 ## Resolution order
 
@@ -18,7 +18,7 @@ Dataset Validation
     -> known reviewed ID?
        -> yes: use mapped deterministic or semantic_llm route
        -> no: safe default semantic_llm
- -> execute selected oracle
+ -> execute selected Oracle
  -> PASS / FAIL
 ```
 
@@ -33,11 +33,11 @@ Dataset Validation
 7. Invalid non-empty Oracle metadata fails Dataset Validation and does not silently fall back.
 8. A deterministic Oracle must have non-empty deterministic assertions.
 
-All 61 currently reviewed deterministic cases have structured atomic assertions.
+All 61 currently reviewed deterministic routine-suite cases have structured atomic assertions.
 
 ## Why semantic is the safe final fallback
 
-A semantic Judge can evaluate expected behavior against an answer/evidence without a case-specific formal rule. Deterministic execution requires an objective assertion. When neither explicit metadata nor a known mapping exists, semantic evaluation is safer than a possible deterministic false PASS.
+A semantic Judge can evaluate expected behavior against answer/evidence without a case-specific formal rule. Deterministic execution requires an objective assertion. When neither explicit metadata nor a known mapping exists, semantic evaluation is safer than a possible deterministic false PASS.
 
 ## Separation of responsibilities
 
@@ -50,6 +50,8 @@ Assertion Engine     = formal deterministic PASS/FAIL
 Judge                = semantic PASS/FAIL after semantic routing
 ```
 
-## Next hardening step
+## Optional hardening
 
-The current manual fallback registry should become a **derived artifact generated/refreshed from validated approved dataset metadata**. That keeps the dataset authoritative and prevents mapper drift while preserving runtime resilience.
+The fallback registry can later become a **derived artifact generated/refreshed from validated approved dataset metadata**. That would reduce mapper drift while preserving runtime resilience.
+
+This is a secondary governance hardening item, not the primary next project milestone. The major next phase is Jira/Confluence-driven Requirements Review -> AI Risk Analysis -> Test Design -> Governance -> Governed Dataset Update feeding the existing evaluator and CI framework.
