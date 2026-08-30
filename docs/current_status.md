@@ -13,14 +13,27 @@
 - Structured deterministic assertions for 61 cases (6 PR Critical, 7 Regression, 48 Nightly) and semantic LLM Judge routing for 44 cases.
 - AI-risk/metric aggregation, quality gates, operational telemetry and failure-localization evidence.
 - Case-scoped conflicting-policy fixture for Regression `R-014`; the production corpus remains unchanged.
+- Pull-request evaluation is intentionally the 10-case PR Critical merge gate.
 
-## Active hardening work
+## Constraint Validation hardening
 
-1. Restore the pull-request workflow to the intended 10-case PR Critical merge gate after temporary broad verification.
-2. Add Constraint Validation / Classification after Constraint Extraction so unresolved subjective input (for example `cheap` without a maximum price) returns deterministic clarification before retrieval.
-3. Keep deterministic clarification distinct from deterministic abstention:
-   - clarification = user input is unresolved and needs a value;
-   - abstention = input is understood but governed evidence is insufficient.
+Constraint Validation / Classification and deterministic clarification are implemented in PR #37 and become part of `main` when that PR is merged.
+
+The behavioral distinction is explicit:
+
+- clarification = user input is unresolved and needs a governed value;
+- abstention = input is understood but governed evidence is insufficient.
+
+## CI execution policy
+
+```text
+PR Critical = fast merge gate
+Regression  = main health gate
+Nightly     = broad AI-risk signal
+Golden      = trusted baseline / release validation
+```
+
+Documentation-only changes do not need to spend SUT/Judge tokens; the PR evaluation workflow is scoped to runtime code, data, datasets, policies, tests, workflow changes and dependency changes.
 
 ## Next phase
 
