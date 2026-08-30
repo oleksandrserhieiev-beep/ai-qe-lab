@@ -3,26 +3,24 @@
 ## Implemented on `main`
 
 - Shopping RAG Assistant SUT with deterministic constraint extraction for supported product fields.
+- Constraint Validation / Classification for unresolved subjective price input; deterministic clarification is returned before retrieval and the Claude SUT call is skipped.
 - Structured product filtering before semantic ranking when hard constraints are present.
 - `all-MiniLM-L6-v2` embeddings and FAISS Top-K retrieval.
-- Adaptive Context Selection with retained `0.30` minimum similarity threshold and separate Retrieval-K / Context-K evidence.
+- Adaptive Context Selection with `0.30` minimum similarity threshold and separate Retrieval-K / Context-K evidence.
 - Deterministic zero-match handling for structured constraints.
 - Deterministic no-context abstention: `Context-K=0` skips the Claude SUT call and records zero SUT tokens/latency.
 - Dataset/Oracle Validation for PR Critical, Regression and Nightly execution.
-- Reviewed Oracle routing with safe fallback.
-- Structured deterministic assertions for 61 cases (6 PR Critical, 7 Regression, 48 Nightly) and semantic LLM Judge routing for 44 cases.
+- Reviewed Oracle routing with deterministic Python assertions or semantic LLM Judge evaluation.
 - AI-risk/metric aggregation, quality gates, operational telemetry and failure-localization evidence.
-- Case-scoped conflicting-policy fixture for Regression `R-014`; the production corpus remains unchanged.
-- Pull-request evaluation is intentionally the 10-case PR Critical merge gate.
+- Pull-request evaluation uses the PR Critical merge gate.
 
-## Constraint Validation hardening
+## Deterministic early-response terminology
 
-Constraint Validation / Classification and deterministic clarification are implemented in PR #37 and become part of `main` when that PR is merged.
+- **Clarification** — input is unresolved and the user must provide a governed value, for example a maximum price for `cheap`.
+- **No-product-match response** — resolved hard constraints match no catalogue products.
+- **Abstention** — input is understood, but no governed evidence survives context selection (`Context-K=0`).
 
-The behavioral distinction is explicit:
-
-- clarification = user input is unresolved and needs a governed value;
-- abstention = input is understood but governed evidence is insufficient.
+These paths are intentionally separate from normal Claude generation.
 
 ## CI execution policy
 
@@ -33,8 +31,8 @@ Nightly     = broad AI-risk signal
 Golden      = trusted baseline / release validation
 ```
 
-Documentation-only changes do not need to spend SUT/Judge tokens; the PR evaluation workflow is scoped to runtime code, data, datasets, policies, tests, workflow changes and dependency changes.
+Documentation-only changes do not need SUT/Judge evaluation and are excluded from the PR evaluation workflow trigger.
 
 ## Next phase
 
-After the current RAG/evaluation architecture is stable, continue with Jira integration and the Requirements Review -> AI Risk Analysis -> Test Design -> Governance workflow. Agent-generated approved cases feed the existing dataset validation, evaluation and CI framework rather than replacing it.
+Continue toward Jira integration and the Requirements Review -> AI Risk Analysis -> Test Design -> Governance workflow. Approved agent-generated cases will feed the existing dataset validation, evaluation and CI framework rather than replacing it.
