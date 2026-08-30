@@ -1,4 +1,5 @@
 from llm_client import generate_answer
+from constraint_validator import clarification_answer
 
 
 NO_CONTEXT_ANSWER = (
@@ -24,8 +25,15 @@ def _skipped_telemetry(path, stop_reason):
 
 
 def generate_grounded_answer(final_context, context_results, retrieval_metadata=None):
-    """Generate only when governed evidence exists and generation is required."""
+    """Generate only when input is resolved and governed evidence exists."""
     retrieval_metadata = retrieval_metadata or {}
+
+    if retrieval_metadata.get("clarification_required"):
+        validation = retrieval_metadata.get("constraint_validation", {})
+        return clarification_answer(validation), _skipped_telemetry(
+            "deterministic_clarification",
+            "unresolved_constraint",
+        )
 
     if retrieval_metadata.get("no_product_match"):
         return NO_PRODUCT_MATCH_ANSWER, _skipped_telemetry(
