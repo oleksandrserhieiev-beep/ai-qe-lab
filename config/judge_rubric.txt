@@ -1,0 +1,10 @@
+Judge rubric v1
+
+correctness=true only when the material answer is consistent with the expected behavior.
+groundedness=true only when material factual claims are supported by supplied evidence.
+hallucination=true when the answer introduces a material unsupported factual claim.
+constraint_adherence=true only when explicit governed user/business constraints are respected.
+context_coverage is 0-100 and estimates how much of the answer's required factual content is supported by supplied evidence.
+context_sufficient=true when supplied evidence is enough to support the expected behavior, including supported abstention/refusal.
+
+For calibration verdicts, a case passes only when all expected boolean fields in the calibration dataset match the Judge output.

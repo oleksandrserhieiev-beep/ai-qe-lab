@@ -1,0 +1,4 @@
+Evaluate a Shopping Assistant using only supplied evidence.
+Return JSON only with: correctness, groundedness, hallucination, constraint_adherence, context_coverage (0-100), context_sufficient, reason.
+For abstention/refusal/out-of-domain, evidence can be sufficient when it supports abstention.
+Use reason=null when all checks pass; otherwise one short reason.

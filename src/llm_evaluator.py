@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from pathlib import Path
 
 from anthropic import Anthropic, APIStatusError
 from dotenv import load_dotenv
@@ -8,11 +9,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Keep the stable rubric compact. Dynamic query/evidence/answer content stays in the user message.
-JUDGE_SYSTEM = """Evaluate a Shopping Assistant using only supplied evidence.
-Return JSON only with: correctness, groundedness, hallucination, constraint_adherence, context_coverage (0-100), context_sufficient, reason.
-For abstention/refusal/out-of-domain, evidence can be sufficient when it supports abstention.
-Use reason=null when all checks pass; otherwise one short reason."""
+ROOT_DIR = Path(__file__).resolve().parents[1]
+JUDGE_CONFIG_PATH = ROOT_DIR / "config" / "judge_config.json"
+JUDGE_PROMPT_PATH = ROOT_DIR / "config" / "judge_prompt.txt"
+JUDGE_RUBRIC_PATH = ROOT_DIR / "config" / "judge_rubric.txt"
+
+
+def _load_judge_assets():
+    config = json.loads(JUDGE_CONFIG_PATH.read_text(encoding="utf-8"))
+    prompt = JUDGE_PROMPT_PATH.read_text(encoding="utf-8").strip()
+    rubric = JUDGE_RUBRIC_PATH.read_text(encoding="utf-8").strip()
+    return config, prompt, rubric
+
+
+JUDGE_CONFIG, JUDGE_PROMPT, JUDGE_RUBRIC = _load_judge_assets()
+JUDGE_SYSTEM = f"{JUDGE_PROMPT}\n\n{JUDGE_RUBRIC}"
 
 HIGH_RISK_LABELS = {
     "hallucination",
@@ -28,15 +39,30 @@ JUDGE_RETRY_BASE_SECONDS = float(os.getenv("JUDGE_RETRY_BASE_SECONDS", "2"))
 JUDGE_MAX_TOKENS = int(os.getenv("JUDGE_MAX_TOKENS", "180"))
 
 
+def _resolve_versioned_model(env_name, config_value):
+    env_value = os.getenv(env_name)
+    if env_value and config_value and env_value != config_value:
+        raise ValueError(
+            f"{env_name}={env_value} does not match version-controlled "
+            f"config value {config_value}. Update config/judge_config.json "
+            "through a calibrated PR instead of changing the runtime model silently."
+        )
+    return env_value or config_value
+
+
 def get_judge_configuration(risk=None):
     api_key = os.getenv("LLM_API_KEY")
-    primary_model = os.getenv("JUDGE_MODEL")
-    light_model = os.getenv("JUDGE_MODEL_LIGHT")
+    primary_model = _resolve_versioned_model(
+        "JUDGE_MODEL", JUDGE_CONFIG.get("primary_model")
+    )
+    light_model = _resolve_versioned_model(
+        "JUDGE_MODEL_LIGHT", JUDGE_CONFIG.get("light_model")
+    )
 
     if not api_key:
         raise ValueError("LLM_API_KEY is missing in .env")
     if not primary_model:
-        raise ValueError("JUDGE_MODEL is missing")
+        raise ValueError("Judge primary model is missing")
 
     risks = risk if isinstance(risk, list) else [risk] if risk else []
     use_primary = not light_model or any(item in HIGH_RISK_LABELS for item in risks)
@@ -81,7 +107,6 @@ def evaluate_ai_response(
     api_key, judge_model = get_judge_configuration(risk=risk)
     client = Anthropic(api_key=api_key, max_retries=0)
 
-    # Compact field labels reduce repeated Judge input while preserving the same semantic evidence.
     prompt = (
         f"Q:{query}\n"
         f"X:{expected_behavior}\n"
@@ -137,6 +162,8 @@ def evaluate_ai_response(
     result["reason"] = result.get("reason") or None
     result["_telemetry"] = {
         "model": response.model,
+        "judge_prompt_version": JUDGE_CONFIG.get("prompt_version"),
+        "judge_rubric_version": JUDGE_CONFIG.get("rubric_version"),
         "input_tokens": _usage_value(response.usage, "input_tokens"),
         "output_tokens": _usage_value(response.usage, "output_tokens"),
         "cache_creation_input_tokens": _usage_value(

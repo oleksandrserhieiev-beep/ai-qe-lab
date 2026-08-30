@@ -1,0 +1,104 @@
+name: Judge Calibration
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - config/judge_config.json
+      - config/judge_prompt.txt
+      - config/judge_rubric.txt
+      - datasets/judge_calibration_dataset.json
+      - src/judge_calibration_runner.py
+      - .github/workflows/judge-calibration.yml
+  workflow_dispatch:
+
+jobs:
+  calibrate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout NEW / PR head
+        uses: actions/checkout@v4
+        with:
+          path: new
+
+      - name: Checkout OLD / PR base
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: old
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install calibration dependency
+        run: pip install anthropic
+
+      - name: Run NEW Judge against human calibration truth
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          python new/src/judge_calibration_runner.py run \
+            --root new \
+            --dataset new/datasets/judge_calibration_dataset.json \
+            --output new/reports/judge_calibration_new.json
+
+      - name: Detect calibration bootstrap
+        if: github.event_name == 'pull_request'
+        id: bootstrap
+        shell: bash
+        run: |
+          if [ -f old/config/judge_config.json ] && [ -f old/config/judge_prompt.txt ] && [ -f old/config/judge_rubric.txt ]; then
+            echo "baseline_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "baseline_exists=false" >> "$GITHUB_OUTPUT"
+            echo "This is the initial calibration bootstrap: main has no version-controlled OLD Judge baseline yet."
+          fi
+
+      - name: Run OLD Judge against the same human calibration truth
+        if: github.event_name == 'pull_request' && steps.bootstrap.outputs.baseline_exists == 'true'
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          python new/src/judge_calibration_runner.py run \
+            --root old \
+            --dataset new/datasets/judge_calibration_dataset.json \
+            --output new/reports/judge_calibration_old.json
+
+      - name: Compare OLD vs NEW
+        if: github.event_name == 'pull_request' && steps.bootstrap.outputs.baseline_exists == 'true'
+        run: |
+          python new/src/judge_calibration_runner.py compare \
+            --old new/reports/judge_calibration_old.json \
+            --new new/reports/judge_calibration_new.json \
+            --min-agreement 0.90 \
+            --max-drop 0.05
+
+      - name: Validate NEW bootstrap baseline
+        if: github.event_name != 'pull_request' || steps.bootstrap.outputs.baseline_exists != 'true'
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('new/reports/judge_calibration_new.json')
+          result = json.loads(p.read_text())
+          print(f"NEW human agreement: {result['agreement']:.2%}")
+          print(f"False passes: {result['false_passes']}")
+          if result['agreement'] < 0.90:
+              raise SystemExit('FAIL: bootstrap Judge agreement is below 90%')
+          if result['false_passes'] > 0:
+              raise SystemExit('FAIL: bootstrap Judge has false PASS verdicts')
+          print('RESULT: PASS')
+          PY
+
+      - name: Upload Judge calibration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: judge-calibration-${{ github.sha }}
+          path: new/reports/judge_calibration_*.json
+          if-no-files-found: warn
