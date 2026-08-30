@@ -1,5 +1,13 @@
-from src.constraint_filter import extract_constraints
-from src.constraint_validator import clarification_answer, validate_constraints
+import sys
+from pathlib import Path
+
+
+SRC_DIR = Path(__file__).resolve().parent.parent / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+from constraint_filter import extract_constraints  # noqa: E402
+from constraint_validator import clarification_answer, validate_constraints  # noqa: E402
 
 
 def test_subjective_price_requires_clarification_without_max_price():
