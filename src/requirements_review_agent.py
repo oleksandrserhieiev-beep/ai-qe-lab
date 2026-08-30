@@ -2,10 +2,11 @@ import json
 import os
 import time
 from pathlib import Path
+from typing import Literal
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from cost_reporting import estimate_cost
 
@@ -18,21 +19,52 @@ RETRY_MAX_TOKENS = 4000
 
 
 class RequirementGap(BaseModel):
+    gap_type: Literal["BLOCKING_GAP", "NON_BLOCKING_GAP", "TECHNICAL_CONTEXT_NEEDED"]
+    criterion: Literal[
+        "unambiguous",
+        "complete",
+        "consistent",
+        "singular_atomic",
+        "verifiable",
+        "necessary",
+        "correct",
+        "feasible",
+        "appropriate",
+        "comprehensible",
+        "conforming",
+        "other",
+    ]
     category: str
-    severity: str
+    severity: Literal["high", "medium", "low"]
     finding: str
     clarification_question: str = ""
 
 
 class RequirementsReviewResult(BaseModel):
-    decision: str
+    decision: Literal["READY", "NEEDS_CLARIFICATION"]
     readiness_score: int = Field(ge=0, le=100)
     summary: str
     gaps: list[RequirementGap]
     known_constraints: list[str]
     dependencies: list[str]
     testability_notes: list[str]
-    recommended_next_action: str
+    recommended_next_action: Literal["continue_to_risk_analysis", "clarify_requirement"]
+
+    @model_validator(mode="after")
+    def validate_decision_contract(self):
+        blocking_count = sum(gap.gap_type == "BLOCKING_GAP" for gap in self.gaps)
+        if self.decision == "READY" and blocking_count:
+            raise ValueError("READY review cannot contain BLOCKING_GAP findings")
+        if self.decision == "NEEDS_CLARIFICATION" and not blocking_count:
+            raise ValueError("NEEDS_CLARIFICATION requires at least one BLOCKING_GAP")
+        expected_action = (
+            "clarify_requirement" if self.decision == "NEEDS_CLARIFICATION" else "continue_to_risk_analysis"
+        )
+        if self.recommended_next_action != expected_action:
+            raise ValueError(
+                f"recommended_next_action must be {expected_action} for decision {self.decision}"
+            )
+        return self
 
 
 def _configuration():
