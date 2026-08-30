@@ -1,11 +1,27 @@
 # Current Evaluation Status
 
-Current implementation includes: structured constraint filtering, FAISS Top-K retrieval, adaptive similarity-based context selection at the retained `0.30` threshold, Dataset/Oracle Validation in PR Critical/Regression/Nightly, reviewed Oracle routing with safe fallback, and structured deterministic assertions for all 61 deterministic cases (6 Critical, 7 Regression, 48 Nightly). The 44 semantic cases continue through the LLM Judge.
+## Implemented on `main`
 
-Adaptive Context Selection is now hardened for the zero-evidence path: when `Context-K=0`, the Claude SUT call is skipped and the system returns a deterministic abstention with zero SUT tokens and zero SUT latency. This prevents the model from answering from pretrained knowledge when no governed retrieval evidence survives selection.
+- Shopping RAG Assistant SUT with deterministic constraint extraction for supported product fields.
+- Structured product filtering before semantic ranking when hard constraints are present.
+- `all-MiniLM-L6-v2` embeddings and FAISS Top-K retrieval.
+- Adaptive Context Selection with retained `0.30` minimum similarity threshold and separate Retrieval-K / Context-K evidence.
+- Deterministic zero-match handling for structured constraints.
+- Deterministic no-context abstention: `Context-K=0` skips the Claude SUT call and records zero SUT tokens/latency.
+- Dataset/Oracle Validation for PR Critical, Regression and Nightly execution.
+- Reviewed Oracle routing with safe fallback.
+- Structured deterministic assertions for 61 cases (6 PR Critical, 7 Regression, 48 Nightly) and semantic LLM Judge routing for 44 cases.
+- AI-risk/metric aggregation, quality gates, operational telemetry and failure-localization evidence.
+- Case-scoped conflicting-policy fixture for Regression `R-014`; the production corpus remains unchanged.
 
-Regression case `R-014` now exercises a real conflicting-policy scenario using a case-scoped test fixture. Approved production policy indexing remains unchanged; the conflicting fixture is injected only for the declared evaluation case.
+## Active hardening work
 
-For this hardening PR only, the PR workflow temporarily verifies PR Critical (10), Regression (15), and Nightly Evaluation (80) end to end. After all three are confirmed healthy, the extra Regression and Nightly PR checks should be removed.
+1. Restore the pull-request workflow to the intended 10-case PR Critical merge gate after temporary broad verification.
+2. Add Constraint Validation / Classification after Constraint Extraction so unresolved subjective input (for example `cheap` without a maximum price) returns deterministic clarification before retrieval.
+3. Keep deterministic clarification distinct from deterministic abstention:
+   - clarification = user input is unresolved and needs a value;
+   - abstention = input is understood but governed evidence is insufficient.
 
-Next after hardening is complete: final RAG evaluation review, then Jira integration and the Requirements Review / AI Risk Analysis / Test Design agent workflow.
+## Next phase
+
+After the current RAG/evaluation architecture is stable, continue with Jira integration and the Requirements Review -> AI Risk Analysis -> Test Design -> Governance workflow. Agent-generated approved cases feed the existing dataset validation, evaluation and CI framework rather than replacing it.
