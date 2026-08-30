@@ -20,8 +20,8 @@ User / Evaluation Case
         v
 +---------------------- SUT ----------------------+
 | Constraint Extraction                           |
-| -> Constraint Validation / Classification*      |
-|    -> unresolved input -> Clarification*         |
+| -> Constraint Validation / Classification       |
+|    -> unresolved input -> Clarification          |
 | -> Structured Product Filtering when applicable |
 | -> Embedding + FAISS Semantic Ranking            |
 | -> Retrieval-K (Top-K candidates)                |
@@ -45,7 +45,7 @@ CI/CD selects the execution level:
 PR Critical -> Regression -> Nightly -> Release Validation
 ```
 
-`*` Constraint Validation / deterministic clarification is the next SUT hardening change and is tracked separately until merged. Deterministic abstention for `Context-K=0` is already implemented.
+Clarification and abstention are separate deterministic paths: clarification handles unresolved user input before retrieval; abstention handles resolved requests when no governed evidence survives context selection.
 
 ### Retrieval vs context
 
@@ -86,7 +86,7 @@ Datasets are organized by execution purpose, not inheritance:
 - **Nightly Evaluation — 80 cases:** broad AI-risk, edge and adversarial signal;
 - **Golden — 35 cases:** trusted baseline / release validation.
 
-All active evaluation workflows validate the selected dataset before SUT/Judge model calls.
+All active evaluation workflows validate the selected dataset before SUT/Judge model calls. Documentation-only changes do not trigger the PR AI evaluation workflow.
 
 ## Evaluation architecture
 
@@ -147,7 +147,7 @@ Requirement -> Risk -> Test -> Dataset -> CI Execution
 ## Documentation
 
 - [`QUICKSTART.md`](QUICKSTART.md) — clone, configure and run locally;
-- [`docs/architecture.md`](docs/architecture.md) — canonical implemented/next architecture and separate pipelines;
+- [`docs/architecture.md`](docs/architecture.md) — canonical current architecture and separate pipelines;
 - [`docs/current_status.md`](docs/current_status.md) — concise implementation status;
 - [`docs/project_overview.md`](docs/project_overview.md) — end-state operating model;
 - [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) — Oracle/evaluation details;
