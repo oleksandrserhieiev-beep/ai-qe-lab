@@ -40,9 +40,9 @@ def main():
         "",
         "| Type | Count | Gate impact |",
         "| --- | ---: | --- |",
-        f"| BLOCKING_GAP | {blocking_count} | Blocks readiness |",
-        f"| NON_BLOCKING_GAP | {non_blocking_count} | Does not block |",
-        f"| TECHNICAL_CONTEXT_NEEDED | {technical_count} | Does not block |",
+        f"| `BLOCKING_GAP` | {blocking_count} | Blocks readiness |",
+        f"| `NON_BLOCKING_GAP` | {non_blocking_count} | Does not block |",
+        f"| `TECHNICAL_CONTEXT_NEEDED` | {technical_count} | Does not block |",
         f"| **Total** | **{len(gaps)}** | |",
         "",
         "### AI usage",
@@ -62,20 +62,23 @@ def main():
     if gaps:
         lines.extend(
             [
-                "| # | Type | Severity | ISO/quality criterion | Category | Finding | Clarification |",
-                "| ---: | --- | --- | --- | --- | --- | --- |",
+                "| # | Gate / severity | Quality check | Finding | Clarification |",
+                "| ---: | --- | --- | --- | --- |",
             ]
         )
         for index, gap in enumerate(gaps, start=1):
+            gap_type = _cell(gap.get("gap_type", ""))
+            severity = _cell(gap.get("severity", "")).upper()
+            criterion = _cell(gap.get("criterion", ""))
+            category = _cell(gap.get("category", "other"))
+            quality_check = f"{criterion}<br><sub>{category}</sub>" if criterion else category
             lines.append(
                 "| "
                 + " | ".join(
                     [
                         str(index),
-                        _cell(gap.get("gap_type", "")),
-                        _cell(gap.get("severity", "")).upper(),
-                        _cell(gap.get("criterion", "")),
-                        _cell(gap.get("category", "other")),
+                        f"`{gap_type}`<br>**{severity}**",
+                        quality_check,
                         _cell(gap.get("finding", "")),
                         _cell(gap.get("clarification_question", "")),
                     ]
@@ -106,11 +109,22 @@ def main():
     )
 
     summary = "\n".join(lines) + "\n"
-    print(summary)
+
+    # The GitHub job log is plain text and does not render Markdown tables. Keep the
+    # console output compact and publish the full rendered report to Step Summary.
+    print(
+        "Requirements Review: "
+        f"story={issue_key} decision={review['decision']} readiness={review['readiness_score']}/100 "
+        f"blocking={blocking_count} non_blocking={non_blocking_count} technical={technical_count} "
+        f"tokens={telemetry['total_tokens']:,} cost={cost_text} latency={latency_seconds:.2f}s"
+    )
 
     if summary_path:
         with open(summary_path, "a", encoding="utf-8") as handle:
             handle.write(summary)
+        print("Detailed rendered report published to GitHub Actions Step Summary.")
+    else:
+        print(summary)
 
 
 if __name__ == "__main__":
