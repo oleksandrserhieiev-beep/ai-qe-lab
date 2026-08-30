@@ -17,6 +17,7 @@ from constraint_filter import (
     extract_constraints,
     product_matches_constraints,
 )
+from constraint_validator import validate_constraints
 
 
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
@@ -175,13 +176,26 @@ def _cheapest_products(product_documents):
 
 
 def search_with_metadata(query, model, index, documents, top_k=DEFAULT_TOP_K):
-    """Return ranked candidates plus deterministic retrieval-routing evidence."""
+    """Return ranked candidates plus deterministic input/retrieval-routing evidence."""
     constraints = extract_constraints(query)
+    validation = validate_constraints(query, constraints)
     has_product_constraints = any(
         value is not None
         for value in constraints.values()
     )
     cheapest_requested = bool(CHEAPEST_PATTERN.search(query or ""))
+
+    if not validation["is_resolved"]:
+        return [], {
+            "strategy": "clarification_required",
+            "structured_constraints_detected": has_product_constraints,
+            "structured_match_count": None,
+            "no_product_match": False,
+            "cheapest_requested": cheapest_requested,
+            "clarification_required": True,
+            "constraint_validation": validation,
+        }
+
     product_documents = [document for document in documents if document["type"] == "product"]
 
     candidate_products = product_documents
@@ -200,6 +214,8 @@ def search_with_metadata(query, model, index, documents, top_k=DEFAULT_TOP_K):
                 "structured_match_count": 0,
                 "no_product_match": True,
                 "cheapest_requested": cheapest_requested,
+                "clarification_required": False,
+                "constraint_validation": validation,
             }
 
         print(f"Structured filter matched: {len(candidate_products)} product(s)")
@@ -216,6 +232,8 @@ def search_with_metadata(query, model, index, documents, top_k=DEFAULT_TOP_K):
             "structured_match_count": len(candidate_products) if has_product_constraints else None,
             "no_product_match": False,
             "cheapest_requested": True,
+            "clarification_required": False,
+            "constraint_validation": validation,
         }
 
     if has_product_constraints:
@@ -230,6 +248,8 @@ def search_with_metadata(query, model, index, documents, top_k=DEFAULT_TOP_K):
             "structured_match_count": len(candidate_products),
             "no_product_match": False,
             "cheapest_requested": False,
+            "clarification_required": False,
+            "constraint_validation": validation,
         }
 
     query_embedding = model.encode(
@@ -269,6 +289,8 @@ def search_with_metadata(query, model, index, documents, top_k=DEFAULT_TOP_K):
         "structured_match_count": None,
         "no_product_match": False,
         "cheapest_requested": False,
+        "clarification_required": False,
+        "constraint_validation": validation,
     }
 
 
