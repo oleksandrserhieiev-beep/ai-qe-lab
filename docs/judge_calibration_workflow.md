@@ -1,10 +1,26 @@
 # Judge Calibration Workflow
 
+## Implementation status
+
+**Implemented on `main`.** The LLM Judge is now a version-controlled and regression-tested component of the evaluation system.
+
+Implemented assets:
+
+```text
+config/judge_config.json
+config/judge_prompt.txt
+config/judge_rubric.txt
+datasets/judge_calibration_dataset.json
+src/judge_calibration_runner.py
+.github/workflows/judge-calibration.yml
+src/llm_evaluator.py
+```
+
+The production evaluator loads the same approved model/prompt/rubric assets that are subject to calibration.
+
 ## Purpose
 
-The LLM Judge is part of the evaluation system and therefore must itself be regression-tested when its behavior can change.
-
-Judge behavior is treated as a configuration composed of:
+The LLM Judge is part of the quality system and therefore must itself be tested when its behavior can change.
 
 ```text
 Judge Configuration
@@ -16,229 +32,207 @@ Judge Prompt
 Scoring Rubric
 ```
 
-A material change to any of these may change evaluation outcomes even when the SUT has not changed.
+A model, prompt or rubric change can alter product-quality verdicts even when the SUT has not changed. Calibration prevents an evaluator regression from being mistaken for a product regression or silently weakening the quality gate.
 
-## What is a rubric?
+## Current baseline
 
-The rubric defines how the Judge interprets quality and maps observed behavior to a score/verdict.
-
-Example:
+The first version-controlled baseline was bootstrapped after implementation:
 
 ```text
-Correctness rubric
-
-1.0 = fully correct
-0.8 = correct main answer with minor non-material issue
-0.5 = partially correct with important omission/error
-0.2 = mostly incorrect
-0.0 = completely incorrect
+Model  = claude-opus-5
+Prompt = v1
+Rubric = v1
+Cases  = 8
+Expected semantic fields = 32
+Human agreement = 100%
+False PASS = 0
+False FAIL = 0
 ```
 
-The prompt tells the Judge what task to perform. The rubric tells it how to score that task.
+The bootstrap established the first approved baseline. After that merge, subsequent relevant PRs can perform a true OLD-vs-NEW comparison.
 
 ## Calibration dataset
 
-Create a small, stable, human-reviewed calibration dataset containing known examples and expected Judge outcomes.
+`datasets/judge_calibration_dataset.json` is a small human-reviewed dataset of known examples and expected Judge outcomes. It tests the evaluator, not the Shopping Assistant.
 
-Example:
+Current cases cover:
 
-| Case | Human-approved expected verdict |
-|---|---|
-| JCAL-001 | PASS |
-| JCAL-002 | FAIL |
-| JCAL-003 | PASS |
-| JCAL-004 | FAIL |
+| Area | Good example | Bad example |
+|---|---|---|
+| Product constraint | waterproof black jacket <= $150 is recommended correctly | recommendation violates the $150 maximum |
+| Policy truth | answer states governed 30-day return period | answer invents 90-day return period |
+| Instruction override | assistant preserves governed return policy | assistant follows user request to override policy |
+| Missing evidence | assistant abstains on unsupported lifetime warranty | assistant invents lifetime warranty |
 
-This dataset tests the evaluator, not the product SUT.
-
-## Baseline concept
-
-The approved Judge configuration on `main` is the baseline.
-
-Example:
+For each case, humans approve expected values for:
 
 ```text
-MAIN / OLD
-Model   = Claude Judge A
-Prompt  = v3
-Rubric  = v2
-Agreement with human calibration set = 96%
+correctness
+groundedness
+hallucination
+constraint_adherence
 ```
 
-A PR proposes:
+The calibration dataset is itself a governed evaluator-test asset. It must not be rewritten simply because a proposed Judge performs poorly.
+
+## How OLD and NEW are resolved
+
+Git is authoritative:
 
 ```text
-PR / NEW
-Model   = Claude Judge B
-Prompt  = v4
-Rubric  = v2
+OLD = Judge assets from PR base / main
+NEW = Judge assets from PR head
 ```
 
-The workflow evaluates the same calibration dataset and reports:
+Both configurations are evaluated against the **same human-reviewed calibration dataset**.
 
 ```text
-Judge Calibration
-
-Configuration
-────────────────────────────
-Model:   A  → B
-Prompt:  v3 → v4
-Rubric:  v2 → v2
-
-Human agreement:
-OLD = 96%
-NEW = 88%
-Delta = -8 percentage points
-
-RESULT = FAIL
+OLD Judge ─┐
+           ├─> Human Calibration Truth -> agreement / false PASS / false FAIL
+NEW Judge ─┘
 ```
 
-## How OLD and NEW are known
+OLD-vs-NEW alone would be insufficient because NEW can legitimately differ from OLD by being better. The primary reference is human-approved truth.
 
-The workflow must not rely on memory outside Git.
+## Automatic trigger strategy
 
-Judge configuration should be version-controlled, for example:
+The GitHub Action runs automatically on pull requests to `main` when one of these paths changes:
 
 ```text
-evaluation/judge/
-  judge_config.yaml
-  judge_prompt.txt
-  judge_rubric.yaml
-```
-
-Example config:
-
-```yaml
-model: claude-example-model
-prompt_version: v3
-rubric_version: v2
-```
-
-For a pull request:
-
-- OLD = files/configuration from the PR base (`main`)
-- NEW = files/configuration from the PR head
-- Git diff tells the workflow which dimensions changed
-
-The approved historical baseline can also store the previous calibration result as a version-controlled report/metadata artifact if trend comparison is required.
-
-## Trigger strategy
-
-Calibration should run when Judge behavior may change, for example when any of these are modified:
-
-```text
-Judge model configuration
-Judge system/user prompt
-Judge rubric
-Judge parsing/scoring logic
-```
-
-Conceptual GitHub Actions path trigger:
-
-```text
-src/llm_evaluator.py
-evaluation/judge/**
-datasets/judge_calibration_dataset.*
+config/judge_config.json
+config/judge_prompt.txt
+config/judge_rubric.txt
+datasets/judge_calibration_dataset.json
+src/judge_calibration_runner.py
 .github/workflows/judge-calibration.yml
 ```
 
-It should also support manual `workflow_dispatch` for deliberate re-calibration.
+It also supports manual `workflow_dispatch`.
+
+Ordinary documentation and unrelated SUT changes do not trigger Judge Calibration.
 
 ## Workflow logic
 
 ```text
-PR changes Judge-related configuration
+Judge-related PR
         ↓
-Detect OLD configuration from base branch
+Checkout NEW / PR head
         ↓
-Detect NEW configuration from PR head
+Run NEW against human calibration truth
         ↓
-Load same human-approved calibration dataset
+Checkout OLD / PR base
         ↓
-Run OLD Judge configuration
+If OLD baseline exists:
+    run OLD against same calibration truth
+    compare OLD vs NEW
+Else:
+    validate NEW as bootstrap baseline
         ↓
-Run NEW Judge configuration
+Judge Calibration Gate
         ↓
-Compare both against human-approved verdicts
-        ↓
-Calculate agreement / disagreement
-        ↓
-Calculate OLD → NEW delta
-        ↓
-Apply Judge Calibration Gate
-        ↓
-PASS / FAIL + evidence
+PASS / FAIL + JSON evidence artifact
 ```
 
-## Why compare both to human truth?
+## Current gate policy
 
-OLD vs NEW alone is insufficient.
-
-A new Judge can differ from the old Judge because the new one is better.
-
-Therefore the primary comparison is:
+The current POC gate is:
 
 ```text
-OLD Judge → Human Baseline
-NEW Judge → Human Baseline
+NEW human agreement >= 90%
+OLD -> NEW agreement drop <= 5 percentage points
+NEW false PASS count <= OLD false PASS count
 ```
 
-Then compare their agreement rates and important disagreement cases.
+On bootstrap (no OLD version-controlled baseline), NEW must have agreement >= 90% and zero false PASS verdicts.
 
-## Initial metrics
+These are initial POC controls. Production calibration tolerances should be reviewed against business risk after additional calibration evidence is collected.
 
-At minimum report:
+False PASS is especially important because an evaluator false PASS can allow a genuine SUT defect through a semantic product quality gate.
 
-- total calibration cases
-- Judge vs human agreement rate
-- false PASS count
-- false FAIL count
-- disagreement case IDs
-- OLD agreement
-- NEW agreement
-- delta
-- model/prompt/rubric versions
-- token/cost telemetry
+## Response/parsing resilience
 
-For binary PASS/FAIL calibration, simple agreement is sufficient for the first POC implementation. More advanced inter-rater metrics can be introduced later if useful.
+Calibration distinguishes semantic disagreement from infrastructure/response-format failure.
 
-## Gate policy
+The runner:
 
-Do not hard-code the final production calibration threshold before collecting a baseline.
+- requires a non-empty Judge text response;
+- tolerates JSON code fences;
+- can extract a JSON object from a short textual prefix/suffix;
+- retries invalid/empty semantic responses up to the configured bounded attempt count (`JUDGE_CALIBRATION_RESPONSE_ATTEMPTS`, default 3);
+- logs case ID, model, stop reason, content block types and a bounded raw-text preview;
+- records response-attempt counts;
+- raises a clear calibration infrastructure failure if no valid JSON is obtained after retries.
 
-Initial POC approach:
+This prevents a malformed provider/model response from surfacing as an unexplained Python `JSONDecodeError` or being confused with a product-quality failure.
 
-1. create human-reviewed calibration cases;
-2. measure current Judge agreement;
-3. record the current configuration as baseline;
-4. define acceptable regression tolerance;
-5. block a proposed Judge change if it materially worsens agreement or creates unacceptable false-PASS behavior.
+## Versioning and production Judge rule
 
-False PASS should normally be considered more dangerous than false FAIL because it can allow a real SUT defect through the quality gate.
-
-## Versioning rule
-
-Every evaluation result should record enough information to reconstruct which Judge produced it:
+`src/llm_evaluator.py` loads:
 
 ```text
-judge_model
-judge_prompt_version or prompt hash
-judge_rubric_version or rubric hash
-judge_code/config version
+config/judge_config.json
+config/judge_prompt.txt
+config/judge_rubric.txt
 ```
 
-This allows a failed quality gate to be distinguished from a change in evaluator behavior.
+A runtime `JUDGE_MODEL` / `JUDGE_MODEL_LIGHT` override must match the version-controlled configuration where a configured value exists. A conflicting runtime model is rejected so evaluator behavior cannot change silently outside calibrated Git governance.
 
-## Target implementation artifacts
+Semantic evaluation telemetry records the Judge model plus prompt/rubric versions.
+
+## Example future model optimization
+
+If we want to reduce evaluator cost:
 
 ```text
-datasets/judge_calibration_dataset.json
-evaluation/judge/judge_config.yaml
-evaluation/judge/judge_prompt.txt
-evaluation/judge/judge_rubric.yaml
-src/judge_calibration_runner.py
-.github/workflows/judge-calibration.yml
-reports/judge_calibration_*.json
+OLD
+Model  = Opus
+Prompt = v1
+Rubric = v1
+
+NEW
+Model  = Sonnet
+Prompt = v1
+Rubric = v1
 ```
 
-The first implementation should remain intentionally small and should reuse the existing Judge/evaluation client where practical.
+The cheaper configuration is not accepted merely because it executes. Both configurations are tested on the same human truth, and NEW must satisfy the calibration gate.
+
+The same mechanism applies to prompt or rubric changes:
+
+```text
+Opus + Prompt v1 + Rubric v1
+vs
+Opus + Prompt v2 + Rubric v1
+```
+
+or:
+
+```text
+Opus + Prompt v1 + Rubric v1
+vs
+Opus + Prompt v1 + Rubric v2
+```
+
+For easier root-cause analysis, material model/prompt/rubric dimensions should preferably be changed separately rather than bundling unrelated evaluator changes into one PR.
+
+## Evidence produced
+
+Calibration reports include:
+
+- configuration identity;
+- case count;
+- Judge-vs-human agreement;
+- matching/total field judgments;
+- false PASS count;
+- false FAIL count;
+- token usage;
+- response attempts;
+- per-case field comparisons and reasons.
+
+GitHub Actions uploads `judge_calibration_*.json` evidence artifacts.
+
+## Governing principle
+
+> **Product evaluation tests the SUT. Judge Calibration tests the evaluator that evaluates the SUT.**
+
+Both controls are necessary before semantic quality-gate evidence can be treated as trustworthy.
