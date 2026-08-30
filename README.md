@@ -14,41 +14,45 @@ Engineering owns the SUT implementation. QE defines risks and expected behavior,
 
 ## Master architecture
 
+Typical ownership is shown directly in the architecture. Exact ownership varies by organization, but on a real project the application/SUT is normally owned by Product/Development/AI Engineering, while the quality framework is normally owned by QE/Quality Engineering with shared governance at release level.
+
 ```mermaid
 flowchart TD
-    U["User / Evaluation Case"] --> CE["Constraint Extraction"]
-    CE --> CV["Constraint Validation / Classification"]
+    U["User / Evaluation Case<br/>Product input / QE test input"] --> CE["Constraint Extraction<br/>Typical owner: Engineering / AI Engineering"]
+    CE --> CV["Constraint Validation / Classification<br/>Typical owner: Engineering / AI Engineering"]
 
-    CV -->|unresolved input| CL["Deterministic Clarification"]
-    CV -->|resolved| SF["Structured Product Filtering"]
+    CV -->|unresolved input| CL["Deterministic Clarification<br/>Typical owner: Engineering / Product"]
+    CV -->|resolved| SF["Structured Product Filtering<br/>Typical owner: Engineering / AI Engineering"]
 
-    SF -->|zero matching products| NM["Deterministic No-Product-Match"]
-    SF -->|eligible candidates| SR["Embedding + FAISS Semantic Ranking"]
-    SR --> RK["Retrieval-K / Top-K Candidates"]
-    RK --> AS["Adaptive Context Selection"]
-    AS --> CK{"Context-K"}
+    SF -->|zero matching products| NM["Deterministic No-Product-Match<br/>Typical owner: Engineering / Product"]
+    SF -->|eligible candidates| SR["Embedding + FAISS Semantic Ranking<br/>Typical owner: AI Engineering"]
+    SR --> RK["Retrieval-K / Top-K Candidates<br/>Typical owner: AI Engineering"]
+    RK --> AS["Adaptive Context Selection<br/>Typical owner: AI Engineering"]
+    AS --> CK{"Context-K<br/>Typical owner: AI Engineering"}
 
-    CK -->|0| AB["Deterministic Abstention"]
-    CK -->|> 0| CB["Context Builder"]
-    CB --> LLM["Claude Generation"]
-    LLM --> ANS["Generated Answer"]
+    CK -->|0| AB["Deterministic Abstention<br/>Typical owner: Engineering / Product"]
+    CK -->|> 0| CB["Context Builder<br/>Typical owner: Engineering / AI Engineering"]
+    CB --> LLM["Claude Generation<br/>Typical owner: AI Engineering"]
+    LLM --> ANS["Generated Answer<br/>SUT output"]
 
-    CL --> OUT["SUT Output"]
+    CL --> OUT["SUT Output<br/>Boundary between application and QE framework"]
     NM --> OUT
     AB --> OUT
     ANS --> OUT
 
-    OUT --> EV["Automated Evaluation"]
+    OUT --> EV["Automated Evaluation<br/>Typical owner: QE"]
     RK --> EV
     AS --> EV
-    EV --> OR{"Oracle Resolution"}
-    OR -->|deterministic| PY["Python Assertion Engine"]
-    OR -->|semantic_llm| J["LLM Judge"]
-    PY --> AG["Metric + Risk Aggregation"]
+    EV --> OR{"Oracle Resolution<br/>Typical owner: QE"}
+    OR -->|deterministic| PY["Python Assertion Engine<br/>Typical owner: QE / Test Automation"]
+    OR -->|semantic_llm| J["LLM Judge<br/>Typical owner: QE / AI Quality"]
+    PY --> AG["Metric + Risk Aggregation<br/>Typical owner: QE"]
     J --> AG
-    AG --> G["Quality Gate"]
-    G --> CI["CI/CD PASS / FAIL + Evidence"]
+    AG --> G["Quality Gate<br/>Typical owner: QE / Release Governance"]
+    G --> CI["CI/CD PASS / FAIL + Evidence<br/>Typical owner: QE + Engineering / DevOps"]
 ```
+
+The ownership boundary is intentional: **QE must understand the SUT architecture deeply enough to test and diagnose it, but normally does not own implementation of the application pipeline itself.** The reusable QE responsibility starts with risks, expected behavior, test/evaluation cases and governed datasets, then continues through dataset validation, execution, evaluation, evidence, metrics, quality gates and release-quality reporting.
 
 The deterministic exits have different meanings:
 
