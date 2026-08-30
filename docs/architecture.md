@@ -2,162 +2,176 @@
 
 ## 1. Purpose
 
-The current executable SUT is the Shopping RAG Assistant. The surrounding AI QE framework provides controlled datasets, RAG observability, adaptive context selection, deterministic and semantic evaluation, AI-risk reporting, CI/CD quality gates, telemetry, evidence and governance.
+The executable SUT is the Shopping RAG Assistant. The AI QE framework tests that real application through governed datasets, dataset validation, deterministic and semantic evaluation, telemetry, failure localization and CI/CD quality gates.
+
+The architecture is intentionally separated into pipelines so that application behavior, test-asset validation, evaluation logic and CI orchestration are not confused.
 
 ---
 
-## 2. Current System and Evaluation Architecture
+## 2. Master Architecture
 
 ```mermaid
 flowchart TD
-    U[User / Dataset Case] --> C[Constraint Extraction]
-    C --> D{Supported product constraints?}
-    D -->|yes| F[Structured Product Filtering]
-    D -->|no / no match| ALL[Full Corpus]
-    F --> E[Embedding + FAISS Semantic Ranking]
-    ALL --> E
-    E --> R[Top-K Retrieval Candidates]
-    R --> AK[Adaptive Context Selection]
-    AK --> B[Augmentation / Context Builder]
-    B --> S[Claude SUT]
-    S --> A[Generated Answer]
+    U[User / Evaluation Case] --> SUT
 
-    R --> RM[Retrieval Evidence + Metrics]
-    AK --> CS[Context Selection Evidence]
-    B --> CE[Context Evidence]
-    A --> AE[Automated AI Evaluation]
-    RM --> AE
-    CS --> AE
-    CE --> AE
+    subgraph SUT[Shopping RAG Assistant — SUT]
+      CE[Constraint Extraction] --> CV[Constraint Validation / Classification — next hardening]
+      CV -->|unresolved input| CL[Deterministic Clarification]
+      CV -->|resolved| SF[Structured Product Filtering when applicable]
+      SF --> SR[Embedding + FAISS Semantic Ranking]
+      SR --> RK[Retrieval-K / Top-K Candidates]
+      RK --> AS[Adaptive Context Selection]
+      AS --> CK{Context-K}
+      CK -->|0| AB[Deterministic Abstention]
+      CK -->|> 0| CB[Context Builder]
+      CB --> LLM[Claude Generation]
+      LLM --> ANS[Answer]
+    end
 
-    AE --> OR[Oracle Resolution]
-    OR --> AGG[Evaluation Aggregation]
-    AGG --> RR[AI Risk Reporting]
-    RR --> G[Quality Gate]
-    G --> CI[GitHub Actions PASS / FAIL]
+    CL --> OUT[User / Evaluation Output]
+    AB --> OUT
+    ANS --> OUT
+
+    OUT --> EV[Automated Evaluation]
+    RK --> EV
+    AS --> EV
+    EV --> OR[Oracle Resolution]
+    OR -->|deterministic| PY[Python Assertions]
+    OR -->|semantic_llm| J[LLM Judge]
+    PY --> AG[Metric + Risk Aggregation]
+    J --> AG
+    AG --> G[Quality Gate]
+    G --> CI[PASS / FAIL + Evidence]
 ```
 
-The current code path is implemented in `constraint_filter.py`, `vector_store.py`, `context_selector.py`, `context_builder.py`, the dataset runners and `llm_client.py`.
+Two deterministic early exits have different meanings:
+
+- **Clarification** — the input itself is unresolved; the user must supply a governed value (for example a maximum price for `cheap`). This is the next SUT hardening change.
+- **Abstention** — the request is understood but no governed evidence survives context selection (`Context-K=0`). This is implemented now.
 
 ---
 
-## 3. Retrieval and Adaptive Context Selection
-
-### Structured filtering happens before semantic ranking
-
-For supported product constraints (`subcategory`, `waterproof`, `color`, `max_price`, `size`), `vector_store.search()` first applies deterministic structured filtering. If one or more products match, semantic ranking is performed only over that filtered product set. If no supported constraints are detected, or filtering returns no product, retrieval falls back to FAISS search over the full indexed corpus.
+## 3. SUT / Input and Retrieval Pipeline
 
 ```mermaid
 flowchart LR
-    Q[Query] --> X[Extract Constraints]
-    X --> M{Matching structured products?}
-    M -->|yes| FP[Filtered Product Set]
-    M -->|no| FC[Full Corpus]
-    FP --> SR[Embedding + FAISS Ranking]
-    FC --> SR
-    SR --> TK[Top-K Candidates]
-    TK --> ACS[Adaptive Context Selection]
-    ACS --> CTX[Context Builder]
-    CTX --> LLM[Claude SUT]
-    LLM --> OUT[Answer]
+    Q[User Query] --> X[Constraint Extraction]
+    X --> V[Constraint Validation]
+    V -->|needs user value| C[Clarification]
+    V -->|resolved| F[Structured Filter]
+    F --> S[Semantic Ranking]
+    S --> K[Retrieval-K]
+    K --> A[Adaptive Selector]
+    A --> CK[Context-K]
+    CK -->|0| AB[Abstain]
+    CK -->|>0| B[Context Builder]
+    B --> L[Claude]
+    L --> O[Answer]
 ```
 
-### Retrieval-K and Context-K are different
+### Structured Filter and Semantic Search solve different problems
 
-`Top-K Retrieval` is the ranked candidate evidence used for retrieval diagnostics. `Adaptive Context Selection` decides which of those candidates are actually sent to generation.
+Constraint Extraction returns controlled conditions. Structured Filtering applies exact conditions to catalogue records. Semantic Ranking then orders eligible evidence by vector similarity.
 
-Default configuration:
+```text
+Input: "black waterproof jacket under $80 for hiking"
+
+Constraint Extraction:
+  color=black
+  waterproof=true
+  subcategory=Jackets
+  max_price=80
+
+Structured Filter:
+  catalogue -> only records satisfying those exact fields
+
+Semantic Ranking:
+  eligible records -> vector similarity ranking against the query
+```
+
+Hard constraints are applied before semantic relevance because a high similarity score must not override a known price/color/waterproof requirement.
+
+Current supported structured fields are `subcategory`, `waterproof`, `color`, `max_price`, and `size`.
+
+If structured constraints match zero products, the current implementation takes a deterministic no-product-match path rather than falling back to irrelevant semantic candidates.
+
+### Retrieval-K vs Context-K
 
 ```text
 RAG_TOP_K=5
-RAG_MIN_CONTEXT_K=2
+RAG_MIN_CONTEXT_K=2       # target, not padding requirement
 RAG_MAX_CONTEXT_K=5
 RAG_MIN_SIMILARITY=0.30
 ```
 
-Selection rule:
-
-1. retrieve up to `RAG_TOP_K` ranked candidates;
-2. consider no more than `RAG_MAX_CONTEXT_K` candidates for context;
-3. retain candidates whose cosine-similarity/IP score is `>= RAG_MIN_SIMILARITY`;
-4. never add below-threshold evidence merely to satisfy `RAG_MIN_CONTEXT_K`;
-5. therefore `RAG_MIN_CONTEXT_K` is a target floor, not a hard padding rule;
-6. Context Builder receives only the selected subset.
-
-Examples:
-
-```text
-candidate scores: 0.68, 0.61, 0.52, 0.22, 0.10
-threshold: 0.30
-selected Context-K: 3
-
-candidate scores: 0.57, 0.18, 0.11
-threshold: 0.30
-selected Context-K: 1
-```
-
-This keeps weak evidence out of the prompt rather than injecting noise simply to reach a fixed context size.
-
-Evaluation result JSON keeps retrieval candidates and context-selection metadata separately (`retrieval` vs `context_selection` / `context_k`).
+1. FAISS/semantic ranking returns up to Retrieval-K candidates.
+2. Adaptive Context Selection considers up to the configured maximum.
+3. Candidates below `RAG_MIN_SIMILARITY` are removed.
+4. Weak evidence is never padded merely to hit the minimum target.
+5. Context-K is therefore `0..Retrieval-K` and contains only evidence actually eligible for generation.
+6. `Context-K=0` skips Claude and returns deterministic abstention.
 
 ---
 
-## 4. Dataset Validation Before Execution
+## 4. Dataset Validation Pipeline
 
-All active CI evaluation workflows validate their dataset before SUT/Judge execution.
+Dataset Validation protects the test contract before SUT/Judge model calls.
 
 ```mermaid
-flowchart TD
+flowchart LR
     D[Dataset] --> V[dataset_validator.py]
-    V -->|valid / recoverable warning| R[Run Evaluation]
+    V -->|valid / recoverable warning| R[Evaluation Runner]
     V -->|invalid| F[Fail before model calls]
 ```
 
-Rules:
+Core rules:
 
 ```text
-deterministic      -> valid; non-empty Deterministic Assertions required
-semantic_llm       -> valid
-missing/null/empty -> warning; runtime mapper fallback allowed
+deterministic      -> non-empty Deterministic Assertions required
+semantic_llm       -> valid semantic route
+missing/null/empty -> warning; reviewed runtime fallback allowed
 invalid non-empty  -> validation ERROR
 missing/duplicate ID -> validation ERROR
 ```
 
-This applies to PR Critical, Regression and Nightly after dependency installation.
+This applies to PR Critical, Regression and Nightly execution.
 
 ---
 
-## 5. Oracle Resolution and Evaluation Hierarchy
+## 5. Evaluation Pipeline
 
-The dataset Oracle is primary. Missing metadata uses the reviewed fallback registry in `judge_routing.py`; an unknown case safely defaults to the semantic route.
+The runner executes the real SUT and records answer plus retrieval/context/telemetry evidence. The evaluator then applies the case Oracle.
 
 ```mermaid
 flowchart TD
-    C[Validated Evaluation Case] --> O{Explicit Oracle?}
-    O -->|deterministic| D[Deterministic Route]
-    O -->|semantic_llm| S[Semantic Route]
-    O -->|missing / null / empty| F[Fallback Registry]
-    F --> ID[Read case_id / id / ID]
-    ID --> M{Known ID mapping?}
-    M -->|deterministic| D
-    M -->|semantic_llm| S
-    M -->|unknown| S
-    D --> ENG[Deterministic Assertion Engine]
-    S --> LLM[LLM Judge]
-    ENG --> AG[Evaluation Aggregation]
-    LLM --> AG
-    AG --> G[Quality Gate]
+    C[Validated Case] --> R[Evaluation Runner]
+    R --> S[SUT Execution]
+    S --> E[Actual Answer + Retrieval + Context + Telemetry]
+    E --> O{Oracle Resolution}
+    O -->|deterministic| D[Deterministic Assertion Engine]
+    O -->|semantic_llm| J[LLM Judge]
+    O -->|missing| F[Reviewed Fallback Registry]
+    F --> D
+    F --> J
+    D --> A[Aggregation]
+    J --> A
+    A --> G[Quality Gate]
 ```
 
-The Judge does not classify the Oracle. It only evaluates semantic PASS/FAIL after routing has selected `semantic_llm`.
+The LLM Judge does not choose the Oracle. Dataset metadata is primary; the reviewed fallback exists only as a safety layer.
 
-> **Formal rule -> deterministic oracle. Meaning/behavior judgment -> semantic oracle.**
+Current reviewed populations:
+
+| Suite | Total | Deterministic | Semantic Judge |
+|---|---:|---:|---:|
+| PR Critical | 10 | 6 | 4 |
+| Regression | 15 | 7 | 8 |
+| Nightly | 80 | 48 | 32 |
+| **Total** | **105** | **61** | **44** |
 
 ---
 
-## 6. Deterministic Assertion Engine
-
-The shared Python engine traces formal expectations through retrieval, selected context and final generation.
+## 6. Deterministic Assertion and Failure Localization
 
 ```mermaid
 flowchart LR
@@ -171,173 +185,135 @@ flowchart LR
     LOC --> RES[PASS / FAIL]
 ```
 
-Supported assertion types include:
-
-- `retrieved_id`
-- `contains`
-- `regex`
-- `not_regex`
-- `no_constraint_match`
-- `answer_products_satisfy_constraints`
-- `catalogue_min_price_product`
-
-All reviewed deterministic cases are migrated to explicit structured assertions:
-
-| Suite | Deterministic assertions | Semantic Judge |
-|---|---:|---:|
-| PR Critical | 6 | 4 |
-| Regression | 7 | 8 |
-| Nightly | 48 | 32 |
-| **Total** | **61** | **44** |
-
-Nightly deterministic assertions are loaded from `datasets/evaluation_assertion_metadata.json`.
-
----
-
-## 7. Diagnostic Chain and Failure Localization
-
-```mermaid
-flowchart LR
-    R[Retrieval Candidates] -->|Hit / Match / Precision| S[Adaptive Context Selection]
-    S --> C[Constructed Context]
-    C -->|Fact preservation| G[Generation]
-    G -->|Atomic facts or semantic behavior| E[Evaluation]
-    E --> Q[Quality Gate]
-```
+Supported assertions include `retrieved_id`, `contains`, `regex`, `not_regex`, `no_constraint_match`, `answer_products_satisfy_constraints`, and `catalogue_min_price_product`.
 
 Typical localization:
 
-| Failure signal | Primary investigation layer |
+| Failure | Primary layer |
 |---|---|
-| Retrieval Hit fail | retrieval / source oracle |
-| Constraint Match weak | constraint extraction / structured filtering / ranking |
-| Precision@K weak | retrieval noise |
-| expected evidence retrieved but filtered out by similarity | adaptive context selection / threshold calibration |
-| selected evidence correct but context assertion fails | context builder / augmentation |
-| retrieval + context pass but deterministic generation assertion fails | SUT generation / prompt / model behavior |
-| retrieval + context pass but semantic Judge fails | semantic generation / prompt / model behavior |
-| dataset validation error | dataset metadata / authoring |
-| Oracle missing but ID known | runtime fallback / dataset governance |
-| Provider 429/5xx/529 | external dependency / infrastructure |
+| Retrieval Hit fail | retrieval / expected source |
+| Constraint mismatch | extraction / structured filtering / ranking |
+| expected evidence retrieved but not selected | adaptive selector / threshold |
+| selected evidence lost or malformed | context builder |
+| retrieval/context pass but answer fails | generation / prompt / model |
+| semantic quality fail | generation / semantic behavior |
+| dataset validation error | dataset/oracle authoring |
+| provider 429/5xx/529 | external dependency |
 
 ---
 
-## 8. Dataset and Execution Architecture
+## 7. Dataset and CI/CD Execution Pipeline
+
+Datasets are purpose-specific, not inheritance layers.
 
 ```mermaid
 flowchart TD
-    INV[Evaluation Inventory] --> CR[PR Critical\n10 cases]
-    INV --> RG[Regression\n15 cases]
-    INV --> EV[Nightly\n80 cases]
-    INV --> GD[Golden\n35 cases]
-    CR --> PR[Merge Gate]
-    RG --> MAIN[Main Health Gate]
-    EV --> NIGHT[Broad AI Risk Signal]
-    GD --> REL[Baseline / Release Validation]
+    INV[Evaluation Inventory] --> PR[PR Critical — 10]
+    INV --> RG[Regression — 15]
+    INV --> N[Nightly — 80]
+    INV --> G[Golden — 35]
+    PR --> MG[Merge Gate]
+    RG --> MH[Main Health Gate]
+    N --> NR[Broad AI-Risk Signal]
+    G --> RV[Release Validation]
 ```
 
-Datasets are organized by execution purpose, not inheritance. Overlap is normal.
-
----
-
-## 9. CI/CD Architecture
+Execution orchestration:
 
 ```mermaid
-flowchart TD
-    T[PR / main / nightly trigger] --> SETUP[Checkout + Python + caches + install]
-    SETUP --> VAL[Validate Dataset]
-    VAL --> RUN[Dataset Runner]
-    RUN --> SUT[RAG + Adaptive Context + Claude SUT]
-    SUT --> OR[Oracle Resolution]
-    OR -->|deterministic| DET[Deterministic Assertion Engine]
-    OR -->|semantic_llm| SEM[LLM Judge]
-    DET --> AGG[Aggregate Evidence]
-    SEM --> AGG
-    AGG --> RET[Hallucination Retry where applicable]
-    RET --> G[Quality Gate]
-    G --> ART[Reports / Evidence]
+flowchart LR
+    T[Trigger] --> S[Setup]
+    S --> V[Validate Selected Dataset]
+    V --> R[Run SUT]
+    R --> E[Evaluate]
+    E --> G[Quality Gate]
+    G --> A[Reports / Evidence]
 ```
 
 Policy:
 
 ```text
-PR Critical = merge gate
+PR Critical = fast merge gate
 Regression  = main health gate
 Nightly     = broad AI-risk signal
-Release     = release validation gate
+Golden      = trusted baseline / release validation
 ```
 
 ---
 
-## 10. Resilience and Operational Telemetry
+## 8. Current QE Responsibility Model
 
-Provider/API retry handles transient delivery failures. Hallucination retry investigates stochastic semantic quality failures. They are separate controls.
+```text
+Engineering:
+  implement SUT/application logic
+  constraint/retrieval/context/generation code
 
-Operational evidence includes retrieval IDs/ranks/scores, adaptive `context_k`, selected IDs/scores, SUT/Judge tokens, cache counters, latency/P95, model IDs, API attempts and estimated standard token cost.
+QE:
+  understand architecture and risks
+  define expected behavior / Oracle
+  build and validate datasets
+  execute SUT through evaluation cases
+  measure deterministic + semantic quality
+  run regression and quality gates
+  localize failures and provide evidence
+```
 
-The deterministic assertion engine requires no Judge tokens. The SUT still runs for deterministic and semantic cases because the generated answer is the object under test.
+The evaluation framework tests application behavior; it does not replace engineering ownership of production implementation.
 
 ---
 
-## 11. Governance Layer
+## 9. Current vs Next
+
+### Implemented
+
+- deterministic constraint extraction for supported fields;
+- structured product filtering before semantic ranking;
+- `all-MiniLM-L6-v2` embeddings + FAISS ranking;
+- Retrieval-K and adaptive Context-K selection;
+- deterministic no-product-match response;
+- `Context-K=0` deterministic abstention with Claude skipped;
+- context construction and Claude generation when evidence exists;
+- retrieval/context/model telemetry;
+- Golden, PR Critical, Regression and Nightly datasets;
+- dataset/oracle validation;
+- deterministic assertion engine and semantic LLM Judge;
+- metric/risk aggregation, quality gates and CI evidence.
+
+### Immediate hardening changes
+
+- restore PR workflow to PR Critical-only after temporary broad verification;
+- add Constraint Validation / unresolved-input classification and deterministic clarification;
+- keep clarification and no-evidence abstention as distinct SUT paths.
+
+### Future Agentic QE layer
 
 ```mermaid
-flowchart TD
-    J[Jira Story / Requirement] --> AG[Requirements + Risk + Test Design Agent]
-    AG --> JS[Governed JSON Dataset]
-    JS --> VAL[Dataset / Oracle Validation]
-    VAL --> MAP[Generate / Refresh Oracle Mapper]
-    MAP --> CI[Automated Evaluation]
-    CI --> E[Evidence / Defect / Regression]
+flowchart LR
+    J[Jira Requirement] --> R[Requirements Review]
+    R --> AR[AI Risk Analysis]
+    AR --> T[Test Design]
+    T --> H[Governance / HITL]
+    H --> D[Governed Dataset]
+    D --> V[Dataset Validation]
+    V --> E[Existing Evaluation + CI Framework]
+    E --> X[Defect / Regression / Release Evidence]
 ```
 
-Current product and policy files are controlled POC fixtures. The target is Jira/project knowledge -> governed JSON datasets -> validation -> CI. JSON is authoritative; the fallback mapper is a derived runtime safety layer.
+Agents create and govern quality inputs; they do not replace the existing evaluator.
 
 ---
 
-## 12. Current vs Planned Architecture
-
-### Implemented/current
-
-- Shopping RAG Assistant;
-- structured constraint extraction and product filtering;
-- `all-MiniLM-L6-v2` embeddings and FAISS ranking;
-- configurable Top-K retrieval candidates;
-- adaptive similarity-based Context-K selection;
-- deterministic context construction and Claude SUT generation;
-- retrieval/context/LLM telemetry;
-- Golden, PR Critical, Regression and Nightly datasets;
-- Dataset/Oracle Validation in all three active workflows;
-- reviewed Oracle routing with safe semantic fallback;
-- 61 deterministic atomic-assertion cases / 44 semantic Judge cases;
-- AI-risk reporting and coverage;
-- quality gates, retry controls and cost optimization.
-
-### Planned next
-
-- generate/refresh the fallback Oracle mapper automatically from validated approved datasets;
-- Defect -> Regression automation and Jira traceability;
-- Requirements Readiness, AI Risk Analysis and Test Design agents;
-- duplicate/coverage checks and HITL approval;
-- QA Agent evaluation and Test Management Lifecycle Agent.
-
----
-
-## 13. Target Traceability
+## 10. Target Traceability
 
 ```text
 Requirement
--> AI Risk
+-> Risk
 -> Test / Evaluation Case
 -> Dataset Validation
--> Oracle metadata
--> Structured Atomic Assertions
--> Retrieval Candidates
--> Adaptive Context Selection
--> Context / Generation Evidence
+-> SUT Execution
+-> Retrieval / Context / Generation Evidence
 -> Deterministic Engine or Semantic Judge
--> Dataset / CI Level
--> Metric / Evidence
+-> Metric / Risk
 -> Quality Gate
 -> Defect / Regression
 -> Residual Risk

@@ -6,50 +6,98 @@ Practical AI Quality Engineering lab for building, testing, evaluating, observin
 
 New to the lab? Follow [`QUICKSTART.md`](QUICKSTART.md) to clone the repository, configure the local environment and run the project on Windows.
 
-## Current SUT
+## What this lab is
 
-The implemented System Under Test is a Shopping RAG Assistant. The surrounding QE framework combines governed datasets, deterministic Python assertions, LLM-as-a-Judge evaluation, AI-risk metadata, CI quality gates, operational telemetry, failure localization and human governance.
+The executable System Under Test (SUT) is a Shopping RAG Assistant. The main purpose of the repository is the QE framework around that SUT: governed datasets, dataset validation, deterministic and semantic evaluation, AI-risk evidence, CI quality gates, telemetry and failure localization.
 
-## Current architecture
+Engineering owns the SUT implementation. QE defines risks and expected behavior, builds evaluation assets, executes the real SUT, evaluates evidence, gates quality and localizes failures.
+
+## Master architecture
 
 ```text
-Query
--> Constraint Extraction
--> Structured Product Filtering when applicable
--> Embedding + FAISS Semantic Ranking
--> Top-K Retrieval Candidates
--> Adaptive Context Selection
--> Context Builder
--> Claude SUT
--> Generated Answer
--> Automated AI Evaluation
--> Oracle Resolution
--> Deterministic Assertion Engine or LLM Judge
--> Risk Reporting
--> Quality Gate
+User / Evaluation Case
+        |
+        v
++---------------------- SUT ----------------------+
+| Constraint Extraction                           |
+| -> Constraint Validation / Classification*      |
+|    -> unresolved input -> Clarification*         |
+| -> Structured Product Filtering when applicable |
+| -> Embedding + FAISS Semantic Ranking            |
+| -> Retrieval-K (Top-K candidates)                |
+| -> Adaptive Context Selection                    |
+| -> Context-K (0..K selected evidence)            |
+|    -> 0 -> Deterministic Abstention               |
+|    -> >0 -> Context Builder -> Claude -> Answer  |
++--------------------------------------------------+
+        |
+        | execution evidence
+        v
+Dataset Runner -> Automated Evaluation
+               -> Oracle Resolution
+                  -> deterministic -> Python assertions
+                  -> semantic_llm  -> LLM Judge
+               -> Metric / Risk Aggregation
+               -> Quality Gate
+               -> PASS / FAIL + reports
+
+CI/CD selects the execution level:
+PR Critical -> Regression -> Nightly -> Release Validation
 ```
 
-Adaptive Context defaults:
+`*` Constraint Validation / deterministic clarification is the next SUT hardening change and is tracked separately until merged. Deterministic abstention for `Context-K=0` is already implemented.
+
+### Retrieval vs context
+
+```text
+Structured Filter = enforce exact known fields (price, color, waterproof, size, category)
+Semantic Ranking  = rank eligible evidence by vector similarity
+Retrieval-K       = up to 5 ranked candidates by default
+Adaptive Selector = remove weak candidates below the governed threshold
+Context-K         = evidence actually passed to generation
+```
+
+Defaults:
 
 ```text
 RAG_TOP_K=5
 RAG_MIN_CONTEXT_K=2       # target, not padding requirement
 RAG_MAX_CONTEXT_K=5
-RAG_MIN_SIMILARITY=0.30   # application-level selector threshold
+RAG_MIN_SIMILARITY=0.30
 ```
 
-FAISS returns ranked candidates. `src/context_selector.py` then filters which candidates actually enter generation context. Retrieval-K and Context-K are intentionally separate.
+## Four current QE execution concerns
+
+| Concern | Purpose |
+|---|---|
+| SUT | Real Shopping RAG behavior under test |
+| Dataset Validation | Reject invalid test/oracle contracts before model calls |
+| Evaluation | Resolve Oracle, evaluate deterministic/semantic behavior, aggregate metrics and risks |
+| CI/CD Execution | Select suite, run it, apply gates and retain evidence |
+
+The future Agentic QE/Governance layer will create and govern requirements, risks, tests and datasets; it does not replace the evaluator.
+
+## Dataset and CI model
+
+Datasets are organized by execution purpose, not inheritance:
+
+- **PR Critical — 10 cases:** fast merge-blocking risk subset;
+- **Regression — 15 cases:** stable behavior and fixed-defect health on main;
+- **Nightly Evaluation — 80 cases:** broad AI-risk, edge and adversarial signal;
+- **Golden — 35 cases:** trusted baseline / release validation.
+
+All active evaluation workflows validate the selected dataset before SUT/Judge model calls.
 
 ## Evaluation architecture
 
-Both routes are automated testing:
-
 ```text
-Oracle=deterministic -> Python Deterministic Assertion Engine
-Oracle=semantic_llm  -> LLM Judge
-missing Oracle       -> warning + reviewed fallback mapper
-invalid Oracle       -> Dataset Validation error
-unknown fallback ID  -> safe semantic route
+Validated case
+-> Oracle Resolution
+   -> deterministic -> Python Deterministic Assertion Engine
+   -> semantic_llm  -> LLM Judge
+   -> missing       -> reviewed fallback registry
+-> aggregation
+-> Quality Gate
 ```
 
 Current reviewed routing:
@@ -61,95 +109,50 @@ Current reviewed routing:
 | Nightly | 80 | 48 | 32 |
 | **Total** | **105** | **61** | **44** |
 
-All 61 deterministic cases have structured atomic assertions.
+Semantic-only metrics (`Correctness`, `Groundedness`, `Hallucination`, `Context Coverage`, `Context Sufficiency`) use only the Judge population as denominator. Overall Pass Rate and Retrieval Hit are suite-wide. Constraint Adherence is hybrid across deterministic and semantic routes. Empty semantic populations are N/A, not 100%.
 
-## Metric interpretation
-
-The canonical metric contract is [`docs/metric_contract.md`](docs/metric_contract.md).
-
-A percentage must always be read together with its applicable population. In PR Critical, 10 cases execute but only 4 use the semantic Judge. Therefore:
+Quality gates currently enforce:
 
 ```text
-Overall Pass Rate 100%        = 10/10 complete routes
-Retrieval Hit Rate 100%       = 10/10 cases
-Correctness Rate 100%         = 4/4 judged
-Groundedness Rate 100%        = 4/4 judged
-Hallucination Rate 0%         = 0/4 hallucinated; 4 judged
-Context Coverage 100%         = 4 judged
-Context Sufficiency 100%      = 4/4 judged
-Constraint Adherence 100%     = 10/10 through hybrid route evaluation
+Correctness >= 95%
+Groundedness >= 95%
+Retrieval Hit >= 95%
+Constraint Adherence >= 95%
+Hallucination <= 2%
 ```
-
-Semantic-only metrics are `Correctness`, `Groundedness`, `Hallucination`, `Context Coverage` and `Context Sufficiency`. Deterministic cases store those fields as `None` and are excluded from the denominator. If there are zero semantic cases, the metric is **N/A**, not an implicit `100%`.
-
-`Constraint Adherence` is hybrid: Python evaluates it on deterministic routes and the Judge evaluates it on semantic routes, so its suite denominator is all executed cases.
-
-## Quality gates
-
-```text
-Correctness >= 95%           # judged semantic population when applicable
-Groundedness >= 95%          # judged semantic population when applicable
-Retrieval Hit >= 95%         # all executed cases
-Constraint Adherence >= 95%  # all executed cases / hybrid route
-Hallucination <= 2%           # judged semantic population when applicable
-```
-
-Critical-case failures can additionally block a run. Empty semantic populations are reported as N/A and are not fabricated into 100% scores.
-
-## Dataset model
-
-Datasets are defined by purpose, not inheritance:
-
-- **Golden** — trusted reference/baseline and release validation;
-- **PR Critical** — fast merge-blocking risk-based subset;
-- **Regression** — stable behavior plus fixed defects;
-- **Nightly Evaluation** — broad AI-risk, edge and adversarial coverage.
-
-Dataset/Oracle Validation runs before model calls in PR Critical, Regression and Nightly workflows.
-
-## Operational telemetry
-
-The framework records retrieval IDs/ranks/scores, selected context size and IDs, SUT/Judge models, latency/P95, SUT tokens, Judge tokens, total tokens, API attempts/cache telemetry and estimated standard-price cost. Operational metrics are measured or aggregated by Python, not generated by an LLM.
 
 ## Target operating model
-
-The completed AI QE Lab operates as an end-to-end agentic Quality Engineering workflow:
 
 ```text
 Jira Requirement
 -> Requirements Review / Entry Gate
 -> AI Risk Analysis
 -> Test Design
-   -> Functional / API / Integration / E2E tests
-   -> AI Evaluation cases
--> Governance Review
--> Human approval when required
+-> Governance / Human Approval
 -> Governed JSON datasets / Test Management
 -> Dataset Validation
--> SUT execution
--> Deterministic Python assertions or Semantic LLM Judge
--> Metric + Risk aggregation
--> Quality Gate
--> Failure localization
--> Defect / Jira traceability
--> Regression coverage update
--> Release-readiness evidence
+-> Existing SUT + Evaluation + CI framework
+-> Evidence / Defect / Regression
+-> Release-readiness decision
 ```
 
-Requirements are reviewed before test generation. Applicable AI risks are identified from the actual architecture rather than assumed from the presence of AI. Test generation produces both conventional tests and AI evaluation cases. Governance checks duplicates, risk coverage, criticality, Oracle choice and suite placement before approved changes become executable.
+Traceability target:
 
-Confirmed defects feed Regression coverage, while traceability connects Requirement -> Risk -> Test -> Dataset -> CI execution -> Metric -> Quality Gate -> Evidence -> Residual Risk / Release Decision.
-
-The full end-state description is in [`docs/project_overview.md`](docs/project_overview.md). It is intentionally written in present tense as the target product operating model; actual implementation status remains tracked separately.
+```text
+Requirement -> Risk -> Test -> Dataset -> CI Execution
+-> Metric / Evidence -> Quality Gate -> Defect / Regression
+-> Residual Risk -> Release Decision
+```
 
 ## Documentation
 
 - [`QUICKSTART.md`](QUICKSTART.md) — clone, configure and run locally;
-- [`docs/project_overview.md`](docs/project_overview.md) — end-state AI QE operating model and lifecycle;
-- [`docs/architecture.md`](docs/architecture.md) — implemented architecture and failure localization;
-- [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) — Oracle routing and evaluation architecture;
+- [`docs/architecture.md`](docs/architecture.md) — canonical implemented/next architecture and separate pipelines;
+- [`docs/current_status.md`](docs/current_status.md) — concise implementation status;
+- [`docs/project_overview.md`](docs/project_overview.md) — end-state operating model;
+- [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) — Oracle/evaluation details;
 - [`docs/metric_contract.md`](docs/metric_contract.md) — canonical metric definitions and denominators;
-- [`docs/test_strategy.md`](docs/test_strategy.md) — Test Strategy;
+- [`docs/test_strategy.md`](docs/test_strategy.md) — test strategy;
 - [`docs/documentation_index.md`](docs/documentation_index.md) — documentation map.
 
 ## Governing rule

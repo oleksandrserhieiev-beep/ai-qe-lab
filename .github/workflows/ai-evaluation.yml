@@ -10,7 +10,6 @@ on:
       - "datasets/**"
       - "policies/**"
       - "tests/**"
-      - "docs/**"
       - ".github/workflows/ai-evaluation.yml"
       - "requirements.txt"
 
