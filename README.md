@@ -15,40 +15,53 @@ Engineering owns the SUT implementation. QE defines risks and expected behavior,
 ## Master architecture
 
 ```mermaid
-flowchart TD
-    U["User / Evaluation Case"] --> CE["Constraint Extraction"]
-    CE --> CV["Constraint Validation / Classification"]
+flowchart LR
+    subgraph FLOW["End-to-end flow"]
+        direction TD
+        U["User / Evaluation Case"] --> CE["Constraint Extraction"]
+        CE --> CV["Constraint Validation / Classification"]
 
-    CV -->|unresolved input| CL["Deterministic Clarification"]
-    CV -->|resolved| SF["Structured Product Filtering"]
+        CV -->|unresolved input| CL["Deterministic Clarification"]
+        CV -->|resolved| SF["Structured Product Filtering"]
 
-    SF -->|zero matching products| NM["Deterministic No-Product-Match"]
-    SF -->|eligible candidates| SR["Embedding + FAISS Semantic Ranking"]
-    SR --> RK["Retrieval-K / Top-K Candidates"]
-    RK --> AS["Adaptive Context Selection"]
-    AS --> CK{"Context-K"}
+        SF -->|zero matching products| NM["Deterministic No-Product-Match"]
+        SF -->|eligible candidates| SR["Embedding + FAISS Semantic Ranking"]
+        SR --> RK["Retrieval-K / Top-K Candidates"]
+        RK --> AS["Adaptive Context Selection"]
+        AS --> CK{"Context-K"}
 
-    CK -->|0| AB["Deterministic Abstention"]
-    CK -->|> 0| CB["Context Builder"]
-    CB --> LLM["Claude Generation"]
-    LLM --> ANS["Generated Answer"]
+        CK -->|0| AB["Deterministic Abstention"]
+        CK -->|> 0| CB["Context Builder"]
+        CB --> LLM["Claude Generation"]
+        LLM --> ANS["Generated Answer"]
 
-    CL --> OUT["SUT Output"]
-    NM --> OUT
-    AB --> OUT
-    ANS --> OUT
+        CL --> OUT["SUT Output"]
+        NM --> OUT
+        AB --> OUT
+        ANS --> OUT
 
-    OUT --> EV["Automated Evaluation"]
-    RK --> EV
-    AS --> EV
-    EV --> OR{"Oracle Resolution"}
-    OR -->|deterministic| PY["Python Assertion Engine"]
-    OR -->|semantic_llm| J["LLM Judge"]
-    PY --> AG["Metric + Risk Aggregation"]
-    J --> AG
-    AG --> G["Quality Gate"]
-    G --> CI["CI/CD PASS / FAIL + Evidence"]
+        OUT --> EV["Automated Evaluation"]
+        RK --> EV
+        AS --> EV
+        EV --> OR{"Oracle Resolution"}
+        OR -->|deterministic| PY["Python Assertion Engine"]
+        OR -->|semantic_llm| J["LLM Judge"]
+        PY --> AG["Metric + Risk Aggregation"]
+        J --> AG
+        AG --> G["Quality Gate"]
+        G --> CI["CI/CD PASS / FAIL + Evidence"]
+    end
+
+    subgraph OWN["Typical ownership"]
+        direction TD
+        DEV["DEV / AI ENGINEERING\nBuild & own SUT\n• Constraint / business logic\n• Retrieval & ranking\n• Context selection / builder\n• Model integration\n• Application telemetry"]
+        QE["QE / QUALITY ARCHITECTURE\nBuild & own quality framework\n• Risks & evaluation cases\n• Governed datasets / validation\n• Oracle: Python + LLM Judge\n• Metrics & failure localization\n• Quality gates / CI evidence"]
+        GOV["SHARED / RELEASE GOVERNANCE\n• CI/CD integration\n• Release evidence\n• Residual-risk decision\n• GO / NO-GO recommendation"]
+        DEV --> QE --> GOV
+    end
 ```
+
+**Boundary:** the left-side SUT flow is the reference application we built for the lab. On a real project, Development / AI Engineering normally already owns that application pipeline. QE first understands and tests it, then builds the reusable evaluation and governance framework around it.
 
 The deterministic exits have different meanings:
 
