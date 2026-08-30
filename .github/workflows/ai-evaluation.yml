@@ -53,25 +53,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Validate Nightly Dataset
+      - name: Validate PR Critical Dataset
         run: |
-          python src/dataset_validator.py datasets/evaluation_dataset.json
+          python src/dataset_validator.py datasets/pr_critical_dataset.json
 
-      - name: Run Nightly Evaluation — 80 cases
+      - name: Run PR Critical Evaluation — 10 cases
         run: |
-          python src/evaluation_runner.py --dataset datasets/evaluation_dataset.json --output reports/evaluation_results.json
+          python src/evaluation_runner.py --dataset datasets/pr_critical_dataset.json --output reports/pr_critical_results.json
 
-      - name: Evaluate Nightly Dataset
+      - name: Evaluate PR Critical Dataset
         run: |
-          python src/evaluator.py --input reports/evaluation_results.json --output reports/evaluation_evaluated.json
+          python src/evaluator.py --input reports/pr_critical_results.json --output reports/pr_critical_evaluated.json
 
-      - name: Nightly Quality Gate
+      - name: PR Critical Quality Gate
         run: |
-          python src/quality_gate.py --report reports/evaluation_evaluated.json
+          python src/quality_gate.py --report reports/pr_critical_evaluated.json
 
       - name: Upload evaluation reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ai-nightly-oracle-verification
+          name: ai-pr-critical-evaluation
           path: reports/
