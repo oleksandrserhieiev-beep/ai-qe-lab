@@ -1,90 +1,99 @@
 # Dataset Lifecycle Evolution
 
-## Why the current catalogue exists
+## Why the controlled SUT data exists
 
-The current product catalogue and policy knowledge base are controlled **POC fixtures**. They let the lab validate retrieval, adaptive context selection, generation, evaluation, Oracle routing, telemetry, quality gates and failure localization against known source data. They are not intended to be the final enterprise knowledge source.
+The current product catalogue and policy knowledge base are controlled **POC fixtures for the reference SUT**. They let the lab validate retrieval, adaptive context selection, generation, evaluation, Oracle routing, telemetry, quality gates and failure localization against known source data.
+
+They are not the same thing as future Jira/Confluence governance inputs.
+
+```text
+SUT knowledge / application data
+= catalogue, policies, enterprise KB, databases, APIs, tools
+
+QE governance inputs
+= Jira requirements, Confluence/project knowledge, risk and test metadata
+```
+
+On a real project, the SUT knowledge/data layer is defined by the application architecture. Jira or Confluence do not automatically replace the SUT knowledge base; they provide requirement and governance context used to design and maintain quality assets.
 
 ## Current governed dataset controls
 
-The executable JSON datasets are already subject to Dataset/Oracle Validation in PR Critical, Regression and Nightly CI. Current rules are:
+The executable datasets are already subject to Dataset/Oracle Validation before active evaluation. Current rules are:
 
 - `Oracle = deterministic` -> valid and requires non-empty deterministic assertions;
 - `Oracle = semantic_llm` -> valid;
-- Oracle missing / `null` / empty -> warning and runtime fallback is allowed;
+- Oracle missing / `null` / empty -> warning and reviewed runtime fallback is allowed;
 - unsupported non-empty Oracle values -> validation error;
 - missing or duplicate case IDs -> validation error.
 
-All 61 reviewed deterministic cases currently have structured atomic assertions. The dataset is the primary source of truth; the runtime mapper is a resilience mechanism.
+The governed dataset is the primary source of truth. The runtime fallback registry is a resilience mechanism, not an independent business-truth source.
 
 ## Planned evolution
 
 ```mermaid
 flowchart TD
-    A[Current controlled product catalogue + policies] --> B[Validate RAG and AI evaluation mechanics]
-    B --> C[Jira Stories / Requirements]
-    C --> D[Requirements Review Agent]
-    D --> E[AI Risk + Test Design]
-    E --> F[Create / Update executable JSON datasets]
-    F --> V[Dataset Validation]
-    V --> M[Generate / Refresh Oracle Mapper]
-    M --> CI[CI Evaluation]
+    S[Existing AI SUT + its real data/knowledge sources] --> A[Understand architecture and observability]
+    J[Jira Requirements] --> R[Requirements Review / Entry Gate]
+    C[Confluence / Project Knowledge] --> R
+    R --> K[AI Risk Analysis]
+    K --> T[Test Design]
+    T --> H[Governance / HITL]
+    H --> D[Create / Update Governed Test Assets]
+    D --> V[Dataset Validation]
+    V --> E[Execute against Existing SUT]
+    S --> E
+    E --> Q[Evaluation + Metrics + Quality Gate]
+    Q --> X[Defect / Regression / Release Evidence]
 ```
 
-As the lab evolves, Jira requirements and connected project knowledge become inputs for QA-agent workflows. The catalogue remains useful as a controlled SUT fixture, but it is not the conceptual enterprise end state.
+The important separation is that agents/governance create **test assets and traceability around an existing SUT**. They do not replace the SUT's own catalogue, policies, vector store, databases or other runtime knowledge sources.
 
-## Target dataset lifecycle
+## Target test-asset lifecycle
 
 The target design does not require Excel as an intermediate format. Agents can create/update governed executable JSON after requirements review and human approval where required.
 
-For every case, the governed dataset should carry enough metadata for execution and traceability: case ID, expected behavior, AI risk, priority/criticality, target suite, Oracle and deterministic assertions where applicable.
+For every case, the governed dataset should carry enough metadata for execution and traceability: case ID, requirement/business behavior, applicable risk, priority/criticality, target suite, expected evidence, Oracle and deterministic assertions where applicable.
 
 ```text
-Jira Story
+Jira Story + Confluence Context
   -> Requirements Review
-  -> AI Risk / Test Design
-  -> duplicate and coverage review
+  -> AI Risk Analysis
+  -> Functional + AI Evaluation Test Design
+  -> duplicate / coverage / Oracle review
   -> suite classification
   -> Human approval where required
-  -> Governed JSON Dataset update
+  -> Governed Test Management asset / JSON Dataset update
   -> Dataset Validator
-  -> Oracle Mapper generation
-  -> CI evaluation
+  -> Existing SUT Execution
+  -> Evaluation / Quality Gate
+  -> Defect / Regression / Release Evidence
 ```
 
 ## Oracle integrity and runtime fallback
 
-The dataset is authoritative. The mapper is valuable only as runtime resilience:
+The dataset is authoritative. The fallback registry exists only for resilience:
 
 ```text
 Oracle missing / null / empty
   -> warning
-  -> normalize case_id / id / ID
-  -> mapper lookup
-      -> known ID -> use last approved deterministic / semantic route
+  -> normalize case identifier
+  -> reviewed fallback lookup
+      -> known ID -> last approved deterministic / semantic route
       -> unknown ID -> safe semantic_llm default
 ```
 
-The next governance hardening step is to regenerate the mapper automatically from validated approved dataset metadata rather than edit it independently. This prevents source-of-truth drift.
-
-## Continuous dataset integrity
-
-Change-time validation is implemented in the three active CI workflows. A scheduled integrity audit remains optional future hardening for additional checks such as unsupported risks, mapper consistency and broader cross-dataset duplication/coverage rules.
-
-The lifecycle therefore has three intended controls:
-
-1. governed cases are created/updated in JSON;
-2. CI validation catches dataset-quality defects before model execution;
-3. the derived mapper provides runtime fallback when primary Oracle metadata is missing.
+Automatically generating/refreshing derived fallback mappings from validated approved dataset metadata remains useful hardening, but it is not the primary next roadmap milestone.
 
 ## Current versus target state
 
 | Area | Current POC | Target evolution |
 |---|---|---|
-| Knowledge source | Product catalogue + policy fixtures | Jira requirements + connected project knowledge |
-| Dataset authoring | QE-managed repository JSON | Agent-assisted governed JSON lifecycle |
-| Classification | Explicit suite/risk metadata | Risk/criticality-driven suite recommendation |
-| Oracle | Explicit metadata + reviewed fallback | Explicit validated Oracle + automatically generated mapper |
-| Integrity | Change-time Dataset Validation + runtime fallback | Validation + generated mapper + optional scheduled integrity audit |
+| SUT knowledge/data | Controlled catalogue + policy fixtures | Real project-specific KB/data/APIs/tools owned by the application |
+| QE governance input | QE-authored local context | Jira requirements + Confluence/project knowledge |
+| Dataset authoring | QE-managed repository JSON | Agent-assisted governed test-asset lifecycle |
+| Classification | Explicit suite/risk metadata | Risk/criticality-driven recommendation + governance |
+| Oracle | Explicit metadata + reviewed fallback | Explicit governed Oracle + derived fallback resilience |
+| Integrity | Dataset Validation + runtime fallback | Validation + broader governance/traceability controls |
 | Governance | QE-managed POC | Agent-assisted with human approval for material decisions |
 
-The architectural intent is evolutionary: the controlled SUT proves the mechanics; Jira and project knowledge later make the same framework requirements-driven.
+The architectural intent is evolutionary: the controlled SUT proves the mechanics; Jira/Confluence later make the **QE lifecycle requirements-driven**, not the SUT knowledge base Jira-driven.
