@@ -38,9 +38,47 @@ def main():
         f"| **Estimated cost** | **{cost_text}** |",
         f"| Latency | {latency_seconds:.2f}s |",
         "",
-        f"**Gaps found:** {len(review['gaps'])}  ",
-        f"**Recommended next action:** {review['recommended_next_action']}",
+        f"### Gaps ({len(review['gaps'])})",
+        "",
     ]
+
+    if review["gaps"]:
+        for index, gap in enumerate(review["gaps"], start=1):
+            severity = gap.get("severity", "unknown").upper()
+            category = gap.get("category", "other")
+            finding = gap.get("finding", "")
+            question = gap.get("clarification_question", "")
+            lines.extend(
+                [
+                    f"#### {index}. [{severity}] {category}",
+                    "",
+                    f"**Finding:** {finding}",
+                ]
+            )
+            if question:
+                lines.append(f"**Clarification:** {question}")
+            lines.append("")
+    else:
+        lines.extend(["No requirement gaps identified.", ""])
+
+    clarification_questions = [
+        gap.get("clarification_question", "").strip()
+        for gap in review["gaps"]
+        if gap.get("clarification_question", "").strip()
+    ]
+    if clarification_questions:
+        lines.extend(["### Clarification questions", ""])
+        for question in clarification_questions:
+            lines.append(f"- {question}")
+        lines.append("")
+
+    lines.extend(
+        [
+            "### Recommendation",
+            "",
+            f"**Recommended next action:** `{review['recommended_next_action']}`",
+        ]
+    )
 
     summary = "\n".join(lines) + "\n"
     print(summary)
