@@ -1,0 +1,28 @@
+name: Golden Dataset Governance
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - datasets/golden_dataset.json
+      - src/golden_governance_check.py
+      - .github/workflows/golden-governance.yml
+
+jobs:
+  golden-governance:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate Golden change metadata
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python src/golden_governance_check.py
