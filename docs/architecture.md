@@ -84,6 +84,75 @@ Current supported structured fields include `subcategory`, `waterproof`, `color`
 
 Hard constraints are enforced before semantic relevance. A similarity score must not override a known price/color/waterproof/size/category requirement.
 
+### 3.1 Classic RAG vs the detailed lab architecture
+
+At the conceptual level, a classic RAG pipeline is commonly summarized as three stages:
+
+```text
+R — Retrieval
+↓
+A — Augmentation
+↓
+G — Generation
+```
+
+The lab uses the same RAG model, but deliberately decomposes each stage into smaller observable engineering steps so QE can measure and localize failures instead of treating RAG as one black box.
+
+```text
+RETRIEVAL
+├─ Constraint Extraction / Validation
+├─ Structured Product Filtering
+├─ Embedding + FAISS Semantic Ranking
+└─ Retrieval-K / Top-K Candidates
+
+AUGMENTATION
+├─ Adaptive Context Selection
+├─ Retrieval-K → Context-K
+├─ Selected evidence IDs / similarity scores
+├─ Context Builder
+└─ Final Context passed to generation
+
+GENERATION
+├─ Claude model invocation
+└─ Generated Answer / SUT Output
+```
+
+`Context Selection` and `Context Building` are therefore parts of the **Augmentation** stage. Retrieval finds and ranks candidate evidence; augmentation decides which evidence is actually supplied to the model and constructs the final model context; generation uses that augmented context to produce the answer.
+
+The QE framework then measures quality at those boundaries:
+
+```text
+RETRIEVAL
+│  Retrieval Hit
+│  Constraint Match
+│  Precision@K
+↓
+AUGMENTATION
+│  Retrieval-K → Context-K
+│  Selected IDs / scores
+│  Context atomic assertions
+│  Context Coverage
+│  Context Sufficiency
+↓
+GENERATION
+│  Generation atomic assertions
+│  Correctness
+│  Groundedness
+│  Hallucination
+│  Constraint Adherence
+↓
+OVERALL QUALITY
+│  Pass Rate
+│  AI Risk outcomes
+↓
+OPERATIONS
+   Latency
+   Tokens
+   Cost
+```
+
+This detailed decomposition does not redefine RAG. It makes the classic Retrieval → Augmentation → Generation lifecycle observable and testable at finer-grained boundaries.
+
 ### Retrieval-K vs Context-K
 
 ```text
