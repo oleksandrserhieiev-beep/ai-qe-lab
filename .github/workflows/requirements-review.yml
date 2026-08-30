@@ -50,6 +50,11 @@ jobs:
         run: |
           python src/run_requirements_review.py "$ISSUE_KEY"
 
+      - name: Publish AI telemetry summary
+        if: success()
+        run: |
+          python src/write_requirements_review_summary.py
+
       - name: Upload requirements review report
         if: always()
         uses: actions/upload-artifact@v4
