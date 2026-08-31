@@ -71,6 +71,11 @@ jobs:
         run: |
           python src/run_requirements_review_batch.py "$ISSUE_KEYS"
 
+      - name: Build Risk Analysis handoff artifacts
+        if: always()
+        run: |
+          python src/requirements_review_handoff.py --reports-dir reports --output-dir reports/handoffs
+
       - name: Save requirements review content cache
         if: always()
         uses: actions/cache/save@v4
