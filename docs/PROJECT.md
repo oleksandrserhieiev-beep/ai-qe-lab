@@ -15,17 +15,36 @@ Nightly            = manual-only
 Release Validation = manual-only: Golden + broad Nightly + Release Quality Gate
 ```
 
-The next major implementation phase is not more RAG/evaluator hardening. It is the upstream Agentic QE/Governance flow:
+The upstream Agentic QE phase has now started with the **Requirements Review Agent** as the first controlled slice:
 
 ```text
-Jira + Confluence
--> Requirements Review / Entry Gate
--> AI Risk Analysis
--> Test Design
--> Governance / Human Approval
--> Governed Dataset Update
--> existing Dataset Validation + Evaluation + CI framework
--> Defect / Regression / Release Evidence
+Manual Jira batch
+→ Python deterministic eligibility gate
+→ minimal semantic requirement payload
+→ content fingerprint / cache decision
+→ Claude Requirements Review when needed
+→ READY / NEEDS_CLARIFICATION
+→ batch quality + cache + token + cost evidence
 ```
 
-Automatic generation/refresh of derived Oracle fallback mappings remains a useful governance hardening item, but the governed dataset remains the authoritative source and the primary roadmap milestone is requirements-driven Agentic QE integration.
+Unchanged eligible requirements can reuse their structured review with zero LLM calls. Changes to Summary, Description, Acceptance Criteria or Components invalidate the fingerprint; `force_review=true` is an explicit manual bypass for a controlled fresh review.
+
+The next architectural progression is:
+
+```text
+Jira Requirement
+→ Requirements Review / Entry Gate
+→ Risk Analysis
+→ targeted cross-document retrieval/RAG where needed
+→ Test Generation
+→ Governance / Human Approval
+→ Governed Dataset Update
+→ existing Dataset Validation + Evaluation + CI framework
+→ Defect / Regression / Release Evidence
+```
+
+Requirements Review intentionally evaluates the Jira requirement itself; external retrieval should not hide missing requirement content. Risk Analysis is the first planned stage where architecture, business rules, policies, related specifications and historical defects can become evidence through bounded retrieval.
+
+Automatic generation/refresh of derived Oracle fallback mappings remains a useful governance hardening item, but the governed dataset remains the authoritative source. The primary roadmap milestone is requirements-driven Agentic QE integration connected to the already implemented evaluation/governance framework.
+
+See `docs/agentic_qe_orchestration.md` for current/future orchestration diagrams and `docs/manual_requirements_review_poc.md` for the operating and validation instructions.
