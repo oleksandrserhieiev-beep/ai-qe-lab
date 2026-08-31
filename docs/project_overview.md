@@ -36,7 +36,7 @@ Practical ownership:
 
 ## Framework control model
 
-The framework separates **asset creation/governance**, **product quality execution**, **evaluator quality**, and **canonical-truth governance**.
+The framework separates **asset creation/governance**, **product quality execution**, **specialized AI testing**, **evaluator quality**, and **canonical-truth governance**.
 
 ```text
 TARGET AGENTIC QE / TEST-ASSET GOVERNANCE
@@ -48,7 +48,7 @@ Requirement
 -> Human Review / Approval
 -> Governed Test Assets
 
-PRODUCT QUALITY / CI/CD EXECUTION
+CORE PRODUCT QUALITY / CI/CD EXECUTION
 Selected Governed Suite
 -> Dataset / Oracle Validation
 -> Real SUT Execution
@@ -59,6 +59,11 @@ Selected Governed Suite
 -> Product Quality Gate
 -> PASS / FAIL + Evidence
 -> Lifecycle Decision
+
+SPECIALIZED AI TESTING
+PR -> Standard Critical + Metamorphic Critical
+Manual -> Back-to-Back Model Comparison
+Scheduled / manual -> Adversarial Evaluation
 
 EVALUATOR QUALITY
 Judge Model / Prompt / Rubric Change
@@ -83,6 +88,9 @@ These answer different questions:
 Should this proposed test/evaluation asset become governed?
 Is the selected governed suite technically executable?
 Is the product behavior acceptable?
+Does the system preserve required invariants under controlled transformations?
+How does Model B compare with Model A on the same controlled cases?
+Can hostile input override governed behavior?
 Is the evaluator still trustworthy?
 Is canonical expected truth being changed legitimately?
 ```
@@ -114,14 +122,17 @@ Requirement
  -> confirmed product fix -> Regression coverage
  -> release-readiness evidence
 
-Parallel controls:
+Parallel / specialized controls:
+ -> PR -> Metamorphic Critical relation validation
+ -> manual -> Back-to-Back Model A vs Model B comparison
+ -> scheduled/manual -> Adversarial hostile-input evaluation
  -> Judge changes -> OLD vs NEW Judge Calibration
  -> Golden changes -> Golden Governance Check
 ```
 
 ## Test/evaluation execution
 
-An Evaluation Case is a machine-readable test case. CI/CD quality execution begins by validating the selected governed dataset, then sends valid inputs through the **real SUT**, captures actual behavior and evaluates the evidence.
+An Evaluation Case is a machine-readable test case. CI/CD quality execution begins by validating the selected governed dataset where applicable, then sends valid inputs through the **real SUT**, captures actual behavior and evaluates the evidence.
 
 ```text
 Selected Governed Dataset
@@ -155,13 +166,13 @@ config/judge_prompt.txt
 config/judge_rubric.txt
 ```
 
-so semantic evidence can be tied to the exact Judge model, prompt and rubric version.
+Semantic Judge verdicts require a short non-empty rationale for both PASS and FAIL. Missing `reason` is an evaluator contract violation rather than valid semantic evidence. The current Judge prompt contract is versioned as `v2`.
 
 ## Judge Calibration
 
 The framework treats the LLM Judge as a test object of its own.
 
-`datasets/judge_calibration_dataset.json` contains human-reviewed known good/bad evaluator examples. On relevant Judge PRs:
+`datasets/judge_calibration_dataset.json` contains 8 human-reviewed known good/bad evaluator examples. On relevant Judge PRs:
 
 ```text
 OLD = approved Judge configuration from main
@@ -196,8 +207,6 @@ Source of Truth: ...
 
 The deterministic governance action is path-scoped to the Golden dataset and its checker/workflow. Documentation and unrelated SUT changes do not trigger it.
 
-This prevents goalpost movement while keeping ordinary PR cost low.
-
 ## Reference RAG SUT
 
 ```text
@@ -221,26 +230,74 @@ Retrieval-K and Context-K are separate. Adaptive Context Selection removes low-v
 
 A real project may omit retrieval, use agents/tools/rerankers or expose different deterministic controls. QE maps the actual SUT rather than copying this pipeline mechanically.
 
-## Dataset model
+## Dataset and test-asset model
 
-SUT datasets are separated by lifecycle purpose:
+The **standard routine SUT inventory** is 105 cases:
 
-- **Golden** — trusted canonical baseline/release reference;
-- **PR Critical** — fast merge-blocking risk coverage;
-- **Regression** — stable behavior plus confirmed defect coverage;
-- **Nightly Evaluation** — broad AI-risk/adversarial/edge coverage.
+- **PR Critical standard — 10 cases:** 6 deterministic / 4 semantic;
+- **Regression — 15 cases:** 7 deterministic / 8 semantic;
+- **Broad Nightly Evaluation — 80 cases:** 48 deterministic / 32 semantic.
 
-Separate evaluator dataset:
+Additional technique-specific and governance assets are intentionally separate from that standard 105-case inventory:
 
-- **Judge Calibration** — human-reviewed truth for testing the Judge, not the SUT.
+- **Metamorphic Critical — 2 records:** stored in `pr_critical_dataset.json`, executed by the dedicated metamorphic runner/gate;
+- **Adversarial — 10 cases:** dedicated hostile-input dataset with its own taxonomy, summary and gate;
+- **Golden — 35 cases:** trusted canonical baseline/release reference;
+- **Judge Calibration — 8 cases:** human-reviewed truth for testing the Judge, not the SUT.
 
-PR Critical, Regression and Nightly are governed execution assets. They are not all canonical truth. Golden has the stronger canonical-truth role and separate governance.
+Back-to-Back has no dedicated dataset. It reuses the same 10 standard PR Critical cases for both selected models/configurations.
+
+PR Critical, Regression, Broad Nightly, Metamorphic and Adversarial are governed execution assets serving different testing purposes. They are not all canonical truth. Golden has the stronger canonical-truth role and separate governance.
 
 A confirmed product defect normally becomes Regression coverage. Promotion to Golden is a separate canonical-governance decision.
 
+## Specialized AI testing
+
+### Metamorphic
+
+```text
+2 META records
+-> base invocation
+-> controlled transformed invocation
+-> governed deterministic relation
+-> Metamorphic Gate
+```
+
+Current relations cover paraphrase invariance and irrelevant-noise invariance for critical policy facts.
+
+### Back-to-Back
+
+```text
+Manual workflow_dispatch
+-> same 10 standard PR Critical cases
+-> Model A + Model B
+-> evaluate both
+-> quality deltas
+-> improved / regressed / unchanged cases
+-> latency / token comparison
+```
+
+### Adversarial
+
+```text
+workflow_dispatch or nightly schedule
+-> 10-case Adversarial Dataset
+-> SUT execution
+-> semantic Judge evaluation
+-> Adversarial Pass Rate
+-> Attack Success Rate
+-> category breakdown
+-> critical failure count
+-> Adversarial Gate
+```
+
+The current adversarial categories are business-policy override, instruction override, unsupported-claim forcing, prompt/system leakage, malicious/conflicting retrieved content and hard-constraint bypass.
+
+Drift testing is intentionally outside the current roadmap.
+
 ## Dataset / Oracle Validation
 
-Current implementation validates the executable contract before expensive model calls:
+Current implementation validates the executable contract before expensive model calls where the ordinary dataset path applies:
 
 ```text
 dataset root -> JSON array
@@ -255,27 +312,25 @@ Future schema/required-field hardening can extend this pipeline, but should be d
 
 ## CI/CD and release governance
 
-CI/CD is the execution envelope from validation through the quality decision:
+Current execution controls:
 
 ```text
-Selected Governed Suite
--> Dataset / Oracle Validation
--> SUT Execution
--> Evaluation
--> Metrics / Risk Aggregation
--> Quality Gate
--> PASS / FAIL + Evidence
-```
+PR
+├─ Standard Critical Evaluation -> automatic fast product merge gate
+└─ Metamorphic Critical         -> automatic PR relation gate
 
-Lifecycle controls:
+Manual
+└─ Back-to-Back                 -> Model A vs Model B comparison
 
-```text
-PR Critical        -> automatic fast product merge gate
-Regression         -> stable product health (manual currently)
-Nightly Evaluation -> broad product AI-risk signal (manual currently)
-Release Validation -> Golden + valid broad evidence
-Judge Calibration  -> automatic on Judge/calibration behavior changes
-Golden Governance  -> automatic on Golden/check/workflow changes
+Scheduled / manual
+└─ Adversarial                  -> 10-case hostile-input evaluation
+
+Other lifecycle controls
+├─ Regression                   -> manual currently
+├─ Broad Nightly                -> manual currently
+├─ Release Validation           -> Golden + valid broad evidence
+├─ Judge Calibration            -> automatic on Judge/calibration behavior changes + manual
+└─ Golden Governance            -> automatic on Golden/check/workflow changes
 ```
 
 Workflow trigger policy and evaluation capability are separate. Documentation-only changes should not spend LLM evaluation cost unnecessarily.
