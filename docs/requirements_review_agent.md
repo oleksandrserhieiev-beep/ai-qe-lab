@@ -108,7 +108,9 @@ This keeps agent execution inside the same observable orchestration boundary as 
 
 ## Current boundary
 
-This PR implements only the first read-only agent slice.
+The Requirements Review POC is the first read-only agent slice. It is being validated before the framework expands into downstream agents.
+
+Current behavior includes deterministic eligibility checks, minimal semantic payloads, content-hash reuse for unchanged requirements, structured readiness decisions, clarification gaps, and token/cost telemetry.
 
 Not yet implemented:
 
@@ -116,7 +118,89 @@ Not yet implemented:
 - Confluence context retrieval
 - orchestrator state transitions
 - Risk Analysis Agent
-- Test Design Agent
+- Test Generation Agent
 - Human Approval → governed dataset lifecycle
 
-Those are added incrementally after the Requirements Review Agent is validated on real Jira stories.
+## Planned Agentic QE evolution
+
+The planned sequence after Requirements Review validation is:
+
+```text
+1. Complete Requirements Review POC validation
+2. Add/confirm batch quality and cost summary
+3. Freeze and document the validated Requirements Review architecture
+4. Implement Risk Analysis Agent
+5. Add targeted retrieval/RAG where Risk Analysis needs cross-document evidence
+6. Implement Test Generation Agent
+7. Connect generated test assets to the governed dataset lifecycle
+8. Integrate the agentic flow with PR evaluation and regression workflows
+```
+
+### Risk Analysis Agent
+
+Risk Analysis Agent is the next planned major agent after the Requirements Review POC is considered stable.
+
+Entry condition:
+
+```text
+Requirements Review decision = READY
+```
+
+Primary responsibility: transform an approved requirement into a structured, risk-based QE view without prematurely generating the final test set.
+
+Expected risk categories include, where applicable:
+
+- functional
+- integration
+- data
+- AI-specific
+- security
+- resilience
+- performance
+- business/process
+
+Expected structured output should include at least:
+
+- risk statement
+- category
+- likelihood
+- impact
+- priority
+- rationale/evidence
+- recommended test focus
+
+Conceptual flow:
+
+```text
+READY Jira Story
+      ↓
+Risk Analysis Agent
+      ↓
+identify requirement-local risks
+      ↓
+retrieve supporting context when required
+├─ architecture
+├─ business rules / policies
+├─ related specifications or stories
+└─ historical defects
+      ↓
+structured risk register / risk output
+      ↓
+Test Generation Agent
+```
+
+### Retrieval boundary
+
+Requirements Review intentionally evaluates whether the Jira requirement itself is sufficiently explicit. Retrieval must not hide missing acceptance criteria or compensate for an incomplete story.
+
+Risk Analysis is the first planned stage where cross-document retrieval can add material value. The design principle is:
+
+```text
+Retrieve broadly → select relevant evidence → send narrowly to the LLM
+```
+
+Retrieval should therefore be introduced only when the downstream agent requires external evidence, with bounded top-K/context selection and observable retrieval telemetry.
+
+### Test Generation Agent
+
+After risks are identified, Test Generation Agent will use the validated requirement, structured risks, and only the relevant supporting context to produce risk-based test scenarios/test assets. Generated assets then enter the governed dataset lifecycle rather than being treated as automatically approved truth.
