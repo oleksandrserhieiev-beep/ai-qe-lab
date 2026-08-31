@@ -3,13 +3,10 @@ name: Requirements Review Agent
 on:
   workflow_dispatch:
     inputs:
-      issue_key:
-        description: "Jira issue key"
+      issue_keys:
+        description: "Jira issue keys (comma, space, or semicolon separated)"
         required: true
         type: string
-  repository_dispatch:
-    types:
-      - jira-requirements-review
 
 jobs:
   requirements-review:
@@ -19,8 +16,13 @@ jobs:
       JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
       JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
       JIRA_EMAIL: ${{ vars.JIRA_EMAIL }}
+      JIRA_PROJECT_KEY: ${{ vars.JIRA_PROJECT_KEY }}
       REQUIREMENTS_REVIEW_MODEL: ${{ vars.REQUIREMENTS_REVIEW_MODEL }}
-      ISSUE_KEY: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.issue_key || inputs.issue_key }}
+      JIRA_ALLOWED_STATUSES: ${{ vars.JIRA_ALLOWED_STATUSES || 'Ready for Refinement,Ready for AI Review' }}
+      JIRA_REQUIRE_DESCRIPTION: ${{ vars.JIRA_REQUIRE_DESCRIPTION || 'true' }}
+      JIRA_REQUIRE_ACCEPTANCE_CRITERIA: ${{ vars.JIRA_REQUIRE_ACCEPTANCE_CRITERIA || 'true' }}
+      JIRA_ACCEPTANCE_CRITERIA_FIELD: ${{ vars.JIRA_ACCEPTANCE_CRITERIA_FIELD }}
+      ISSUE_KEYS: ${{ inputs.issue_keys }}
 
     steps:
       - name: Checkout repository
@@ -38,26 +40,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Validate issue key
+      - name: Validate batch input
         run: |
-          if [ -z "$ISSUE_KEY" ]; then
-            echo "issue_key is required"
+          if [ -z "$ISSUE_KEYS" ]; then
+            echo "issue_keys is required"
             exit 1
           fi
-          echo "Requirements Review Agent will review: $ISSUE_KEY"
+          echo "Requirements Review Agent manual batch: $ISSUE_KEYS"
 
-      - name: Run Requirements Review Agent
+      - name: Run Requirements Review batch
         run: |
-          python src/run_requirements_review.py "$ISSUE_KEY"
+          python src/run_requirements_review_batch.py "$ISSUE_KEYS"
 
-      - name: Publish AI telemetry summary
-        if: success()
-        run: |
-          python src/write_requirements_review_summary.py
-
-      - name: Upload requirements review report
+      - name: Upload requirements review reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: requirements-review-${{ env.ISSUE_KEY }}
+          name: requirements-review-batch-${{ github.run_id }}
           path: reports/
