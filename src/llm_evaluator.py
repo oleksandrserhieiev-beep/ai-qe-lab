@@ -114,7 +114,7 @@ def evaluate_ai_response(
         f"A:{actual_answer}\n"
         'JSON:{"correctness":true,"groundedness":true,"hallucination":false,'
         '"constraint_adherence":true,"context_coverage":100,'
-        '"context_sufficient":true,"reason":null}'
+        '"context_sufficient":true,"reason":"brief explanation of the verdict"}'
     )
 
     response, attempts = _create_judge_response(
@@ -157,9 +157,15 @@ def evaluate_ai_response(
     except (TypeError, ValueError):
         coverage = 0
 
+    reason = str(result.get("reason") or "").strip()
+    if not reason:
+        raise ValueError(
+            "Judge contract violation: semantic verdict is missing a non-empty reason"
+        )
+
     result["context_coverage"] = max(0, min(100, coverage))
     result["context_sufficient"] = bool(result.get("context_sufficient", False))
-    result["reason"] = result.get("reason") or None
+    result["reason"] = reason
     result["_telemetry"] = {
         "model": response.model,
         "judge_prompt_version": JUDGE_CONFIG.get("prompt_version"),
