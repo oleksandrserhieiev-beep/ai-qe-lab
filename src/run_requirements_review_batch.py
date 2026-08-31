@@ -28,6 +28,12 @@ def _is_true(name: str) -> bool:
     return (os.getenv(name) or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _clarification_gaps(review: dict) -> list[dict]:
+    if review.get("decision") != "NEEDS_CLARIFICATION":
+        return []
+    return [gap for gap in review.get("gaps", []) if gap.get("gap_type") == "BLOCKING_GAP"]
+
+
 def _append_github_summary(batch: dict):
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
     if not summary_path:
@@ -59,6 +65,27 @@ def _append_github_summary(batch: dict):
         reason = "; ".join(item.get("rejection_reasons", []))
         precheck_text = precheck if not reason else f"{precheck}: {reason}"
         lines.append(f"| `{item['issue_key']}` | {precheck_text} | {decision} | {tokens:,} | ${cost:.6f} |")
+
+    clarification_items = [item for item in batch["issues"] if item.get("clarification_gaps")]
+    if clarification_items:
+        lines.extend(["", "## Clarification Required", ""])
+        for item in clarification_items:
+            cache_label = " (cached review)" if item.get("cache_hit") else ""
+            lines.append(
+                f"### {item['issue_key']} — NEEDS_CLARIFICATION ({item.get('readiness_score', 0)}/100){cache_label}"
+            )
+            lines.append("")
+            for index, gap in enumerate(item["clarification_gaps"], start=1):
+                lines.extend(
+                    [
+                        f"**Gap {index}: {gap.get('category') or gap.get('criterion') or 'Requirement gap'}**",
+                        f"- Priority / severity: **{str(gap.get('severity') or 'unknown').upper()}**",
+                        f"- Criterion: `{gap.get('criterion') or 'other'}`",
+                        f"- Finding: {gap.get('finding') or '-'}",
+                        f"- Clarification question: {gap.get('clarification_question') or '-'}",
+                        "",
+                    ]
+                )
 
     with open(summary_path, "a", encoding="utf-8") as handle:
         handle.write("\n".join(lines) + "\n")
@@ -99,7 +126,7 @@ def run_batch(raw_issue_keys: str) -> dict:
             rejected += 1
             issues.append(item)
             continue
-        except Exception as exc:  # configuration/network errors are visible but do not call the LLM
+        except Exception as exc:
             item.update(precheck="REJECTED", rejection_reasons=[f"Jira load failed: {exc}"])
             rejected += 1
             issues.append(item)
@@ -107,7 +134,7 @@ def run_batch(raw_issue_keys: str) -> dict:
 
         reasons = precheck_requirement(requirement)
         if reasons:
-            item.update(precheck="REJECTED", rejection_reasons=reasons, requirement=requirement)
+            item.update(precheck="REJECTED", rejection_reasons=reasons)
             rejected += 1
             issues.append(item)
             continue
@@ -124,6 +151,7 @@ def run_batch(raw_issue_keys: str) -> dict:
                 cache_hit=True,
                 decision=review["decision"],
                 readiness_score=review["readiness_score"],
+                clarification_gaps=_clarification_gaps(review),
                 total_tokens=0,
                 estimated_cost_usd=0.0,
                 cached_from=cached_entry.get("reviewed_at"),
@@ -138,7 +166,6 @@ def run_batch(raw_issue_keys: str) -> dict:
                     "cache_hit": True,
                     "cached_from": cached_entry.get("reviewed_at"),
                     "content_hash": fingerprint,
-                    "requirement": requirement,
                     "review_payload": review_payload,
                     "review": review,
                     "telemetry": {
@@ -174,6 +201,7 @@ def run_batch(raw_issue_keys: str) -> dict:
                 cache_hit=False,
                 decision=review["decision"],
                 readiness_score=review["readiness_score"],
+                clarification_gaps=_clarification_gaps(review),
                 total_tokens=telemetry["total_tokens"],
                 estimated_cost_usd=float(telemetry.get("estimated_cost_usd") or 0.0),
                 report=f"reports/requirements_review_{issue_key}.json",
@@ -186,7 +214,6 @@ def run_batch(raw_issue_keys: str) -> dict:
                     "issue_key": issue_key,
                     "cache_hit": False,
                     "content_hash": fingerprint,
-                    "requirement": requirement,
                     "review_payload": review_payload,
                     "review": review,
                     "telemetry": telemetry,
@@ -245,6 +272,16 @@ def main():
             print(f"{item['issue_key']}: CACHED {item['decision']} ({item['readiness_score']}/100) - 0 tokens")
         else:
             print(f"{item['issue_key']}: {item['decision']} ({item['readiness_score']}/100)")
+
+        if item.get("clarification_gaps"):
+            print(f"  Clarification required: {len(item['clarification_gaps'])} blocking gap(s)")
+            for index, gap in enumerate(item["clarification_gaps"], start=1):
+                severity = str(gap.get("severity") or "unknown").upper()
+                criterion = gap.get("criterion") or "other"
+                finding = gap.get("finding") or "-"
+                question = gap.get("clarification_question") or "-"
+                print(f"    {index}. [{severity}] {criterion}: {finding}")
+                print(f"       Question: {question}")
 
 
 if __name__ == "__main__":
