@@ -23,8 +23,10 @@ Practical ownership:
 | SUT prompt/model integration | Build/own | Test semantic/operational quality |
 | Observability hooks | Implement/support | Define required evidence |
 | Requirement/risk/test governance | Support | Own/design |
-| Evaluation datasets | Support business truth | Own/govern |
-| Dataset validation | Support | Build/own |
+| Proposed test/evaluation assets | Support | Design/review |
+| Human test-asset approval | Support business truth | Govern promotion |
+| Governed evaluation datasets | Support business truth | Own/govern |
+| Dataset/Oracle validation | Support | Build/own |
 | Oracle/assertions/Judge | Support expectations | Design/build/govern |
 | Judge calibration | Support runtime/model access | Design/own evaluator-quality control |
 | Golden canonical truth | Support business sources | Govern executable representation |
@@ -32,20 +34,31 @@ Practical ownership:
 | CI test/governance levels | DevOps support | Design quality execution model |
 | Release evidence/recommendation | Fix/support | Quality governance |
 
-## Three framework control loops
+## Framework control model
 
-The framework does not rely on one generic “AI check”. It separates product quality, evaluator quality and canonical-truth governance.
+The framework separates **asset creation/governance**, **product quality execution**, **evaluator quality**, and **canonical-truth governance**.
 
 ```text
-PRODUCT QUALITY
-Governed SUT Case
--> Dataset Validation
--> Real SUT
+TARGET AGENTIC QE / TEST-ASSET GOVERNANCE
+Requirement
+-> Requirements Review
+-> Risk Analysis
+-> Test Analysis & Design
+-> Proposed Test / Evaluation Assets
+-> Human Review / Approval
+-> Governed Test Assets
+
+PRODUCT QUALITY / CI/CD EXECUTION
+Selected Governed Suite
+-> Dataset / Oracle Validation
+-> Real SUT Execution
 -> Evidence
--> Oracle
+-> Oracle Resolution
 -> Deterministic Assertions or Semantic Judge
--> Metrics / Risk
+-> Metrics / Risk Aggregation
 -> Product Quality Gate
+-> PASS / FAIL + Evidence
+-> Lifecycle Decision
 
 EVALUATOR QUALITY
 Judge Model / Prompt / Rubric Change
@@ -64,28 +77,32 @@ Golden Expected-Behavior Change
 -> Approved Golden Baseline
 ```
 
-This answers three different questions:
+These answer different questions:
 
 ```text
-Is the product correct?
+Should this proposed test/evaluation asset become governed?
+Is the selected governed suite technically executable?
+Is the product behavior acceptable?
 Is the evaluator still trustworthy?
-Is the expected truth being changed legitimately?
+Is canonical expected truth being changed legitimately?
 ```
+
+`Governed Test Assets` are approved artifacts, not an agent. Human Governance / Approval is the promotion boundary. Dataset/Oracle Validation is the later execution-precondition boundary.
 
 ## What the completed framework does
 
 ```text
 Requirement
- -> Requirements Review / Entry Gate
- -> Test Analysis & Risk
- -> Test Design
+ -> Requirements Review
+ -> Risk Analysis
+ -> Test Analysis & Design
       -> Functional / API / Integration / E2E tests
       -> AI Evaluation cases
- -> Coverage / Governance Review
- -> Human approval where required
+ -> Proposed Test / Evaluation Assets
+ -> Human Governance / Approval
  -> Governed executable datasets / Test Management
- -> Dataset Validation
- -> Test execution against the existing SUT
+ -> Dataset / Oracle Validation
+ -> SUT execution against the existing application
  -> SUT evidence collection
  -> Oracle Resolution
       -> Deterministic Python assertions
@@ -94,7 +111,7 @@ Requirement
  -> Product Quality Gate
  -> Failure localization
  -> Defect / Jira traceability
- -> confirmed product fix -> Regression Dataset
+ -> confirmed product fix -> Regression coverage
  -> release-readiness evidence
 
 Parallel controls:
@@ -104,14 +121,17 @@ Parallel controls:
 
 ## Test/evaluation execution
 
-An Evaluation Case is a machine-readable test case. The executor sends its input through the **real SUT**, captures actual behavior and collects evidence required by the Oracle/evaluator.
+An Evaluation Case is a machine-readable test case. CI/CD quality execution begins by validating the selected governed dataset, then sends valid inputs through the **real SUT**, captures actual behavior and evaluates the evidence.
 
 ```text
-Governed Dataset Case
+Selected Governed Dataset
+ -> Dataset / Oracle Validation
  -> Test/Evaluation Executor
  -> Existing SUT
  -> Actual answer + application evidence/telemetry
- -> Evaluation
+ -> Oracle Resolution / Evaluation
+ -> Metrics / Risk
+ -> Quality Gate
 ```
 
 The executor is automation of what a tester would otherwise do manually; it is not a separate product architecture.
@@ -123,7 +143,7 @@ Formal, objective rule -> Deterministic Python Assertion Engine
 Meaning / behavior judgment -> Calibrated Semantic LLM Judge
 ```
 
-Deterministic assertions validate IDs, numbers, enums, booleans, ranges, schemas, hard constraints and other formal properties. Semantic evaluation handles correctness, groundedness, hallucination and other behavior requiring interpretation.
+Deterministic assertions validate IDs, numbers, enums, booleans, ranges, hard constraints and other formal properties. Semantic evaluation handles correctness, groundedness, hallucination and other behavior requiring interpretation.
 
 Metrics report the population actually measured. Semantic-only metrics therefore use only semantic/Judge cases as denominator.
 
@@ -141,9 +161,7 @@ so semantic evidence can be tied to the exact Judge model, prompt and rubric ver
 
 The framework treats the LLM Judge as a test object of its own.
 
-`datasets/judge_calibration_dataset.json` contains 8 human-reviewed known good/bad evaluator examples. The first approved baseline — `claude-opus-5` + prompt `v1` + rubric `v1` — matched all 32 human-approved semantic field expectations with 100% agreement, 0 false PASS and 0 false FAIL.
-
-On future relevant Judge PRs:
+`datasets/judge_calibration_dataset.json` contains human-reviewed known good/bad evaluator examples. On relevant Judge PRs:
 
 ```text
 OLD = approved Judge configuration from main
@@ -157,9 +175,7 @@ compare human agreement and false PASS/FAIL
 Judge Calibration Gate
 ```
 
-Current POC gate requires NEW agreement >= 90%, no drop greater than 5 percentage points and no increase in false PASS.
-
-This allows changes such as Opus -> Sonnet, prompt revisions or rubric revisions to be evaluated before the new evaluator is trusted for product quality decisions.
+The cheaper or newer evaluator is not accepted merely because it runs; it must remain acceptably aligned with human truth and must not introduce dangerous false PASS behavior.
 
 ## Golden Dataset governance
 
@@ -191,7 +207,8 @@ User / Evaluation Case
       -> unresolved -> Deterministic Clarification
  -> Structured Product Filtering
       -> zero matches -> Deterministic No-Product-Match
- -> Embedding + FAISS Semantic Ranking
+ -> deterministic catalogue routing where applicable
+ -> Embedding + FAISS Semantic Ranking where applicable
  -> Retrieval-K / Top-K Candidates
  -> Adaptive Context Selection
  -> Context-K
@@ -217,9 +234,40 @@ Separate evaluator dataset:
 
 - **Judge Calibration** — human-reviewed truth for testing the Judge, not the SUT.
 
+PR Critical, Regression and Nightly are governed execution assets. They are not all canonical truth. Golden has the stronger canonical-truth role and separate governance.
+
 A confirmed product defect normally becomes Regression coverage. Promotion to Golden is a separate canonical-governance decision.
 
+## Dataset / Oracle Validation
+
+Current implementation validates the executable contract before expensive model calls:
+
+```text
+dataset root -> JSON array
+case ID -> required + unique
+explicit Oracle -> deterministic | semantic_llm
+deterministic Oracle -> non-empty deterministic assertions
+missing Oracle -> warning + reviewed runtime fallback
+invalid Oracle -> ERROR
+```
+
+Future schema/required-field hardening can extend this pipeline, but should be distinguished from what the current validator already enforces.
+
 ## CI/CD and release governance
+
+CI/CD is the execution envelope from validation through the quality decision:
+
+```text
+Selected Governed Suite
+-> Dataset / Oracle Validation
+-> SUT Execution
+-> Evaluation
+-> Metrics / Risk Aggregation
+-> Quality Gate
+-> PASS / FAIL + Evidence
+```
+
+Lifecycle controls:
 
 ```text
 PR Critical        -> automatic fast product merge gate
@@ -236,19 +284,22 @@ Release Validation requires canonical Golden evidence plus valid broad-risk evid
 
 ## Requirements and agent orchestration
 
-The target agents create/analyze/govern quality inputs around the existing framework:
+The target agents create/analyze proposed quality assets upstream of the existing framework:
 
 ```text
 Jira / Confluence
 -> Requirements Review
--> Test Analysis & Risk
--> Test Design
--> Coverage & Gap Analysis
--> Human Approval
--> Governed Tests / JSON Datasets
--> existing Dataset Validation
--> existing SUT Evaluation
--> existing Judge Calibration / Golden Governance controls
+-> Risk Analysis
+-> targeted project evidence where required
+-> Test Analysis & Design
+-> Proposed Test / Evaluation Assets
+-> Human Governance / Approval
+-> Governed Test Assets
+-> Dataset / Oracle Validation
+-> SUT Execution
+-> Evaluation
+-> Metrics / Risk Aggregation
+-> Quality Gate
 -> Failure Analysis / Defect / Regression / Release Evidence
 ```
 
@@ -261,9 +312,10 @@ Product traceability:
 ```text
 Requirement
  -> Risk
- -> Test / Evaluation Case
+ -> Proposed Test / Evaluation Case
+ -> Human Governance / Approval
  -> Governed Dataset / Test Management asset
- -> Dataset Validation
+ -> Dataset / Oracle Validation
  -> SUT execution
  -> Evidence
  -> Oracle / Metric

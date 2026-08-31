@@ -3,9 +3,9 @@
 ## Implemented downstream QE framework
 
 - Shopping RAG Assistant reference SUT with deterministic constraint extraction/validation, structured filtering, FAISS retrieval, adaptive context selection and Claude generation.
-- Deterministic clarification, no-product-match and no-context abstention paths that can skip Claude.
+- Deterministic clarification, no-product-match, deterministic catalogue routing and no-context abstention paths that can skip Claude where applicable.
 - Governed Golden, PR Critical, Regression and Nightly datasets.
-- Dataset/Oracle Validation before active evaluation model calls.
+- Dataset/Oracle Validation as the first technical stage before active SUT/Judge model execution.
 - Deterministic Python assertions plus semantic LLM Judge evaluation.
 - Version-controlled Judge model/prompt/rubric configuration.
 - Human-reviewed Judge Calibration Dataset and OLD-vs-NEW calibration gate.
@@ -14,9 +14,26 @@
 - PR Critical automatic merge gate.
 - Regression, Nightly and Release Validation manual workflows.
 
+## Current downstream execution model
+
+```text
+Selected Governed Suite
+→ Dataset / Oracle Validation
+→ SUT Execution
+→ Evaluation
+   ├─ deterministic Python
+   └─ semantic LLM Judge
+→ Metrics / Risk Aggregation
+→ Quality Gate
+→ PASS / FAIL + Evidence
+→ Lifecycle Decision
+```
+
+This is the CI/CD execution path. CI/CD does not start after Evaluation; it orchestrates the sequence from Dataset/Oracle Validation through the Quality Gate.
+
 ## Implemented upstream Agentic QE slice — Requirements Review
 
-The first agentic component is the read-only Requirements Review Agent.
+The first complete agentic component is the read-only Requirements Review Agent.
 
 Current implemented flow:
 
@@ -58,6 +75,25 @@ Implemented controls include:
 Detailed orchestration and sequence diagrams: `docs/agentic_qe_orchestration.md`.  
 Manual operating/validation instructions: `docs/manual_requirements_review_poc.md`.
 
+## Target Agentic QE architecture
+
+The master architecture intentionally keeps the full target flow even though implementation is incremental:
+
+```text
+Jira / Confluence
+→ Requirements Review
+→ Risk Analysis
+→ targeted evidence retrieval where needed
+→ Human Governance
+→ Test Analysis & Design
+→ Proposed Test / Evaluation Assets
+→ Human Review / Approval
+→ Governed Test Assets
+→ downstream CI/CD Quality Execution
+```
+
+`Governed Test Assets` are approved artifacts, not an agent. Human Governance / Approval is the promotion boundary. Dataset/Oracle Validation is a later runtime/execution-precondition check.
+
 ## Current CI execution state
 
 ```text
@@ -72,13 +108,18 @@ Requirements Review  = manual batch execution
 
 Regression/Nightly schedules remain intentionally paused while the POC baseline is stable and the upstream Jira-driven Agentic QE lifecycle is being introduced.
 
-## Governance boundary now implemented
+## Governance boundaries
 
 ```text
-Product behavior
-→ Dataset Validation
+Proposed test/evaluation asset
+→ Human Review / Approval
+→ Governed Test Asset
+
+Selected governed suite
+→ Dataset / Oracle Validation
 → SUT Execution
-→ Oracle / Judge
+→ Evaluation
+→ Metrics / Risk Aggregation
 → Product Quality Gate
 
 Judge behavior change
@@ -97,25 +138,15 @@ Jira requirement
 → cache / cost / batch evidence
 ```
 
-These are separate controls. Requirements Review creates upstream quality evidence; it does not replace independent product evaluation, Judge calibration, Golden governance or release accountability.
+These are separate controls. Human test-asset approval governs promotion. Dataset/Oracle Validation governs execution eligibility under the implemented contract. Requirements Review creates upstream quality evidence; it does not replace independent product evaluation, Judge calibration, Golden governance or release accountability.
 
-## Requirements Review POC closure
+## Current implementation maturity
 
-The Requirements Review slice is treated as the first complete Agentic QE component when its validation tests, batch metrics, documentation and orchestration diagrams are merged.
-
-Explicitly outside that closure:
-
-- Risk Analysis Agent;
-- cross-document retrieval/RAG for risk analysis;
-- Test Generation Agent;
-- Jira write-back;
-- automatic/scheduled agent execution;
-- HITL dataset promotion;
-- full multi-agent state orchestration.
+Requirements Review is implemented and runnable. Risk Analysis currently has its contract/skeleton and validation tests, while LLM execution/retrieval orchestration remains a later implementation slice. Test Analysis & Design, governed dataset promotion and full multi-agent state orchestration remain target architecture.
 
 ## Next phase
 
-The next major implementation slice is Risk Analysis after the Requirements Review closure:
+The target continuation is:
 
 ```text
 Jira Requirement
@@ -127,13 +158,23 @@ Risk Analysis Agent
         ↓
 Targeted retrieval/RAG where cross-document evidence is needed
         ↓
-Test Generation Agent
+Test Analysis & Design Agent
         ↓
-Governance / HITL
+Proposed Test / Evaluation Assets
         ↓
-Governed Dataset Update
+Human Governance / Approval
         ↓
-existing Dataset Validation + Evaluation + CI/CD
+Governed Test Assets
+        ↓
+Dataset / Oracle Validation
+        ↓
+SUT Execution
+        ↓
+Evaluation
+        ↓
+Metrics / Risk Aggregation
+        ↓
+Quality Gate
         ↓
 Regression / Release Evidence
 ```
