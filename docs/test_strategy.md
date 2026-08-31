@@ -8,21 +8,22 @@ The framework combines:
 
 - conventional functional, API, integration and E2E testing;
 - AI/RAG-specific evaluation;
-- Agentic QE/STLC orchestration for requirement review, risk analysis and test design;
-- governed datasets and explicit Dataset / Oracle Validation before execution;
+- target Agentic QE/STLC orchestration for requirement review, risk analysis and test design;
+- Human Governance / Approval of proposed test/evaluation assets;
+- governed test assets and explicit Dataset / Oracle Validation before execution;
 - deterministic assertions and semantic LLM-as-a-Judge evaluation;
 - independent regression testing of the LLM Judge itself;
 - governance of canonical Golden expected behavior;
 - observability, traceability and failure localization;
-- CI/CD quality gates at PR, Regression, Nightly and Release levels.
+- CI/CD quality execution at PR, Regression, Nightly and Release levels.
 
 The strategy answers nine questions:
 
 1. Is the requirement sufficiently explicit to continue testing without inventing behavior?
 2. What can fail and which risks require coverage?
-3. Is the evaluation case structurally valid and correctly routed to an Oracle?
-4. How should the product behavior be tested?
-5. Which Oracle should decide product PASS/FAIL?
+3. Are proposed tests/evaluation assets approved for promotion into governed assets?
+4. Is the selected governed evaluation case technically valid and correctly routed to an Oracle?
+5. How should the product behavior be tested and evaluated?
 6. At which execution level should the test run?
 7. What evidence is required to localize a failure?
 8. How do we know the semantic Judge and canonical truth remain trustworthy?
@@ -34,40 +35,55 @@ Detailed architecture is maintained in `docs/master_architecture.md`; metric def
 
 ## 2. Test object and quality architecture
 
-The current executable SUT is a Shopping RAG Assistant. The QE framework is intentionally decomposed into separate but integrated pipelines/control planes so that product execution, evaluation, CI/CD and governance are not collapsed into one mechanism.
+The current executable SUT is a Shopping RAG Assistant. The QE framework is intentionally decomposed into separate but integrated responsibilities so that **asset governance**, **technical dataset validation**, **SUT/evaluation execution**, and **CI/CD gating** are not collapsed into one mechanism.
 
 ### 2.1 Master quality architecture
 
 ```mermaid
 flowchart TB
-    ORCH["Agentic QE / STLC Orchestration\nRequirements -> Risks -> Tests -> Dataset Proposals"]
-    DS["Governed Datasets\nApproved evaluation truth"]
-    DV["Dataset / Oracle Validation\nSchema + identity + required fields + Oracle routing + eligibility"]
-    APP["Application / SUT Pipeline\nConstraints -> Filtering -> Retrieval -> Context -> Generation"]
-    EVAL["Evaluation Pipeline\nOracle Resolution -> Python / LLM Judge -> Metrics"]
-    CICD["CI/CD Quality Pipeline\nSuite execution -> Quality Gate -> Evidence"]
-    DEC["PR / Regression / Nightly / Release Decision"]
+    ORCH["Agentic QE / STLC Orchestration\nRequirements -> Risks -> Tests -> Test Asset Proposals"]
+    HGA["Human Governance / Approval\nReview proposed test / evaluation assets"]
+    GTA["Governed Test Assets\nApproved datasets + Oracle/assertion/risk metadata"]
 
-    ORCH --> DS
-    DS --> DV
-    DV --> APP
-    APP --> EVAL
-    EVAL --> CICD
-    CICD --> DEC
+    ORCH --> HGA
+    HGA --> GTA
 
-    GOLD["Golden / Canonical Truth Governance"] -. protects .-> DS
-    JG["Evaluator Governance / Judge Calibration"] -. validates .-> EVAL
+    subgraph CICD["CI/CD Quality Execution"]
+        DV["Dataset / Oracle Validation"]
+        SUT["SUT Execution"]
+        EV["Evaluation\nOracle Resolution -> Python / LLM Judge"]
+        MET["Metrics / Risk Aggregation"]
+        QG["Quality Gate"]
+        OUT["PASS / FAIL + Evidence"]
+
+        DV --> SUT
+        SUT --> EV
+        EV --> MET
+        MET --> QG
+        QG --> OUT
+    end
+
+    GTA --> DV
+    OUT --> DEC["PR / Regression / Nightly / Release Decision"]
+
+    GOLD["Golden / Canonical Truth Governance"] -. protects .-> GTA
+    JG["Evaluator Governance / Judge Calibration"] -. validates .-> EV
 ```
 
-The master view is intentionally simplified. Detailed pipeline behavior is maintained separately:
+The Agentic QE path is the **target operating architecture** and may be implemented incrementally. The CI/CD execution path reflects the current workflow sequence.
+
+`Governed Test Assets` are artifacts, not an agent. They are approved datasets and related Oracle/assertion/risk metadata. Human Governance / Approval decides whether proposed assets become governed. Dataset / Oracle Validation is a later technical execution-precondition check.
+
+Detailed pipeline behavior is maintained separately:
 
 | Pipeline / control plane | Detailed architecture |
 |---|---|
 | Agentic QE / STLC Orchestration | `docs/agentic_qe_orchestration.md` |
+| Human Governance / Approval | `docs/agentic_qe_orchestration.md` |
 | Dataset / Oracle Validation | `docs/dataset_oracle_validation_pipeline.md` |
 | Application / SUT | `docs/architecture.md` |
 | Evaluation | `docs/automated_ai_evaluation.md` |
-| CI/CD Quality | `docs/master_architecture.md` + GitHub workflows |
+| CI/CD Quality Execution | `docs/master_architecture.md` + GitHub workflows |
 | Dataset / Oracle contract | `docs/dataset_design.md` |
 | Golden Governance | `docs/golden_dataset_governance.md` |
 | Evaluator Governance | `docs/judge_calibration_workflow.md` |
@@ -76,11 +92,15 @@ The master view is intentionally simplified. Detailed pipeline behavior is maint
 
 | Layer | Test-strategy responsibility |
 |---|---|
-| Agentic QE | Improve requirement readiness, identify risks and propose reviewed test/evaluation assets |
-| Dataset / Oracle Validation | Fail invalid cases before expensive SUT/Judge execution |
+| Agentic QE | Target flow to improve requirement readiness, identify risks and propose test/evaluation assets |
+| Human Governance / Approval | Review proposed assets and approve/reject promotion into governed test assets |
+| Governed Test Assets | Hold approved datasets and related execution/evaluation metadata |
+| Dataset / Oracle Validation | Fail invalid selected cases before expensive SUT/Judge execution |
 | Application / SUT | Produce real product behavior and execution evidence |
 | Evaluation | Apply the validated Oracle to observed SUT behavior |
-| CI/CD Quality | Execute lifecycle scope and apply deterministic quality gates |
+| Metrics / Risk Aggregation | Convert case-level evaluation into suite-level quality evidence |
+| Quality Gate | Apply deterministic pass/fail thresholds/policies |
+| CI/CD Quality Execution | Orchestrate validation -> SUT -> evaluation -> metrics -> gate -> evidence |
 | Golden Governance | Protect canonical expected behavior from unsupported movement |
 | Evaluator Governance | Prove that Judge changes remain aligned with human-reviewed truth |
 
@@ -90,7 +110,7 @@ A failed final answer is **not automatically an LLM defect**. A dataset-validati
 
 ## 3. Agentic QE / STLC strategy
 
-Agentic QE is an upstream quality-engineering workflow. It does not replace SUT execution, evaluation or CI/CD gates.
+Agentic QE is an upstream target quality-engineering workflow. It does not replace SUT execution, evaluation or CI/CD gates.
 
 Target flow:
 
@@ -102,11 +122,10 @@ Jira / Confluence
 -> targeted project evidence where required
 -> Human Governance
 -> Test Analysis & Design Agent
--> Human Governance
--> proposed dataset patch / temporary file
+-> Proposed Test / Evaluation Assets
 -> diff review
--> Human Approval
--> Governed Dataset
+-> Human Governance / Approval
+-> Governed Test Assets
 ```
 
 ### Requirements Review
@@ -129,19 +148,19 @@ Risk categories may include functional, integration, data, AI, security, resilie
 
 ### Test Analysis & Design
 
-The initial architecture combines Test Analysis and Test Design into one agent. It consumes approved requirement/risk context and proposes tests/evaluation cases that address identified risks.
+The target architecture combines Test Analysis and Test Design into one agent. It consumes approved requirement/risk context and proposes tests/evaluation cases that address identified risks.
 
-### Dataset proposal governance
+### Test-asset proposal governance
 
-Agent-generated cases are proposals, not canonical truth:
+Agent-generated cases are proposals, not governed truth:
 
 ```text
-approved test/evaluation cases
--> temporary proposed dataset file
--> diff against governed dataset
--> Human Review
+proposed test/evaluation assets
+-> temporary proposed dataset file / patch
+-> diff against governed assets
+-> Human Review / Approval
 -> approved promotion
--> Governed Dataset
+-> Governed Test Assets
 ```
 
 Human-in-the-Loop governance is the current POC default. Gates may be automated later only when measured quality, confidence and governance requirements justify it.
@@ -154,7 +173,8 @@ Testing must provide confidence that:
 
 - requirements are sufficiently explicit before downstream test design;
 - material conventional and AI-specific risks are identified and traceable to coverage;
-- governed evaluation cases are structurally valid before execution;
+- proposed quality assets are reviewed before promotion;
+- selected governed evaluation cases satisfy the implemented dataset/Oracle execution contract before model execution;
 - explicit business behavior and user constraints are satisfied;
 - correct evidence is retrieved and irrelevant evidence does not drive the answer;
 - hard constraints are distinguished from semantic relevance;
@@ -214,13 +234,13 @@ Testing starts from requirements, architecture, business impact and known failur
 
 ### Test-asset/governance risks
 
+- unreviewed agent proposal is promoted directly into governed assets;
 - malformed dataset case reaches expensive execution;
 - duplicate/missing case identity breaks traceability;
 - Oracle metadata is invalid or silently overridden;
 - deterministic case lacks the assertion needed to prove its contract;
 - Golden expected behavior is changed merely because evaluation failed;
-- calibration truth is changed merely to make a proposed Judge pass;
-- an agent directly mutates governed truth without review.
+- calibration truth is changed merely to make a proposed Judge pass.
 
 Every material risk should map to an executable test/control, evidence and lifecycle decision.
 
@@ -277,54 +297,46 @@ Dataset size is not itself a quality objective. Coverage must be justified by ri
 
 ## 8. Dataset / Oracle Validation Pipeline
 
-Dataset / Oracle Validation is a first-class execution-precondition pipeline. It answers:
+Dataset / Oracle Validation is the first technical stage of downstream quality execution for a selected governed suite. It answers:
 
-> Can this evaluation case be executed safely and evaluated using a valid Oracle contract?
+> Does this selected governed case satisfy the implemented execution/evaluation contract well enough to proceed?
 
 ```mermaid
 flowchart LR
-    DS["Selected Governed Dataset"] --> SC["Schema / Contract Validation"]
-    SC --> ID["Case Identity / Required Fields"]
-    ID --> OR["Oracle Metadata / Routing"]
-    OR --> EL["Case Eligibility"]
-    EL --> VALID["Validated Evaluation Case"]
-    VALID --> SUT["Application / SUT"]
+    DS["Selected Governed Test Assets"] --> ID["Dataset Root + Case Identity"]
+    ID --> OR["Oracle / Assertion Contract"]
+    OR --> RES{"Validation Result"}
+    RES -->|error| STOP["Stop before SUT / Judge model calls"]
+    RES -->|pass / allowed warning| VALID["Validated Evaluation Case"]
+    VALID --> SUITE["Suite Evaluation"]
 ```
 
-Current contract:
+### Current implemented contract
+
+The current `src/dataset_validator.py` enforces:
 
 ```text
-deterministic      -> non-empty deterministic assertions required
-semantic_llm       -> valid semantic evaluation route
-missing/null/empty -> warning; reviewed runtime fallback allowed
-invalid non-empty  -> validation ERROR
-missing/duplicate ID -> validation ERROR
+dataset root        -> JSON array required
+case identity       -> ID required and unique per dataset
+Oracle              -> deterministic | semantic_llm when explicitly present
+deterministic route -> non-empty Deterministic Assertions required
+missing Oracle      -> warning + reviewed runtime fallback mapper allowed
+invalid Oracle      -> validation ERROR
 ```
 
-The governed dataset is authoritative for Oracle routing. Runtime fallback is resilience, not a competing source of truth.
+For `evaluation_dataset.json`, deterministic assertion metadata may be supplied from the existing assertion sidecar.
 
-Invalid cases should fail before SUT or Judge model calls wherever possible. Full details are maintained in `docs/dataset_oracle_validation_pipeline.md`.
+Broader schema/required-field/eligibility hardening remains a valid future extension of this pipeline, but it should not be described as already enforced when the current validator does not yet perform those checks.
 
-### Dataset case contract
+The governed dataset is authoritative for explicit Oracle routing. Runtime fallback is resilience, not a competing source of truth.
 
-Each governed SUT case should identify, where applicable:
-
-- case ID;
-- requirement/business behavior;
-- risk;
-- input/query;
-- expected source/evidence;
-- expected behavior;
-- Oracle;
-- deterministic assertions where required;
-- criticality;
-- target suite/CI level.
+Full details are maintained in `docs/dataset_oracle_validation_pipeline.md`.
 
 ---
 
 ## 9. Application / SUT test execution model
 
-Only validated evaluation cases enter the SUT pipeline.
+Only cases that pass the applicable dataset validation stage enter suite execution.
 
 ```text
 Validated Evaluation Case
@@ -335,7 +347,9 @@ Validated Evaluation Case
 -> Structured Product Filtering
    -> zero matches -> Deterministic No-Product-Match
    -> eligible
--> Embedding + Semantic Ranking
+-> deterministic catalogue routing where applicable
+   -> e.g. cheapest-product route
+-> Embedding + Semantic Ranking where applicable
 -> Retrieval-K
 -> Adaptive Context Selection
 -> Context-K
@@ -345,18 +359,19 @@ Validated Evaluation Case
 -> SUT Output + execution evidence
 ```
 
-Clarification, No-Product-Match and Abstention are distinct deterministic behaviors and must be tested separately.
+Clarification, No-Product-Match, deterministic catalogue routing and Abstention are distinct behaviors and must be tested separately from ordinary semantic generation.
 
 ### How to test a new SUT change
 
 1. Identify the affected architecture layer and risks.
 2. Add/update the smallest relevant deterministic or semantic cases.
-3. Validate dataset/Oracle contracts before model calls.
-4. Run affected cases locally or through PR Critical.
-5. Inspect retrieval/context/generation evidence, not only final PASS/FAIL.
-6. If a product defect is confirmed, add permanent Regression coverage.
-7. For broad architecture/model/prompt/data impact, execute broad evaluation.
-8. For a release candidate, use Release Validation with Golden plus valid broad-risk evidence.
+3. Review/approve new test assets before promotion when they originate from the Agentic QE flow.
+4. Validate selected dataset/Oracle contracts before model calls.
+5. Run affected cases locally or through PR Critical.
+6. Inspect retrieval/context/generation evidence, not only final PASS/FAIL.
+7. If a product defect is confirmed, add permanent Regression coverage.
+8. For broad architecture/model/prompt/data impact, execute broad evaluation.
+9. For a release candidate, use Release Validation with Golden plus valid broad-risk evidence.
 
 ---
 
@@ -377,6 +392,7 @@ Testing verifies:
 
 - hard constraints exclude invalid candidates before semantic ranking;
 - semantic score never overrides a hard business constraint;
+- deterministic routing branches are used when the request can be resolved without semantic ranking;
 - Top-K contains expected evidence when such evidence exists;
 - retrieval noise is measured independently from final context;
 - below-threshold evidence is not padded into context;
@@ -389,20 +405,24 @@ The similarity threshold is an engineering control, not a probability. Changes r
 
 ---
 
-## 11. Evaluation / Oracle and metric strategy
+## 11. Suite Evaluation / Oracle and metric strategy
 
-Validation-time Oracle checking and evaluation-time Oracle Resolution are separate responsibilities:
+`Suite Evaluation` combines the real SUT execution with independent evaluation of the resulting evidence. Validation-time Oracle checking and evaluation-time Oracle Resolution are separate responsibilities:
 
 ```text
 Dataset / Oracle Validation
--> proves the Oracle contract is valid
+-> proves the selected case has an acceptable Oracle/assertion contract
 
 SUT Execution
--> produces actual output + evidence
+-> produces actual output + retrieval/context evidence
 
 Evaluation
 -> Oracle Resolution
--> applies the validated route to actual evidence
+-> deterministic Python OR semantic LLM Judge
+-> evaluated case result
+
+Aggregation
+-> metrics + risk summary
 ```
 
 Governing rule:
@@ -500,7 +520,7 @@ Evaluation FAIL
 Change Golden until CI passes
 ```
 
-A Golden change must include an approved reason and source of truth. Golden Governance is separate from product execution and separate from Judge Calibration.
+A Golden change must include an approved reason and source of truth. Golden Governance is separate from ordinary test-asset approval, product execution and Judge Calibration.
 
 ```text
 Golden Change
@@ -509,19 +529,35 @@ Golden Change
 -> Approved Canonical Truth
 ```
 
+Ordinary PR Critical, Regression and Nightly assets are governed execution assets, but they should not all be described as canonical truth.
+
 ---
 
 ## 14. CI/CD test and governance levels
 
-CI/CD is the execution and decision mechanism. It does not own product semantics or Oracle definition.
+CI/CD is the **execution/orchestration envelope**, not a downstream processing box after evaluation.
+
+Current workflow pattern:
 
 ```text
-Selected Lifecycle Suite
+Selected Governed Lifecycle Suite
 -> Dataset / Oracle Validation
 -> SUT Execution
 -> Evaluation
+-> Metrics / Risk Aggregation
 -> Quality Gate
 -> PASS / FAIL + Evidence
+-> Lifecycle Decision
+```
+
+For example, PR Critical currently executes:
+
+```text
+Validate PR Critical Dataset
+-> Run PR Critical Evaluation / SUT execution
+-> Evaluate PR Critical Dataset
+-> PR Critical Quality Gate
+-> retain reports/evidence
 ```
 
 | Level / Control | Trigger | Test object | Purpose |
@@ -571,12 +607,11 @@ Entry/exit criteria apply to lifecycle execution/readiness. They are distinct fr
 
 ### Framework/run entry criteria
 
-- selected requirement/test scope is approved for the intended execution;
-- testable expected behavior exists;
-- dataset schema and Oracle metadata are valid;
+- selected governed test scope exists for the intended execution;
+- applicable test-asset approval is complete for newly proposed/promoted assets;
+- selected dataset passes the current Dataset/Oracle Validation contract;
 - required source data is available;
 - environment/model configuration and secrets are available;
-- risk/assertion metadata exists where required;
 - required telemetry can be captured;
 - no infrastructure incident invalidates the run.
 
@@ -612,16 +647,17 @@ Investigation identifies the first failing layer:
 
 ```text
 Agentic requirement/risk/test preparation
+-> Human Governance / Approval
 -> Dataset / Oracle Validation
 -> Constraint Extraction / Validation
--> Structured Filtering
+-> Structured Filtering / deterministic routing
 -> Retrieval / Ranking
 -> Adaptive Context Selection
 -> Context Builder
 -> Generation / SUT Prompt / SUT Model
 -> Oracle Resolution / Deterministic Engine
 -> Judge / Evaluator
--> Provider / Infrastructure
+-> Metrics / Risk Aggregation
 -> Quality Gate / Reporting
 -> Governance Control
 ```
@@ -630,6 +666,7 @@ Typical classes:
 
 - requirement/readiness gap;
 - agent output/governance defect;
+- test-asset approval/governance issue;
 - dataset/expected-result defect;
 - Oracle contract/routing defect;
 - constraint extraction/validation defect;
@@ -657,6 +694,7 @@ Failure
 -> Fix
 -> Verification
 -> Regression Case
+-> Human Approval where a governed asset changes
 -> Permanent Regression Protection
 ```
 
@@ -691,8 +729,9 @@ Target end-to-end traceability:
 Requirement
 -> Requirements Review
 -> Risk
--> Test / Evaluation Case
--> Governed Dataset
+-> Proposed Test / Evaluation Asset
+-> Human Governance / Approval
+-> Governed Test Asset
 -> Dataset / Oracle Validation
 -> SUT Execution
 -> Retrieval / Context / Output Evidence
@@ -744,6 +783,8 @@ Golden Case Change
 
 **Product / Business** validates business truth and approves material canonical expectation changes.
 
+**Human Governance / Reviewers** approve or reject proposed test/evaluation asset promotion according to the project governance model.
+
 **Agents** assist with bounded requirements review, risk analysis, test analysis/design and candidate dataset changes under explicit contracts and HITL controls. They do not silently rewrite governed datasets, Golden or calibration truth.
 
 Reports should expose where applicable:
@@ -770,4 +811,4 @@ Governing principles:
 
 > **Quality confidence must come from traceable evidence across the whole AI system, not from a single model score or a single successful answer.**
 
-> **Validate test truth before execution; evaluate product behavior independently; test the evaluator; govern canonical truth; keep agent-generated changes reviewable and traceable.**
+> **Review proposed quality assets before promotion; validate selected governed assets before execution; evaluate product behavior independently; test the evaluator; govern canonical truth; keep every decision traceable.**
