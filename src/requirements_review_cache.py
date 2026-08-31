@@ -3,19 +3,18 @@ import json
 import os
 from pathlib import Path
 
-CACHE_VERSION = 1
+CACHE_VERSION = 2
 DEFAULT_CACHE_PATH = Path(".cache/requirements-review/cache.json")
 
 
 def build_review_payload(requirement: dict) -> dict:
-    """Keep only fields that can materially affect semantic requirements quality review."""
+    """Keep only fields that materially affect semantic requirements quality review."""
     return {
         "issue_key": requirement.get("issue_key"),
         "summary": requirement.get("summary") or "",
         "description": requirement.get("description") or "",
         "acceptance_criteria": requirement.get("acceptance_criteria") or "",
-        "issue_type": requirement.get("issue_type"),
-        "parent_key": requirement.get("parent_key"),
+        "components": requirement.get("components") or [],
     }
 
 
