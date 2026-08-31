@@ -3,6 +3,7 @@ import re
 
 
 ISSUE_KEY_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]*-\d+$")
+DEFAULT_ALLOWED_STATUSES = "In Progress"
 
 
 def parse_issue_keys(raw: str) -> list[str]:
@@ -18,7 +19,7 @@ def parse_issue_keys(raw: str) -> list[str]:
 
 
 def allowed_statuses() -> set[str]:
-    raw = os.getenv("JIRA_ALLOWED_STATUSES", "Ready for Refinement,Ready for AI Review")
+    raw = os.getenv("JIRA_ALLOWED_STATUSES", DEFAULT_ALLOWED_STATUSES)
     return {item.strip().casefold() for item in raw.split(",") if item.strip()}
 
 
@@ -38,7 +39,7 @@ def precheck_requirement(requirement: dict) -> list[str]:
     reasons = []
     status = str(requirement.get("status") or "").strip()
     if status.casefold() not in allowed_statuses():
-        allowed = ", ".join(sorted(os.getenv("JIRA_ALLOWED_STATUSES", "Ready for Refinement,Ready for AI Review").split(",")))
+        allowed = ", ".join(sorted(os.getenv("JIRA_ALLOWED_STATUSES", DEFAULT_ALLOWED_STATUSES).split(",")))
         reasons.append(f"status '{status or 'missing'}' is not eligible; allowed: {allowed}")
 
     require_description = os.getenv("JIRA_REQUIRE_DESCRIPTION", "true").strip().lower() in {"1", "true", "yes", "y"}
