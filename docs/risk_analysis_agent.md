@@ -2,7 +2,11 @@
 
 ## Status
 
-Initial skeleton / contract only. This slice defines the hand-off from Requirements Review to Risk Analysis without adding cross-document retrieval or automatic chaining.
+**Input/output contract and Requirements Review handoff are implemented; Risk Analysis execution remains a skeleton.**
+
+The Requirements Review workflow now emits deterministic handoff artifacts after each batch. A `READY` review produces a validated minimal `RiskAnalysisInput` payload. `NEEDS_CLARIFICATION` produces a blocked handoff and cannot proceed to Risk Analysis.
+
+This does not yet automatically execute the Risk Analysis Agent. Automatic chaining belongs to the later orchestration slice.
 
 ## Entry gate
 
@@ -13,6 +17,20 @@ READY
 ```
 
 `NEEDS_CLARIFICATION` must return to requirement clarification and must not continue to risk analysis.
+
+Current handoff state:
+
+```text
+Requirements Review
+├─ READY
+│  └─ READY_FOR_RISK_ANALYSIS
+│     └─ validated RiskAnalysisInput artifact
+└─ NEEDS_CLARIFICATION
+   └─ BLOCKED
+      └─ no Risk Analysis input
+```
+
+The handoff artifact also carries Requirements Review traceability such as the review content hash, batch run ID and review timestamp. Jira write-back/labels are not required for the handoff contract and remain outside the current read-only Requirements Review boundary.
 
 ## Minimal-context hand-off
 
@@ -65,8 +83,18 @@ The complete result also contains `overall_risk_level` and `recommended_next_act
 
 ## Current boundary
 
-This PR intentionally does **not** add:
+Implemented now:
 
+- Risk Analysis input/output Pydantic contracts;
+- `READY` entry gate;
+- minimal semantic handoff payload;
+- deterministic Requirements Review -> Risk Analysis handoff artifact generation;
+- blocked handoff for `NEEDS_CLARIFICATION`;
+- unit coverage for the handoff gate and Risk Analysis contracts.
+
+Still intentionally not implemented:
+
+- Risk Analysis LLM execution;
 - Confluence/Jira cross-document RAG;
 - Top-K retrieval;
 - automatic execution immediately after Requirements Review;
@@ -74,10 +102,10 @@ This PR intentionally does **not** add:
 - Jira write-back;
 - dataset mutation.
 
-The next Risk Analysis slice should add targeted retrieval using the principle:
+The next Risk Analysis slice should first review/harden this skeleton, then add agent execution. Targeted retrieval can follow using the principle:
 
 ```text
 Retrieve broadly -> select relevant evidence -> send narrowly to the LLM
 ```
 
-Manual/Human governance remains the default POC control. Automatic chaining can be considered later only after the quality, confidence and cost characteristics are measured.
+Manual/Human governance remains the default POC control. Automatic chaining should be introduced later through the multi-agent orchestrator after the individual agent quality, confidence and cost characteristics are measured.
