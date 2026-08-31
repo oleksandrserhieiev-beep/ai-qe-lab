@@ -20,8 +20,38 @@ def test_validate_issue_key_rejects_wrong_project(monkeypatch):
     assert validate_issue_key("AIQE-1") == []
 
 
-def test_precheck_rejects_wrong_status_and_missing_acceptance_criteria(monkeypatch):
-    monkeypatch.setenv("JIRA_ALLOWED_STATUSES", "Ready for Refinement")
+def test_precheck_rejects_to_do_and_done_when_only_in_progress_is_allowed(monkeypatch):
+    monkeypatch.setenv("JIRA_ALLOWED_STATUSES", "In Progress")
+    monkeypatch.setenv("JIRA_REQUIRE_DESCRIPTION", "true")
+    monkeypatch.setenv("JIRA_REQUIRE_ACCEPTANCE_CRITERIA", "true")
+
+    for status in ("To Do", "In Review", "Done"):
+        reasons = precheck_requirement(
+            {
+                "status": status,
+                "description": "Story description",
+                "acceptance_criteria": "Given valid input, expected behavior is observable.",
+            }
+        )
+        assert any(f"status '{status}' is not eligible" in reason for reason in reasons)
+
+
+def test_precheck_accepts_in_progress_story(monkeypatch):
+    monkeypatch.setenv("JIRA_ALLOWED_STATUSES", "In Progress")
+    monkeypatch.setenv("JIRA_REQUIRE_DESCRIPTION", "true")
+    monkeypatch.setenv("JIRA_REQUIRE_ACCEPTANCE_CRITERIA", "true")
+
+    assert precheck_requirement(
+        {
+            "status": "In Progress",
+            "description": "As a shopper I want filtered products.",
+            "acceptance_criteria": "Given a max price, returned products do not exceed it.",
+        }
+    ) == []
+
+
+def test_precheck_still_rejects_missing_acceptance_criteria(monkeypatch):
+    monkeypatch.setenv("JIRA_ALLOWED_STATUSES", "In Progress")
     monkeypatch.setenv("JIRA_REQUIRE_DESCRIPTION", "true")
     monkeypatch.setenv("JIRA_REQUIRE_ACCEPTANCE_CRITERIA", "true")
 
@@ -32,23 +62,7 @@ def test_precheck_rejects_wrong_status_and_missing_acceptance_criteria(monkeypat
             "acceptance_criteria": "",
         }
     )
-
-    assert any("status 'In Progress' is not eligible" in reason for reason in reasons)
     assert "acceptance criteria are missing" in reasons
-
-
-def test_precheck_accepts_eligible_story(monkeypatch):
-    monkeypatch.setenv("JIRA_ALLOWED_STATUSES", "Ready for Refinement,Ready for AI Review")
-    monkeypatch.setenv("JIRA_REQUIRE_DESCRIPTION", "true")
-    monkeypatch.setenv("JIRA_REQUIRE_ACCEPTANCE_CRITERIA", "true")
-
-    assert precheck_requirement(
-        {
-            "status": "Ready for AI Review",
-            "description": "As a shopper I want filtered products.",
-            "acceptance_criteria": "Given a max price, returned products do not exceed it.",
-        }
-    ) == []
 
 
 def test_normalize_requirement_extracts_explicit_ac_section_from_description(monkeypatch):
@@ -58,7 +72,7 @@ def test_normalize_requirement_extracts_explicit_ac_section_from_description(mon
         "fields": {
             "summary": "Filter products",
             "description": "As a shopper I want filtered products.\nAcceptance Criteria:\nProducts must respect max price.",
-            "status": {"name": "Ready for AI Review"},
+            "status": {"name": "In Progress"},
             "issuetype": {"name": "Story"},
         },
     }
