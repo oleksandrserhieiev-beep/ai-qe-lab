@@ -46,12 +46,23 @@ def normalize_json_text(text: str):
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
-        # Be tolerant of a short textual prefix/suffix while still requiring one JSON object.
         start = cleaned.find("{")
         end = cleaned.rfind("}")
         if start >= 0 and end > start:
             return json.loads(cleaned[start : end + 1])
         raise
+
+
+def validate_judge_contract(result: dict) -> dict:
+    if not isinstance(result, dict):
+        raise ValueError("Judge contract violation: response must be one JSON object")
+    reason = str(result.get("reason") or "").strip()
+    if not reason:
+        raise ValueError(
+            "Judge contract violation: semantic calibration verdict must include a non-empty reason"
+        )
+    result["reason"] = reason
+    return result
 
 
 def _response_text(response) -> str:
@@ -79,7 +90,7 @@ def evaluate_case(client, model, system_prompt, rubric, case):
         'Return exactly one JSON object and no prose. '
         'Schema:{"correctness":true,"groundedness":true,"hallucination":false,'
         '"constraint_adherence":true,"context_coverage":100,'
-        '"context_sufficient":true,"reason":null}'
+        '"context_sufficient":true,"reason":"Short non-empty rationale"}'
     )
 
     last_error = None
@@ -95,12 +106,12 @@ def evaluate_case(client, model, system_prompt, rubric, case):
 
         text = _response_text(response)
         try:
-            result = normalize_json_text(text)
+            result = validate_judge_contract(normalize_json_text(text))
             return result, response, attempt
         except (ValueError, json.JSONDecodeError) as exc:
             last_error = exc
             print(
-                f"WARN: case={case['id']} Judge response was not valid JSON "
+                f"WARN: case={case['id']} Judge response violated parsing/contract requirements "
                 f"on attempt {attempt}/{CALIBRATION_RESPONSE_ATTEMPTS}: {exc}",
                 file=sys.stderr,
             )
@@ -112,8 +123,8 @@ def evaluate_case(client, model, system_prompt, rubric, case):
 
     raise RuntimeError(
         f"Judge calibration infrastructure failure for case {case['id']}: "
-        f"no valid JSON after {CALIBRATION_RESPONSE_ATTEMPTS} attempts. "
-        f"Last parsing error: {last_error}"
+        f"no valid Judge contract response after {CALIBRATION_RESPONSE_ATTEMPTS} attempts. "
+        f"Last error: {last_error}"
     )
 
 
@@ -183,7 +194,7 @@ def run_calibration(root: Path, dataset_path: Path, output_path: Path):
                 "field_results": field_results,
                 "expected_case_pass": expected_case_pass,
                 "actual_case_pass": actual_case_pass,
-                "reason": actual.get("reason"),
+                "reason": actual["reason"],
                 "response_attempts": attempts,
             }
         )
