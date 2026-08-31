@@ -4,85 +4,63 @@ digraph G {
   node [shape=box, style="rounded", fontname="Arial"];
   edge [fontname="Arial"];
 
-  Dataset [label="Governed Evaluation Case / Dataset"];
-  Validation [label="Dataset / Oracle Validation"];
-  Constraints [label="Constraint Extraction"];
-  ConstraintValidation [label="Constraint Validation / Classification", shape=diamond];
-  Clarify [label="Deterministic Clarification\nNo retrieval • No Claude call"];
-  Filter [label="Structured Product Filtering"];
-  Match [label="Hard constraints have\nmatching products?", shape=diamond];
-  NoMatch [label="Deterministic No-Product-Match\nNo Claude call • 0 SUT tokens"];
-  Retrieval [label="Embedding + FAISS Ranking\nRetrieval-K / Top-K Candidates"];
-  ContextK [label="Adaptive Context Selection\nSimilarity >= 0.30"];
-  HasContext [label="Context-K > 0?", shape=diamond];
-  Context [label="Context Builder"];
-  SUT [label="Claude SUT\nShopping Assistant"];
-  Abstain [label="Deterministic Abstention\nNo Claude call • 0 SUT tokens"];
-  Answer [label="SUT Output"];
-
+  Assets [label="Governed Test Assets\nStandard Critical • META • Regression • Nightly • Golden • Adversarial"];
+  Validation [label="Dataset / Oracle Validation\nwhere applicable"];
+  SUT [label="Shopping RAG SUT\nConstraints • Filtering • Retrieval • Context • Generation"];
   Oracle [label="Oracle Resolution"];
   Py [label="Deterministic Python Assertions"];
-  Judge [label="Semantic LLM Judge\nApproved version-controlled config"];
-  Risk [label="Metric + AI Risk Aggregation"];
-  Loc [label="Failure Localization"];
+  Judge [label="Semantic LLM Judge\nVersioned config • non-empty rationale"];
+  Risk [label="Metrics / AI Risk Aggregation"];
   Gate [label="Product Quality Gate"];
-  CI [label="CI/CD Evidence\nPASS / FAIL"];
-  Release [label="Release Validation\nGolden + Broad Nightly Evidence"];
-  Telemetry [label="Observability\nretrieval • context • generation path • tokens • latency"];
+  Evidence [label="PASS / FAIL + Evidence"];
 
-  JudgeAssets [label="Approved Judge Assets on main\nModel • Prompt • Rubric"];
-  JudgeChange [label="Judge Change PR\nModel / Prompt / Rubric / Calibration Logic"];
+  PR [label="PR Quality\n10 Standard Critical + 2 Metamorphic Critical"];
+  Meta [label="Metamorphic Runner / Gate\nbase + transformed → relation Oracle"];
+  B2B [label="Manual Back-to-Back\n10 Standard Critical → Model A + Model B\nquality • regression • latency • tokens"];
+  Adv [label="Scheduled / Manual Adversarial\n10-case hostile-input dataset\nPass Rate • Attack Success Rate • category breakdown"];
+  Regression [label="Regression\n15 cases • manual-only"];
+  Nightly [label="Broad Nightly\n80 cases • manual-only"];
+  Release [label="Release Validation\n35 Golden + broad Nightly evidence"];
+
+  JudgeAssets [label="Approved Judge Assets on main\nModel • Prompt v2 • Rubric"];
+  JudgeChange [label="Judge Change PR"];
   OldJudge [label="OLD Judge\nPR base / main"];
   NewJudge [label="NEW Judge\nPR head"];
-  Calibration [label="Human-Reviewed\nJudge Calibration Dataset"];
-  CalibrationGate [label="Judge Calibration Gate\nHuman agreement • Delta • False PASS"];
+  Calibration [label="8-case Human-Reviewed\nJudge Calibration Dataset"];
+  CalibrationGate [label="Judge Calibration Gate\nAgreement • Delta • False PASS"];
 
   GoldenChange [label="Golden Dataset Change PR"];
-  GoldenMetadata [label="Required Governance Metadata\nChange Reason • Source of Truth"];
+  GoldenMetadata [label="Change Reason • Source of Truth"];
   GoldenCheck [label="Golden Governance Check"];
 
-  Dataset -> Validation -> Constraints -> ConstraintValidation;
-  ConstraintValidation -> Clarify [label="unresolved"];
-  Clarify -> Answer;
-  ConstraintValidation -> Filter [label="resolved"];
-  Filter -> Match;
-  Match -> NoMatch [label="no"];
-  NoMatch -> Answer;
-  Match -> Retrieval [label="yes"];
-  Retrieval -> ContextK -> HasContext;
-  HasContext -> Context [label="yes"];
-  Context -> SUT -> Answer;
-  HasContext -> Abstain [label="no"];
-  Abstain -> Answer;
-
-  Answer -> Oracle;
-  Retrieval -> Oracle [label="evidence"];
-  ContextK -> Oracle [label="evidence"];
+  Assets -> Validation -> SUT -> Oracle;
   Oracle -> Py [label="deterministic"];
   Oracle -> Judge [label="semantic_llm"];
-  JudgeAssets -> Judge;
   Py -> Risk;
   Judge -> Risk;
-  Risk -> Loc -> Gate -> CI;
-  CI -> Release [label="when release validation runs"];
+  Risk -> Gate -> Evidence;
 
-  Clarify -> Telemetry;
-  NoMatch -> Telemetry;
-  Retrieval -> Telemetry;
-  ContextK -> Telemetry;
-  Context -> Telemetry;
-  SUT -> Telemetry;
-  Abstain -> Telemetry;
-  Telemetry -> Risk;
+  PR -> Validation;
+  PR -> Meta;
+  Meta -> Evidence;
+  B2B -> SUT;
+  B2B -> Evidence;
+  Adv -> Validation;
+  Adv -> SUT;
+  Adv -> Evidence;
+  Regression -> Validation;
+  Nightly -> Validation;
+  Release -> Validation;
 
+  JudgeAssets -> Judge;
   JudgeChange -> OldJudge;
   JudgeChange -> NewJudge;
   Calibration -> OldJudge;
   Calibration -> NewJudge;
   OldJudge -> CalibrationGate;
   NewJudge -> CalibrationGate;
-  CalibrationGate -> CI [label="Judge-change evidence"];
+  CalibrationGate -> Evidence [label="evaluator evidence"];
   CalibrationGate -> JudgeAssets [label="after approved merge"];
 
-  GoldenChange -> GoldenMetadata -> GoldenCheck -> CI;
+  GoldenChange -> GoldenMetadata -> GoldenCheck -> Evidence;
 }

@@ -2,7 +2,7 @@
 
 ## Implementation status
 
-**Implemented on `main`.** The LLM Judge is now a version-controlled and regression-tested component of the evaluation system.
+**Implemented on `main`.** The LLM Judge is a version-controlled and regression-tested component of the evaluation system.
 
 Implemented assets:
 
@@ -34,9 +34,9 @@ Scoring Rubric
 
 A model, prompt or rubric change can alter product-quality verdicts even when the SUT has not changed. Calibration prevents an evaluator regression from being mistaken for a product regression or silently weakening the quality gate.
 
-## Current baseline
+## Version history and current approved configuration
 
-The first version-controlled baseline was bootstrapped after implementation:
+The first version-controlled baseline was:
 
 ```text
 Model  = claude-opus-5
@@ -49,11 +49,43 @@ False PASS = 0
 False FAIL = 0
 ```
 
-The bootstrap established the first approved baseline. After that merge, subsequent relevant PRs can perform a true OLD-vs-NEW comparison.
+PR #83 changed the semantic Judge prompt contract from `v1` to `v2` so every semantic PASS/FAIL verdict must return a short non-empty rationale. The OLD-vs-NEW calibration run completed successfully:
+
+```text
+OLD = claude-opus-5 + prompt v1 + rubric v1
+NEW = claude-opus-5 + prompt v2 + rubric v1
+OLD human agreement = 100%
+NEW human agreement = 100%
+Delta = 0 percentage points
+OLD false PASS / false FAIL = 0 / 0
+NEW false PASS / false FAIL = 0 / 0
+Result = PASS
+```
+
+The current production Judge configuration is therefore:
+
+```text
+Model  = claude-opus-5
+Prompt = v2
+Rubric = v1
+```
+
+## Semantic rationale contract
+
+The production semantic evaluator requires a short non-empty `reason` for both PASS and FAIL verdicts.
+
+```text
+semantic Judge verdict
+-> metrics / booleans
+-> non-empty reason
+-> semantic evidence
+```
+
+If `reason` is missing, null or empty, `src/llm_evaluator.py` treats the response as an evaluator contract violation instead of silently storing a valid semantic result with no rationale.
 
 ## Calibration dataset
 
-`datasets/judge_calibration_dataset.json` is a small human-reviewed dataset of known examples and expected Judge outcomes. It tests the evaluator, not the Shopping Assistant.
+`datasets/judge_calibration_dataset.json` contains 8 human-reviewed examples whose expected semantic outcomes are known. It tests the evaluator, not the Shopping Assistant.
 
 Current cases cover:
 
@@ -135,17 +167,15 @@ PASS / FAIL + JSON evidence artifact
 
 ## Current gate policy
 
-The current POC gate is:
-
 ```text
 NEW human agreement >= 90%
 OLD -> NEW agreement drop <= 5 percentage points
 NEW false PASS count <= OLD false PASS count
 ```
 
-On bootstrap (no OLD version-controlled baseline), NEW must have agreement >= 90% and zero false PASS verdicts.
+On bootstrap, NEW must have agreement >= 90% and zero false PASS verdicts.
 
-These are initial POC controls. Production calibration tolerances should be reviewed against business risk after additional calibration evidence is collected.
+These are POC controls. Production tolerances should be reviewed against business risk after additional calibration evidence is collected.
 
 False PASS is especially important because an evaluator false PASS can allow a genuine SUT defect through a semantic product quality gate.
 
@@ -158,12 +188,10 @@ The runner:
 - requires a non-empty Judge text response;
 - tolerates JSON code fences;
 - can extract a JSON object from a short textual prefix/suffix;
-- retries invalid/empty semantic responses up to the configured bounded attempt count (`JUDGE_CALIBRATION_RESPONSE_ATTEMPTS`, default 3);
+- retries invalid/empty semantic responses up to the configured bounded attempt count;
 - logs case ID, model, stop reason, content block types and a bounded raw-text preview;
 - records response-attempt counts;
 - raises a clear calibration infrastructure failure if no valid JSON is obtained after retries.
-
-This prevents a malformed provider/model response from surfacing as an unexplained Python `JSONDecodeError` or being confused with a product-quality failure.
 
 ## Versioning and production Judge rule
 
@@ -178,42 +206,6 @@ config/judge_rubric.txt
 A runtime `JUDGE_MODEL` / `JUDGE_MODEL_LIGHT` override must match the version-controlled configuration where a configured value exists. A conflicting runtime model is rejected so evaluator behavior cannot change silently outside calibrated Git governance.
 
 Semantic evaluation telemetry records the Judge model plus prompt/rubric versions.
-
-## Example future model optimization
-
-If we want to reduce evaluator cost:
-
-```text
-OLD
-Model  = Opus
-Prompt = v1
-Rubric = v1
-
-NEW
-Model  = Sonnet
-Prompt = v1
-Rubric = v1
-```
-
-The cheaper configuration is not accepted merely because it executes. Both configurations are tested on the same human truth, and NEW must satisfy the calibration gate.
-
-The same mechanism applies to prompt or rubric changes:
-
-```text
-Opus + Prompt v1 + Rubric v1
-vs
-Opus + Prompt v2 + Rubric v1
-```
-
-or:
-
-```text
-Opus + Prompt v1 + Rubric v1
-vs
-Opus + Prompt v1 + Rubric v2
-```
-
-For easier root-cause analysis, material model/prompt/rubric dimensions should preferably be changed separately rather than bundling unrelated evaluator changes into one PR.
 
 ## Evidence produced
 

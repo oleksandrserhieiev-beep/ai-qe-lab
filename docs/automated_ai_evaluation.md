@@ -4,13 +4,13 @@
 
 AI evaluation in this lab is automated test execution against the real reference SUT. Deterministic checks and LLM-as-a-Judge are two Oracle mechanisms inside the same QE framework.
 
-The semantic Judge is itself a probabilistic component, so the framework also contains an independent **Judge Calibration** control that tests evaluator behavior against human-reviewed truth. Golden canonical expectations have a separate deterministic governance control.
+The semantic Judge is itself a probabilistic component, so the framework contains an independent **Judge Calibration** control that tests evaluator behavior against human-reviewed truth. Golden canonical expectations have a separate deterministic governance control.
 
-The canonical metric definitions and denominators are maintained in `docs/metric_contract.md`.
+Canonical metric definitions and denominators are maintained in `docs/metric_contract.md`.
 
 ## Pre-execution Dataset Validation
 
-Before active SUT evaluation, the selected governed dataset is validated by `src/dataset_validator.py`.
+Before active SUT evaluation, the selected governed dataset is validated by `src/dataset_validator.py` where the ordinary dataset execution path applies.
 
 ```text
 deterministic      -> valid only with non-empty deterministic assertions
@@ -20,26 +20,26 @@ invalid non-empty  -> validation ERROR
 missing/duplicate ID -> validation ERROR
 ```
 
-PR Critical, Regression and Nightly validate their selected datasets before SUT/Judge model calls. Golden is also validated when executed inside Release Validation.
+The 10 standard PR Critical cases, Regression and Broad Nightly validate their selected datasets before SUT/Judge model calls. Golden is also validated when executed inside Release Validation. The dedicated Adversarial workflow validates its 10-case dataset before execution.
 
 ## Oracle hierarchy
 
 ```mermaid
 flowchart TD
-    A[Validated Evaluation Case] --> O{Explicit Oracle?}
-    O -->|deterministic| D[Deterministic Oracle]
-    O -->|semantic_llm| S[Semantic Oracle]
-    O -->|missing / null / empty| F[Reviewed Fallback Registry]
-    F --> M{Known reviewed ID?}
+    A["Validated Evaluation Case"] --> O{"Explicit Oracle?"}
+    O -->|deterministic| D["Deterministic Oracle"]
+    O -->|semantic_llm| S["Semantic Oracle"]
+    O -->|missing / null / empty| F["Reviewed Fallback Registry"]
+    F --> M{"Known reviewed ID?"}
     M -->|deterministic| D
     M -->|semantic_llm| S
     M -->|unknown| S
-    D --> P[Deterministic Assertion Engine]
-    S --> J[Calibrated Version-controlled LLM Judge]
-    P --> R[Metric + Risk Aggregation]
+    D --> P["Deterministic Assertion Engine"]
+    S --> J["Calibrated Version-controlled LLM Judge"]
+    P --> R["Metric + Risk Aggregation"]
     J --> R
-    R --> L[Failure Localization]
-    L --> G[Product Quality Gate]
+    R --> L["Failure Localization"]
+    L --> G["Product Quality Gate"]
 ```
 
 The governed dataset Oracle is the primary routing source. The fallback registry is resilience only. The Judge never chooses the Oracle.
@@ -61,20 +61,20 @@ All behaviors can still be evaluated through deterministic or semantic Oracle lo
 
 ```mermaid
 flowchart TD
-    Q[Query] --> C[Constraint Extraction]
-    C --> V{Constraint Validation}
-    V -->|unresolved| CL[Clarification]
-    V -->|resolved| F[Structured Filter]
-    F --> M{Matching products?}
-    M -->|no| NM[No-Product-Match]
-    M -->|yes| R[Retrieval-K / Top-K]
-    R --> A[Adaptive Context Selection]
-    A --> K{Context-K}
-    K -->|0| AB[Abstention]
-    K -->|>0| B[Context Builder]
-    B --> S[Claude SUT]
-    S --> O[Generated Answer]
-    CL --> OUT[SUT Output]
+    Q["Query"] --> C["Constraint Extraction"]
+    C --> V{"Constraint Validation"}
+    V -->|unresolved| CL["Clarification"]
+    V -->|resolved| F["Structured Filter"]
+    F --> M{"Matching products?"}
+    M -->|no| NM["No-Product-Match"]
+    M -->|yes| R["Retrieval-K / Top-K"]
+    R --> A["Adaptive Context Selection"]
+    A --> K{"Context-K"}
+    K -->|0| AB["Abstention"]
+    K -->|>0| B["Context Builder"]
+    B --> S["Claude SUT"]
+    S --> O["Generated Answer"]
+    CL --> OUT["SUT Output"]
     NM --> OUT
     AB --> OUT
     O --> OUT
@@ -86,29 +86,18 @@ Retrieval candidates remain available for diagnostics. Only selected Context-K e
 
 Routing answers **who/what evaluates the case**. The assertion engine defines **what Python must prove**.
 
-```mermaid
-flowchart LR
-    R[Retrieval Assertions] --> C[Selected-Context Assertions]
-    C --> G[Generation / Output Assertions]
-    R --> A[Aggregation]
-    C --> A
-    G --> A
-    A --> L[First Failure Layer]
-    L --> P[Case PASS / FAIL]
-```
-
 Supported assertions include `retrieved_id`, `contains`, `regex`, `not_regex`, `no_constraint_match`, `answer_products_satisfy_constraints`, and `catalogue_min_price_product`.
 
-Current reviewed routine-suite routing:
+Current standard routine-suite routing:
 
 | Suite | Total | Deterministic | Semantic LLM Judge |
 |---|---:|---:|---:|
-| PR Critical | 10 | 6 | 4 |
+| PR Critical standard | 10 | 6 | 4 |
 | Regression | 15 | 7 | 8 |
-| Nightly | 80 | 48 | 32 |
+| Broad Nightly | 80 | 48 | 32 |
 | **Total** | **105** | **61** | **44** |
 
-Golden is a separate trusted release/reference baseline. Judge Calibration is also separate because it tests the evaluator rather than the SUT.
+This 105-case inventory intentionally excludes technique-specific and governance assets: 2 Metamorphic Critical records, 10 Adversarial cases, 35 Golden cases and 8 Judge Calibration cases. Back-to-Back reuses the 10 standard PR Critical cases and has no dedicated dataset.
 
 ## Version-controlled semantic Judge
 
@@ -120,11 +109,15 @@ config/judge_prompt.txt
 config/judge_rubric.txt
 ```
 
-Judge behavior is therefore explicitly reconstructable as:
+Current approved configuration:
 
 ```text
-Model + Prompt Version + Rubric Version
+Model  = claude-opus-5
+Prompt = v2
+Rubric = v1
 ```
+
+The `v2` semantic contract requires a short non-empty `reason` for **both PASS and FAIL** verdicts. Missing/null/empty rationale is treated by `src/llm_evaluator.py` as an evaluator contract violation rather than valid semantic evidence.
 
 A configured runtime model override that conflicts with the version-controlled approved model is rejected rather than silently changing evaluator behavior. Semantic telemetry records Judge model plus prompt/rubric versions.
 
@@ -132,18 +125,31 @@ A configured runtime model override that conflicts with the version-controlled a
 
 ```mermaid
 flowchart TD
-    P[Judge-related PR] --> OLD[OLD Judge from PR base]
-    P --> NEW[NEW Judge from PR head]
-    C[Human-reviewed Calibration Dataset] --> OLD
+    P["Judge-related PR"] --> OLD["OLD Judge from PR base"]
+    P --> NEW["NEW Judge from PR head"]
+    C["8-case Human-reviewed Calibration Dataset"] --> OLD
     C --> NEW
-    OLD --> O[OLD human agreement]
-    NEW --> N[NEW human agreement]
-    O --> CMP[Compare]
+    OLD --> O["OLD human agreement"]
+    NEW --> N["NEW human agreement"]
+    O --> CMP["Compare"]
     N --> CMP
-    CMP --> G{Judge Calibration Gate}
+    CMP --> G{"Judge Calibration Gate"}
 ```
 
-The current calibration set has 8 cases with 32 human-approved expected semantic fields. The initial `claude-opus-5` + prompt `v1` + rubric `v1` baseline achieved 100% agreement, 0 false PASS and 0 false FAIL.
+The original version-controlled `claude-opus-5 + prompt v1 + rubric v1` baseline achieved 100% agreement across 32 expected fields with 0 false PASS and 0 false FAIL.
+
+PR #83 then changed only the prompt contract from `v1` to `v2`. The OLD-vs-NEW calibration result was:
+
+```text
+OLD = claude-opus-5 + v1 + rubric v1
+NEW = claude-opus-5 + v2 + rubric v1
+OLD agreement = 100%
+NEW agreement = 100%
+Delta = 0 percentage points
+OLD false PASS / false FAIL = 0 / 0
+NEW false PASS / false FAIL = 0 / 0
+RESULT = PASS
+```
 
 Current gate:
 
@@ -164,9 +170,30 @@ src/judge_calibration_runner.py
 .github/workflows/judge-calibration.yml
 ```
 
-The calibration runner separates response-format/infrastructure failure from semantic disagreement by detecting empty/invalid JSON, using bounded retries and emitting diagnostics before failing the calibration infrastructure.
+The calibration runner separates response-format/infrastructure failure from semantic disagreement by detecting empty/invalid JSON, using bounded retries and emitting diagnostics before failing calibration infrastructure.
 
-This means a product semantic failure can be interpreted using a Judge whose own behavior has a versioned regression baseline.
+## Specialized evaluation use
+
+The same evaluation framework is reused where appropriate by the specialized AI testing flows:
+
+```text
+Back-to-Back
+Model A output + Model B output
+-> existing evaluator
+-> comparison report
+
+Adversarial
+10 hostile-input cases
+-> existing SUT/evaluator
+-> adversarial-specific aggregation and gate
+
+Metamorphic
+base + transformed SUT invocations
+-> deterministic metamorphic relation Oracle
+-> Metamorphic Gate
+```
+
+Metamorphic is deliberately relation-based and does not route the transformation relation itself through the semantic Judge.
 
 ## Golden canonical-truth governance
 
@@ -180,8 +207,6 @@ Source of Truth: ...
 ```
 
 and is automatically checked only when the Golden dataset or its governance mechanism changes.
-
-This prevents an evaluation failure from being “fixed” by moving the expected result without approved evidence.
 
 ## Metric population rules
 
@@ -223,21 +248,6 @@ original failure
 -> repeated = systematic defect signal
 ```
 
-## Relationship to AI risk and failure localization
-
-```text
-Risk          -> what can fail?
-Test Case     -> how do we exercise it?
-Oracle        -> how is product PASS/FAIL decided?
-Assertion     -> what objective fact must Python prove?
-Judge         -> what meaning-level product behavior needs interpretation?
-Calibration   -> does the Judge still agree with human truth?
-Golden Gov    -> is a canonical expected-result change justified?
-Evidence      -> what happened at each layer/control?
-Localization  -> where did behavior first diverge?
-Gate          -> what lifecycle decision follows?
-```
-
 ## Engineering rule
 
-**Automate deterministically everything that can be expressed as an objective assertion. Use a calibrated LLM Judge only where residual quality genuinely requires semantic interpretation. Keep Oracle routing independent from the SUT generation path, test evaluator changes against human truth, govern canonical Golden changes separately, and always report the population actually measured.**
+**Automate deterministically everything that can be expressed as an objective assertion. Use a calibrated LLM Judge only where residual quality genuinely requires semantic interpretation. Keep Oracle routing independent from the SUT generation path, require rationale for semantic verdicts, test evaluator changes against human truth, govern canonical Golden changes separately, and always report the population actually measured.**
