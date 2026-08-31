@@ -4,36 +4,37 @@
 
 - Shopping RAG Assistant reference SUT with deterministic constraint extraction/validation, structured filtering, FAISS retrieval, adaptive context selection and Claude generation.
 - Deterministic clarification, no-product-match, deterministic catalogue routing and no-context abstention paths that can skip Claude where applicable.
-- Governed Golden, PR Critical, Regression and Nightly datasets.
-- Dataset/Oracle Validation as the first technical stage before active SUT/Judge model execution.
+- Governed Golden, PR Critical, Regression, Nightly and Adversarial datasets/assets.
+- Dataset/Oracle Validation as the first technical stage before active SUT/Judge model execution where applicable.
 - Deterministic Python assertions plus semantic LLM Judge evaluation.
-- Version-controlled Judge model/prompt/rubric configuration.
-- Human-reviewed Judge Calibration Dataset and OLD-vs-NEW calibration gate.
+- Version-controlled Judge model/prompt/rubric configuration; current semantic prompt contract is `v2`.
+- Semantic Judge PASS/FAIL verdicts require a short non-empty rationale; missing `reason` is an evaluator contract violation.
+- Human-reviewed 8-case Judge Calibration Dataset and OLD-vs-NEW calibration gate.
 - Golden Dataset Governance check requiring Change Reason + Source of Truth.
 - AI-risk/metric aggregation, quality gates, telemetry and failure localization.
-- PR Critical automatic merge gate.
-- Metamorphic Critical evaluation integrated into the PR path using deterministic relation checks over base/transformed invocations.
-- Manual Back-to-Back model comparison using the same PR Critical suite for Model A and Model B, with evaluated quality deltas, case regressions, latency and token telemetry.
+- Standard PR Critical automatic merge gate over 10 standard cases.
+- Metamorphic Critical evaluation integrated into the PR path using 2 dedicated META records and deterministic relation checks over base/transformed invocations.
+- Manual Back-to-Back model comparison reusing the same 10 standard PR Critical cases for Model A and Model B, with evaluated quality deltas, case regressions, latency and token telemetry.
 - Regression, broad Nightly and Release Validation manual workflows.
-- Dedicated Adversarial workflow merged via PR #80 with a governed 10-case attack dataset, manual + nightly schedule, Attack Success Rate, category breakdown and critical adversarial gate.
+- Dedicated Adversarial workflow with a governed 10-case attack dataset, manual + nightly schedule, Attack Success Rate, category breakdown and critical adversarial gate.
 
 ## Current downstream execution model
 
 ```text
 PR
-├─ Standard Critical Evaluation
-└─ Metamorphic Critical Evaluation
+├─ Standard Critical Evaluation     = 10 standard cases
+└─ Metamorphic Critical Evaluation  = 2 META records
 
 Manual comparison
-└─ Back-to-Back Model A vs Model B
+└─ Back-to-Back Model A vs Model B  = reuse 10 standard Critical cases
 
-Nightly / scheduled
-└─ Adversarial Evaluation
+Scheduled / manual
+└─ Adversarial Evaluation           = separate 10-case dataset
 
 Other lifecycle suites
-├─ Regression           = manual
-├─ Broad Nightly        = manual
-└─ Release Validation   = manual
+├─ Regression           = 15 cases, manual
+├─ Broad Nightly        = 80 cases, manual
+└─ Release Validation   = 35 Golden + broad Nightly evidence, manual
 ```
 
 Core governed suite execution remains:
@@ -53,15 +54,32 @@ Selected Governed Suite
 
 Metamorphic, Back-to-Back and Adversarial are specialized AI-testing workflows around this core execution model rather than replacements for it.
 
+## Current evaluation/test-asset inventory
+
+```text
+Standard routine SUT inventory
+PR Critical standard = 10 (6 deterministic / 4 semantic)
+Regression           = 15 (7 deterministic / 8 semantic)
+Broad Nightly        = 80 (48 deterministic / 32 semantic)
+Total                = 105 (61 deterministic / 44 semantic)
+
+Separate / technique-specific / governance assets
+Metamorphic Critical = 2 META records in pr_critical_dataset.json
+Adversarial          = 10 cases in adversarial_dataset.json
+Golden               = 35 canonical cases
+Judge Calibration    = 8 evaluator cases
+Back-to-Back         = no separate dataset; reuses 10 standard Critical cases
+```
+
 ## AI-specific test techniques
 
 ### Metamorphic Testing — implemented
 
-Current PR Critical dataset contains two explicit metamorphic cases. Each runs a base and transformed query and checks a governed invariant using a deterministic relation Oracle. Current relations cover paraphrase invariance and irrelevant-noise invariance for critical policy facts.
+Current PR Critical dataset contains two explicit metamorphic records. Each runs a base and transformed query and checks a governed invariant using a deterministic relation Oracle. Current relations cover paraphrase invariance and irrelevant-noise invariance for critical policy facts.
 
 ### Back-to-Back Testing — implemented
 
-The `Back-to-Back Model Comparison` workflow is manual. It runs the same non-metamorphic PR Critical cases against two selected generation models, evaluates both outputs through the existing evaluator and produces:
+The `Back-to-Back Model Comparison` workflow is manual. It runs the same 10 non-metamorphic standard PR Critical cases against two selected generation models, evaluates both outputs through the existing evaluator and produces:
 
 - overall pass-rate delta;
 - correctness, groundedness, retrieval-hit, constraint-adherence and hallucination deltas;
@@ -165,7 +183,7 @@ Jira / Confluence
 ## Current CI execution state
 
 ```text
-PR Critical          = automatic merge gate
+Standard PR Critical = automatic merge gate
 Metamorphic Critical = automatic PR validation
 Back-to-Back         = manual Model A vs Model B comparison
 Adversarial          = manual + nightly scheduled hostile-input evaluation
