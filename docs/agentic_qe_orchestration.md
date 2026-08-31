@@ -2,28 +2,31 @@
 
 ## Purpose
 
-This document is the repository-level source of truth for the Agentic QE orchestration and its architectural boundaries. The framework intentionally separates the application/SUT pipeline, evaluation pipeline, CI/CD quality pipeline, dataset governance, and upstream Agentic QE/STLC orchestration. These capabilities integrate through governed artifacts and evidence; they are not one mandatory monolithic pipeline.
+This document is the repository-level source of truth for the Agentic QE orchestration and its architectural boundaries. The framework intentionally separates the application/SUT pipeline, evaluation pipeline, CI/CD quality execution, test-asset governance, Golden/Judge governance, and upstream Agentic QE/STLC orchestration. These capabilities integrate through governed artifacts and evidence; they are not one mandatory monolithic pipeline.
 
 ## Framework pipeline model
 
 ```text
-Application / SUT Pipeline
-  executes the AI-enabled application and produces execution evidence
-
-Evaluation Pipeline
-  consumes execution evidence and applies deterministic assertions + semantic Judge evaluation
-
-CI/CD Quality Pipeline
-  runs governed suites and applies deterministic Quality Gates for PR / Regression / Nightly / Release
-
-Dataset Governance Pipeline
-  validates dataset contracts, Golden truth and proposed dataset changes before promotion
-
 Agentic QE / STLC Orchestration
-  Requirement Review → Risk Analysis → Test Analysis & Design → governed dataset proposal
+  Requirement Review → Risk Analysis → Test Analysis & Design → proposed test/evaluation assets
+
+Human Test-Asset Governance / Approval
+  reviews proposed assets/diffs and decides whether they may be promoted
+
+Governed Test Assets
+  approved datasets + Oracle/assertion/risk metadata used by downstream execution
+
+CI/CD Quality Execution
+  Dataset / Oracle Validation → SUT Execution → Evaluation → Metrics/Risk → Quality Gate → Evidence/Decision
+
+Golden / Canonical Truth Governance
+  protects changes to trusted canonical expected behavior
+
+Evaluator Governance
+  regression-tests Judge changes against human-reviewed calibration truth
 ```
 
-On another project the Application and Evaluation pipelines may be deployed together or separately. Agentic QE orchestration remains an upstream QE workflow and should not be coupled to every application request.
+On another project the Application and Evaluation implementations may be deployed together or separately. Agentic QE orchestration remains an upstream QE workflow and should not be coupled to every application request.
 
 ## Architectural rules
 
@@ -60,15 +63,17 @@ Requirements Review evaluates whether the requirement itself is explicit enough 
 
 Risk Analysis is the first planned stage where cross-document retrieval/RAG adds material value. Candidate evidence includes architecture, business rules, policies, related specifications/stories and historical defects. Retrieval may search broadly, but only relevant Top-K evidence should be sent to the Risk Analysis Agent.
 
-### 5. Dataset changes are proposals before promotion
+### 5. Test/evaluation assets are proposals before promotion
 
-Generated test/evaluation assets do not directly mutate governed datasets. The dataset stage should create a temporary/proposed JSON artifact by combining the current governed dataset with approved candidates. QA reviews the diff first; only an accepted diff is promoted into the canonical dataset.
+Generated test/evaluation assets do not directly mutate governed datasets. The dataset stage should create a temporary/proposed JSON artifact by combining the current governed dataset with approved candidates. QA reviews the diff first; only an accepted diff is promoted into Governed Test Assets.
 
-The Dataset Update component should be Python-heavy and LLM-light: validate structure, classify suite placement, detect duplicates/conflicts and produce a proposed patch. Human approval remains the mutation boundary during the POC.
+The Dataset Update component should be Python-heavy and LLM-light: validate proposal structure, classify suite placement, detect duplicates/conflicts and produce a proposed patch. **Human approval is the mutation boundary during the POC.**
+
+This approval is not the same thing as runtime Dataset / Oracle Validation. Human governance answers whether an asset should be promoted. Dataset/Oracle Validation later checks whether a selected governed case satisfies the executable contract before SUT/Judge calls.
 
 ### 6. Golden is canonical truth, not merely another execution suite
 
-PR Critical, Regression and Nightly are execution suites with different scope/cadence. Golden is the canonical trusted baseline with separate governance and validation controls. An agent must never rewrite Golden automatically because an evaluation failed.
+PR Critical, Regression and Nightly are governed execution suites with different scope/cadence. Golden is the canonical trusted baseline with separate governance and validation controls. An agent must never rewrite Golden automatically because an evaluation failed.
 
 ### 7. Automated test-code generation is outside the current POC
 
@@ -76,7 +81,7 @@ The Test Analysis & Design Agent currently targets test/evaluation assets and da
 
 ### 8. Cross-cutting controls
 
-Observability, traceability, cost control and governance apply across the orchestration rather than forming another LLM pipeline. Preserve Requirement → Risk → Test → Dataset → Execution → Evaluation → Gate traceability together with model/prompt versions, tokens/cost, evidence and approval history where applicable.
+Observability, traceability, cost control and governance apply across the orchestration rather than forming another LLM pipeline. Preserve Requirement → Risk → Proposed Test Asset → Human Approval → Governed Test Asset → Validation → Execution → Evaluation → Gate traceability together with model/prompt versions, tokens/cost, evidence and approval history where applicable.
 
 ## Current implemented orchestration — Requirements Review Agent
 
@@ -180,20 +185,28 @@ flowchart TD
     RET --> RA
     RA --> HG1[Human Governance]
     HG1 --> TD[Test Analysis & Design Agent]
-    TD --> HG2[Human Governance]
-    HG2 --> DP[Dataset Update / proposed temporary files]
-    DP --> DIFF[Diff against governed datasets]
+    TD --> PROP[Proposed Test / Evaluation Assets]
+    PROP --> DP[Dataset Update / proposed temporary file]
+    DP --> DIFF[Diff against governed test assets]
     DIFF -->|changes required| TD
-    DIFF -->|approved| PROMOTE[Promote approved dataset changes]
+    DIFF -->|approved by human reviewer| PROMOTE[Promote to Governed Test Assets]
 
     PROMOTE --> SUITES[PR Critical / Regression / Nightly]
-    PROMOTE --> GOLDEN[Golden canonical truth under separate governance]
-    SUITES --> DV[Dataset / Oracle Validation]
+    PROMOTE --> GOLDEN[Golden canonical truth\nunder separate governance]
+
+    subgraph CICD[CI/CD Quality Execution]
+        DV[Dataset / Oracle Validation]
+        EX[Application / SUT Execution]
+        EV[Evaluation]
+        MET[Metrics / Risk Aggregation]
+        QG[Quality Gate]
+        EVID[PASS / FAIL + Evidence]
+        DV --> EX --> EV --> MET --> QG --> EVID
+    end
+
+    SUITES --> DV
     GOLDEN --> DV
-    DV --> EX[Application / SUT Execution]
-    EX --> EV[Evaluation Pipeline]
-    EV --> QG[CI/CD Quality Gates]
-    QG --> OUT[PR / Regression / Nightly / Release evidence]
+    EVID --> OUT[PR / Regression / Nightly / Release Decision]
 ```
 
 ### Agent responsibility chain
@@ -207,6 +220,9 @@ Risk Analysis
             ↓ approved risks + selected evidence
 Test Analysis & Design
 "What tests/evaluation cases should cover those risks?"
+            ↓ proposed assets
+Human Governance / Approval
+"Should these proposed assets become governed test assets?"
             ↓ approved assets
 Dataset Update
 "Where do approved assets belong, and what exact governed diff is proposed?"
