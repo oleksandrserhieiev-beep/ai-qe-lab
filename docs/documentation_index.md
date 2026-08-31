@@ -3,6 +3,9 @@
 Canonical current documentation:
 
 - `architecture.md` — canonical implemented reference-SUT architecture, Dataset Validation, product evaluation, evaluator calibration, Golden governance, CI/CD execution and target Agentic QE flow;
+- `agentic_qe_orchestration.md` — current implemented Requirements Review orchestration, cache/force-review sequence, batch metrics, POC boundary and downstream Risk Analysis/Test Generation flow;
+- `requirements_review_agent.md` — Requirements Review purpose, Python-vs-LLM responsibility boundary, cache contract, Definition of Done and next-agent boundary;
+- `manual_requirements_review_poc.md` — operating instructions for manual GitHub Actions batches, validation scenarios, `force_review`, cache invalidation and batch metric interpretation;
 - `current_status.md` — concise authoritative statement of what is implemented on `main` and the immediate next phase;
 - `project_overview.md` — target/end-state AI QE operating model, intentionally written in present tense as the completed-product description;
 - `test_strategy.md` — reusable test strategy: risks, techniques, datasets, Oracles, metrics, Judge calibration, Golden change controls, CI levels, entry/exit criteria, failure localization and release governance;
@@ -33,6 +36,11 @@ Canonical current documentation:
 - Golden is canonical truth. A failing evaluation is not sufficient justification to rewrite Golden expected behavior.
 - Golden changes require explicit reason and source-of-truth metadata through the automated governance check.
 - Release Validation is a separate workflow level using Golden plus broad Nightly validation/evidence.
+- Requirements Review status is an eligibility concern; the current POC spends LLM tokens only through an explicit manual GitHub Actions batch.
+- Requirements Review uses deterministic Python pre-check/cache control and Claude only for semantic readiness review.
+- Unchanged semantic requirement content reuses a cached structured review; changed Summary/Description/Acceptance Criteria/Components invalidates the fingerprint.
+- `force_review=true` is a manual cache bypass, not a normal automatic trigger.
+- Requirements Review does not retrieve external knowledge to hide a deficient Jira story; Risk Analysis is the planned first cross-document retrieval stage.
 
 ## CI governance trigger boundaries
 
@@ -49,10 +57,15 @@ Golden Governance:
   datasets/golden_dataset.json
   src/golden_governance_check.py
   .github/workflows/golden-governance.yml
+
+Requirements Review:
+  manual workflow_dispatch
+  issue_keys = explicit batch scope
+  force_review = explicit cache-bypass control
 ```
 
-Documentation-only changes do not trigger these controls. The workflow files themselves are intentionally included so a change to enforcement/calibration logic self-tests its own control.
+Documentation-only changes do not trigger Judge Calibration or Golden Governance. The workflow files themselves are intentionally included in their respective path controls so a change to enforcement/calibration logic self-tests its own control.
 
 ## Diagram sources
 
-`rag.dot` remains the focused reference-SUT/RAG diagram. `overall.dot` is the framework-level diagram and must stay aligned with the canonical product-quality loop plus the Judge Calibration and Golden Governance control loops described in `architecture.md` and README.
+`rag.dot` remains the focused reference-SUT/RAG diagram. `overall.dot` is the framework-level product/evaluator/governance diagram. `agentic_qe_orchestration.md` is the canonical diagram source for the implemented Requirements Review control flow and the planned Requirements Review → Risk Analysis → Test Generation orchestration sequence.
