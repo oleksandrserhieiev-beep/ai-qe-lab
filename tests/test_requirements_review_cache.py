@@ -31,8 +31,7 @@ def test_review_payload_excludes_operational_jira_fields():
         "summary": "Search products",
         "description": "As a customer...",
         "acceptance_criteria": "Given...",
-        "issue_type": "Story",
-        "parent_key": "SCRUM-1",
+        "components": ["Search"],
     }
 
 
