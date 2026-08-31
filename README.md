@@ -62,6 +62,7 @@ Use the master diagram for orientation, then open the pipeline/control plane tha
 | **Evaluation Pipeline** | Resolve Oracle against SUT evidence, route to deterministic Python or semantic LLM Judge, aggregate case results | [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) |
 | **CI/CD Quality Execution** | Select lifecycle suite, validate dataset, execute SUT/evaluation, aggregate metrics, apply quality gate and retain evidence | [`docs/master_architecture.md`](docs/master_architecture.md#4-cicd-quality-execution) |
 | **Dataset Design / Oracle Contract** | Define PR Critical, Regression, Nightly, Golden and Judge Calibration roles plus Oracle/assertion metadata | [`docs/dataset_design.md`](docs/dataset_design.md) |
+| **Specialized AI Testing Workflows** | PR Metamorphic, manual Back-to-Back and dedicated Adversarial execution model | [`docs/future_ai_testing_workflows.md`](docs/future_ai_testing_workflows.md) |
 | **Golden / Canonical Truth Governance** | Prevent canonical expected behavior from being rewritten without approved reason/source of truth | [`docs/golden_dataset_governance.md`](docs/golden_dataset_governance.md) |
 | **Evaluator Governance** | Calibrate OLD vs NEW Judge against human-reviewed truth before trusting evaluator changes | [`docs/judge_calibration_workflow.md`](docs/judge_calibration_workflow.md) |
 | **Master Architecture** | Expanded end-to-end map, boundaries and cross-cutting rules | [`docs/master_architecture.md`](docs/master_architecture.md) |
@@ -84,6 +85,7 @@ Use the master diagram for orientation, then open the pipeline/control plane tha
 | SUT | Real Shopping RAG behavior under test |
 | Product Evaluation | Resolve Oracle, evaluate deterministic/semantic behavior, aggregate metrics and risks |
 | CI/CD Quality Execution | Validate -> execute suite -> aggregate metrics -> quality gate -> evidence/decision |
+| Specialized AI Testing | Metamorphic relation checks, Back-to-Back comparison and dedicated Adversarial hostile-input evaluation |
 | Judge Calibration | Regression-test the semantic evaluator itself against human-reviewed truth |
 | Golden Governance | Prevent canonical expected behavior from being silently rewritten to make CI green |
 
@@ -91,21 +93,36 @@ Use the master diagram for orientation, then open the pipeline/control plane tha
 
 SUT evaluation datasets are organized by execution purpose, not inheritance:
 
-- **PR Critical — 10 cases:** fast merge-blocking risk subset;
+- **PR Critical — 12 records:** 10 standard fast merge-blocking risk cases + 2 dedicated Metamorphic Critical records;
 - **Regression — 15 cases:** stable behavior and fixed-defect health on main;
-- **Nightly Evaluation — 80 cases:** broad AI-risk, edge and adversarial signal;
+- **Broad Nightly Evaluation — 80 cases:** broad AI-risk, edge and robustness signal;
 - **Golden — 35 cases:** trusted canonical baseline / release validation.
 
 Golden is not merely a fourth execution suite. It represents canonical expected behavior and has separate governance.
 
 A separate **Judge Calibration Dataset — 8 human-reviewed cases** tests the evaluator rather than the SUT.
 
-Current CI operating state:
+A dedicated **Adversarial Dataset — 10 governed hostile-input cases** is merged via PR #80. It is intentionally separate from the 105 standard routine-case inventory because it has its own attack taxonomy, metrics and gate.
+
+Current specialized workflow model:
 
 ```text
-PR Critical        = automatic merge gate
+PR
+├─ Standard Critical Evaluation     = automatic merge gate
+└─ Metamorphic Critical             = automatic critical relation validation
+
+Manual
+└─ Back-to-Back                     = Model A vs Model B on the same Critical suite
+
+Nightly / scheduled
+└─ Adversarial                      = 10-case hostile-input suite
+```
+
+Other lifecycle workflows remain:
+
+```text
 Regression         = manual-only
-Nightly            = manual-only
+Broad Nightly      = manual-only
 Release Validation = manual-only: Golden + broad Nightly + Release Quality Gate
 ```
 
@@ -123,6 +140,28 @@ Selected Governed Suite
 -> PASS / FAIL + Evidence
 -> Lifecycle Decision
 ```
+
+Specialized AI-testing flows add technique-specific execution and reporting around that core:
+
+```text
+Metamorphic
+base + transformed invocation
+-> deterministic relation Oracle
+-> Metamorphic Gate
+
+Back-to-Back
+same Critical suite -> Model A + Model B
+-> evaluate both
+-> quality / regression / latency / token comparison
+
+Adversarial
+10-case attack dataset
+-> standard SUT + evaluator
+-> Adversarial Pass Rate / Attack Success Rate / category breakdown
+-> Critical Adversarial Gate
+```
+
+Drift testing is intentionally not part of the current roadmap.
 
 ## Core governing rules
 
@@ -155,6 +194,8 @@ Cross-cutting evidence should retain, where applicable: requirement/trace ID, mo
 - [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md) — focused Agentic QE orchestration;
 - [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) — Oracle/evaluation details;
 - [`docs/dataset_design.md`](docs/dataset_design.md) — dataset purposes and Oracle contract;
+- [`docs/adversarial_testing_contract.md`](docs/adversarial_testing_contract.md) — governed adversarial test-design contract;
+- [`docs/future_ai_testing_workflows.md`](docs/future_ai_testing_workflows.md) — specialized workflow split and current roadmap;
 - [`docs/metric_contract.md`](docs/metric_contract.md) — canonical metric definitions and denominators;
 - [`docs/test_strategy.md`](docs/test_strategy.md) — reusable test strategy including evaluator and dataset governance;
 - [`docs/judge_calibration_workflow.md`](docs/judge_calibration_workflow.md) — OLD vs NEW Judge calibration contract and implementation;
