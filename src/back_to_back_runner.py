@@ -4,7 +4,7 @@ from pathlib import Path
 
 from context_builder import build_context, build_retrieved_context, PROMPT_VERSION
 from context_selector import build_context_selection_metadata, get_context_selection_config, select_context_results
-from model_gateway import generate_with_model
+from model_gateway import ModelInvocationError, generate_with_model
 from vector_store import DEFAULT_TOP_K, build_documents, build_vector_store, search_with_metadata
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -68,12 +68,33 @@ def main():
         output_dir = BASE_DIR / output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    invocation_failures = []
     for label, model_name in (("a", args.model_a), ("b", args.model_b)):
         print(f"Running PR Critical suite with Model {label.upper()}: {model_name}")
-        results = _run_model(model_name, dataset, documents, embedding_model, index, args.top_k)
+        try:
+            results = _run_model(model_name, dataset, documents, embedding_model, index, args.top_k)
+        except ModelInvocationError as exc:
+            error = exc.to_dict()
+            error["model_label"] = label.upper()
+            invocation_failures.append(error)
+            path = output_dir / f"model_{label}_error.json"
+            path.write_text(json.dumps(error, ensure_ascii=False, indent=2), encoding="utf-8")
+            print(
+                f"Model {label.upper()} invocation failed: "
+                f"status={exc.status_code}, error_code={exc.error_code}, retryable={exc.retryable}"
+            )
+            print(f"Model {label.upper()} error report: {path}")
+            continue
+
         path = output_dir / f"model_{label}_raw.json"
         path.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"Model {label.upper()} raw report: {path}")
+
+    if invocation_failures:
+        summary_path = output_dir / "model_invocation_failures.json"
+        summary_path.write_text(json.dumps(invocation_failures, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"Back-to-back evaluation incomplete due to model invocation failure(s): {summary_path}")
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":
