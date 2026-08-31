@@ -40,6 +40,12 @@ def _safe_rate(numerator: int, denominator: int) -> float:
     return round((numerator / denominator) * 100, 1)
 
 
+def _cached_entry_for_run(cache: dict, issue_key: str, fingerprint: str, force_review: bool):
+    if force_review:
+        return None
+    return get_cached_review(cache, issue_key, fingerprint)
+
+
 def _batch_quality_metrics(issues: list[dict]) -> dict:
     eligible = sum(1 for item in issues if item.get("precheck") == "ELIGIBLE")
     cached = sum(1 for item in issues if item.get("cache_hit") is True)
@@ -189,7 +195,7 @@ def run_batch(raw_issue_keys: str) -> dict:
         item["precheck"] = "ELIGIBLE"
         review_payload = build_review_payload(requirement)
         fingerprint = content_hash(review_payload, model=model, prompt_text=prompt_text)
-        cached_entry = None if force_review else get_cached_review(cache, issue_key, fingerprint)
+        cached_entry = _cached_entry_for_run(cache, issue_key, fingerprint, force_review)
 
         if cached_entry:
             review = cached_entry["review"]
