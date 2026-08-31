@@ -34,23 +34,76 @@ def _clarification_gaps(review: dict) -> list[dict]:
     return [gap for gap in review.get("gaps", []) if gap.get("gap_type") == "BLOCKING_GAP"]
 
 
+def _safe_rate(numerator: int, denominator: int) -> float:
+    if denominator <= 0:
+        return 0.0
+    return round((numerator / denominator) * 100, 1)
+
+
+def _cached_entry_for_run(cache: dict, issue_key: str, fingerprint: str, force_review: bool):
+    if force_review:
+        return None
+    return get_cached_review(cache, issue_key, fingerprint)
+
+
+def _batch_quality_metrics(issues: list[dict]) -> dict:
+    eligible = sum(1 for item in issues if item.get("precheck") == "ELIGIBLE")
+    cached = sum(1 for item in issues if item.get("cache_hit") is True)
+    llm_attempted = sum(
+        1
+        for item in issues
+        if item.get("precheck") == "ELIGIBLE" and item.get("cache_hit") is not True
+    )
+    ready = sum(1 for item in issues if item.get("decision") == "READY")
+    needs_clarification = sum(1 for item in issues if item.get("decision") == "NEEDS_CLARIFICATION")
+
+    return {
+        "eligible": eligible,
+        "ready": ready,
+        "needs_clarification": needs_clarification,
+        "cache_hits": cached,
+        "llm_attempted": llm_attempted,
+        "cache_hit_rate_pct": _safe_rate(cached, eligible),
+        "llm_execution_rate_pct": _safe_rate(llm_attempted, eligible),
+        "avoided_llm_calls": cached,
+    }
+
+
 def _append_github_summary(batch: dict):
     summary_path = os.getenv("GITHUB_STEP_SUMMARY")
     if not summary_path:
         return
 
     totals = batch["totals"]
+    quality = batch["quality_metrics"]
     lines = [
         "## Requirements Review Batch",
         "",
         f"**Run ID:** `{batch['run_id']}`  ",
-        f"**Requested:** {totals['requested']}  ",
-        f"**Executed with LLM:** {totals['executed']}  ",
-        f"**Skipped unchanged (cache):** {totals['cached']}  ",
-        f"**Rejected before LLM:** {totals['rejected']}  ",
-        f"**Failed during execution:** {totals['failed']}  ",
-        f"**Total tokens:** {totals['total_tokens']:,}  ",
-        f"**Estimated cost:** ${totals['estimated_cost_usd']:.6f}",
+        f"**Force review:** {'yes' if batch['force_review'] else 'no'}",
+        "",
+        "### Batch quality and execution",
+        "",
+        "| Metric | Value |",
+        "| --- | ---: |",
+        f"| Requested | {totals['requested']} |",
+        f"| Eligible after pre-check | {quality['eligible']} |",
+        f"| Rejected before LLM | {totals['rejected']} |",
+        f"| READY | {quality['ready']} |",
+        f"| NEEDS_CLARIFICATION | {quality['needs_clarification']} |",
+        f"| Cache hits | {quality['cache_hits']} |",
+        f"| LLM attempts | {quality['llm_attempted']} |",
+        f"| Successful fresh LLM reviews | {totals['executed']} |",
+        f"| Failed during execution | {totals['failed']} |",
+        f"| Cache hit rate | {quality['cache_hit_rate_pct']:.1f}% |",
+        f"| LLM execution rate | {quality['llm_execution_rate_pct']:.1f}% |",
+        f"| Avoided LLM calls | {quality['avoided_llm_calls']} |",
+        f"| Input tokens | {totals['input_tokens']:,} |",
+        f"| Output tokens | {totals['output_tokens']:,} |",
+        f"| Total tokens | {totals['total_tokens']:,} |",
+        f"| Actual estimated batch cost | ${totals['estimated_cost_usd']:.6f} |",
+        "",
+        "### Per-story result",
         "",
         "| Issue | Pre-check | Agent result | Tokens | Cost |",
         "| --- | --- | --- | ---: | ---: |",
@@ -142,7 +195,7 @@ def run_batch(raw_issue_keys: str) -> dict:
         item["precheck"] = "ELIGIBLE"
         review_payload = build_review_payload(requirement)
         fingerprint = content_hash(review_payload, model=model, prompt_text=prompt_text)
-        cached_entry = None if force_review else get_cached_review(cache, issue_key, fingerprint)
+        cached_entry = _cached_entry_for_run(cache, issue_key, fingerprint, force_review)
 
         if cached_entry:
             review = cached_entry["review"]
@@ -221,16 +274,18 @@ def run_batch(raw_issue_keys: str) -> dict:
             )
         except Exception as exc:
             failed += 1
-            item.update(error=f"agent execution failed: {exc}")
+            item.update(cache_hit=False, error=f"agent execution failed: {exc}")
         issues.append(item)
 
     save_cache(cache)
 
+    quality_metrics = _batch_quality_metrics(issues)
     batch = {
         "run_id": run_id,
         "run_timestamp": datetime.now(timezone.utc).isoformat(),
         "force_review": force_review,
         "issues": issues,
+        "quality_metrics": quality_metrics,
         "totals": {
             "requested": len(issue_keys),
             "executed": executed,
@@ -255,10 +310,18 @@ def main():
 
     batch = run_batch(args.issue_keys)
     totals = batch["totals"]
+    quality = batch["quality_metrics"]
     print(f"Run ID: {batch['run_id']}")
     print(f"Requested: {totals['requested']}")
+    print(f"Eligible after pre-check: {quality['eligible']}")
+    print(f"READY: {quality['ready']}")
+    print(f"NEEDS_CLARIFICATION: {quality['needs_clarification']}")
     print(f"Executed with LLM: {totals['executed']}")
+    print(f"LLM attempts: {quality['llm_attempted']}")
     print(f"Skipped unchanged (cache): {totals['cached']}")
+    print(f"Cache hit rate: {quality['cache_hit_rate_pct']:.1f}%")
+    print(f"LLM execution rate: {quality['llm_execution_rate_pct']:.1f}%")
+    print(f"Avoided LLM calls: {quality['avoided_llm_calls']}")
     print(f"Rejected before LLM: {totals['rejected']}")
     print(f"Failed during execution: {totals['failed']}")
     print(f"Usage: {totals['input_tokens']} input + {totals['output_tokens']} output = {totals['total_tokens']} tokens")
