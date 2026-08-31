@@ -13,6 +13,10 @@ on:
         default: false
         type: boolean
 
+concurrency:
+  group: requirements-review-cache
+  cancel-in-progress: false
+
 jobs:
   requirements-review:
     runs-on: ubuntu-latest
@@ -51,7 +55,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: .cache/requirements-review
-          key: requirements-review-cache-${{ github.run_id }}
+          key: requirements-review-cache-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             requirements-review-cache-
 
@@ -72,7 +76,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: .cache/requirements-review
-          key: requirements-review-cache-${{ github.run_id }}
+          key: requirements-review-cache-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload requirements review reports
         if: always()
