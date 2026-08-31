@@ -1,9 +1,23 @@
-from run_requirements_review_batch import _batch_quality_metrics, _safe_rate
+from run_requirements_review_batch import _batch_quality_metrics, _cached_entry_for_run, _safe_rate
 
 
 def test_safe_rate_handles_zero_denominator():
     assert _safe_rate(0, 0) == 0.0
     assert _safe_rate(5, 7) == 71.4
+
+
+def test_force_review_bypasses_matching_cache_entry():
+    cache = {
+        "issues": {
+            "SCRUM-1": {
+                "content_hash": "abc",
+                "review": {"decision": "READY", "readiness_score": 90},
+            }
+        }
+    }
+
+    assert _cached_entry_for_run(cache, "SCRUM-1", "abc", force_review=False) is not None
+    assert _cached_entry_for_run(cache, "SCRUM-1", "abc", force_review=True) is None
 
 
 def test_batch_quality_metrics_counts_quality_cache_and_llm_paths():
