@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       model_a:
-        description: Model A
+        description: Baseline model
         required: true
         type: choice
         default: claude-sonnet-5
@@ -16,7 +16,7 @@ on:
           - gpt-5.6-terra
           - gpt-5.6-luna
       model_b:
-        description: Model B
+        description: Candidate model
         required: true
         type: choice
         default: gpt-5.6-sol
@@ -30,6 +30,7 @@ on:
 
 jobs:
   compare-models:
+    name: ${{ inputs.model_a }} vs ${{ inputs.model_b }}
     runs-on: ubuntu-latest
 
     env:
@@ -56,95 +57,48 @@ jobs:
         run: |
           python src/dataset_validator.py datasets/pr_critical_dataset.json
 
-      - name: Run Back-to-Back SUT Evaluation
+      - name: Run ${{ inputs.model_a }} vs ${{ inputs.model_b }}
         run: |
           python src/back_to_back_runner.py \
             --model-a "${{ inputs.model_a }}" \
             --model-b "${{ inputs.model_b }}" \
             --output-dir reports/back_to_back
 
-      - name: Evaluate Model A
+      - name: Evaluate ${{ inputs.model_a }}
         run: |
           python src/evaluator.py \
             --input reports/back_to_back/model_a_raw.json \
             --output reports/back_to_back/model_a_evaluated.json
 
-      - name: Evaluate Model B
+      - name: Evaluate ${{ inputs.model_b }}
         run: |
           python src/evaluator.py \
             --input reports/back_to_back/model_b_raw.json \
             --output reports/back_to_back/model_b_evaluated.json
 
-      - name: Compare Model A vs Model B
+      - name: Compare ${{ inputs.model_a }} vs ${{ inputs.model_b }}
         run: |
           python src/back_to_back_compare.py \
             --model-a-report reports/back_to_back/model_a_evaluated.json \
             --model-b-report reports/back_to_back/model_b_evaluated.json \
             --output reports/back_to_back/comparison_report.json
 
+      - name: Render readable comparison report
+        run: |
+          python src/back_to_back_report.py \
+            --comparison reports/back_to_back/comparison_report.json \
+            --model-a-report reports/back_to_back/model_a_evaluated.json \
+            --model-b-report reports/back_to_back/model_b_evaluated.json \
+            --model-a-name "${{ inputs.model_a }}" \
+            --model-b-name "${{ inputs.model_b }}" \
+            --output reports/back_to_back/comparison_summary.md
+
       - name: Publish comparison summary
         if: always()
         run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          path = Path("reports/back_to_back/comparison_report.json")
-          if not path.exists():
-              raise SystemExit(0)
-
-          report = json.loads(path.read_text(encoding="utf-8"))
-          q = report.get("quality_comparison", {})
-          o = report.get("operational_comparison", {})
-          c = report.get("case_outcomes", {})
-          d = report.get("decision_signals", {})
-
-          lines = [
-              "## Back-to-Back Model Comparison",
-              "",
-              "| Metric | Model A | Model B | Delta B-A |",
-              "|---|---:|---:|---:|",
-          ]
-          for metric in [
-              "overall_pass_rate",
-              "correctness_rate",
-              "groundedness_rate",
-              "retrieval_hit_rate",
-              "constraint_adherence_rate",
-              "hallucination_rate",
-          ]:
-              value = q.get(metric, {})
-              lines.append(f"| {metric} | {value.get('model_a')} | {value.get('model_b')} | {value.get('delta_b_minus_a')} |")
-
-          lines.extend([
-              "",
-              "### Operational metrics",
-              "",
-              "| Metric | Model A | Model B | Delta B-A |",
-              "|---|---:|---:|---:|",
-          ])
-          for metric in [
-              "avg_latency_ms",
-              "p95_latency_ms",
-              "total_input_tokens",
-              "total_output_tokens",
-              "total_tokens",
-              "avg_tokens_per_case",
-          ]:
-              value = o.get(metric, {})
-              lines.append(f"| {metric} | {value.get('model_a')} | {value.get('model_b')} | {value.get('delta_b_minus_a')} |")
-
-          lines.extend([
-              "",
-              f"Improved cases: {c.get('improved', 0)}",
-              f"Regressed cases: {c.get('regressed', 0)}",
-              f"Unchanged cases: {c.get('unchanged', 0)}",
-              f"Critical regressions: {d.get('critical_regressions', [])}",
-          ])
-
-          with open(Path.cwd() / Path(__import__('os').environ['GITHUB_STEP_SUMMARY']), "a", encoding="utf-8") as handle:
-              handle.write("\n".join(lines) + "\n")
-          PY
+          if [ -f reports/back_to_back/comparison_summary.md ]; then
+            cat reports/back_to_back/comparison_summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload Back-to-Back reports
         if: always()
