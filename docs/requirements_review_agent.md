@@ -1,144 +1,202 @@
 # Requirements Review Agent
 
+## Status
+
+**POC closure target: validated first Agentic QE component.**
+
+The Requirements Review Agent is the first executable upstream component in the Agentic QE framework. It is read-only: it reviews Jira requirements but does not modify Jira.
+
+Detailed current orchestration: `docs/agentic_qe_orchestration.md`  
+Manual execution/validation instructions: `docs/manual_requirements_review_poc.md`
+
 ## Purpose
 
-The Requirements Review Agent is the first executable component of the Agentic QE phase.
+The agent answers one controlled question:
 
-It treats Jira and Confluence as source systems, Anthropic as the intelligence layer, and Python as the orchestration/telemetry layer.
+> Is this Jira requirement sufficiently explicit, complete and testable to continue into downstream risk analysis/test design without inventing material expected behavior?
 
-Current MVP flow:
+It does **not** use external retrieval to compensate for an incomplete Jira story.
 
-```text
-Jira Story
-→ Jira ingestion / normalization
-→ Requirements Review Agent
-→ Anthropic API
-→ structured review JSON
-→ readiness gate evidence
-```
-
-The agent is read-only. It does not modify Jira.
-
-## Input
-
-One Jira issue key, for example:
+## Current execution flow
 
 ```text
-SCRUM-1
+Manual GitHub Actions batch
+→ selected Jira issue keys
+→ Jira retrieval / normalization
+→ deterministic Python pre-check
+   ├─ reject → 0 LLM tokens
+   └─ eligible
+       ↓
+minimal semantic payload
+       ↓
+content fingerprint
+       ↓
+cache / force-review decision
+   ├─ matching cache → reuse structured review → 0 LLM tokens
+   └─ fresh execution → Claude Requirements Review
+       ↓
+READY / NEEDS_CLARIFICATION
+       ↓
+blocking gaps / clarification questions
+       ↓
+batch quality + cache + token + cost metrics
 ```
 
-The Jira ingestion layer currently reads and normalizes:
+## Jira retrieval vs LLM payload
 
-- issue key
-- summary
-- description
-- status
-- issue type
-- priority
-- labels
-- components
-- assignee
-- reporter
-- parent key
+Python may retrieve/normalize operational Jira fields required for deterministic control, including status and other metadata.
 
-Jira Atlassian Document Format descriptions are flattened into readable text before the requirement is sent to the model.
+After pre-check, Claude receives only:
+
+```text
+issue_key
+summary
+description
+acceptance_criteria
+components
+```
+
+This keeps semantic review focused and reduces repeated token cost.
 
 ## Review contract
 
-The agent returns a structured result with:
+The structured result contains:
 
-- `decision`: `READY` or `NEEDS_CLARIFICATION`
-- `readiness_score`: 0-100
-- short summary
-- categorized gaps with severity
-- clarification questions
-- explicit known constraints
-- explicit dependencies
-- testability notes
-- recommended next action
+- `decision`: `READY` or `NEEDS_CLARIFICATION`;
+- `readiness_score`: 0–100;
+- concise summary;
+- categorized gaps with severity;
+- clarification questions;
+- explicit known constraints/dependencies where present;
+- testability notes;
+- recommended next action.
 
-The core rule is that the model must not invent missing behavior. If meaningful test design would require material assumptions, the story is returned as `NEEDS_CLARIFICATION`.
+Finding types are:
+
+- `BLOCKING_GAP`;
+- `NON_BLOCKING_GAP`;
+- `TECHNICAL_CONTEXT_NEEDED`.
+
+Only `BLOCKING_GAP` can produce `NEEDS_CLARIFICATION`.
+
+## Deterministic vs semantic responsibilities
+
+```text
+Python
+  Jira retrieval / normalization
+  issue/status/project/required-field eligibility
+  minimal payload construction
+  SHA-256 content fingerprint
+  cache hit / cache miss
+  manual force-review override
+  report persistence
+  quality/cost aggregation
+
+Claude
+  ambiguity assessment
+  semantic completeness/testability
+  requirement-quality findings
+  READY vs NEEDS_CLARIFICATION
+  blocking gaps
+  clarification questions
+```
+
+## Cache contract
+
+The fingerprint covers the cache version, configured model, Requirements Review prompt, and semantic requirement payload.
+
+```text
+unchanged Summary / Description / AC / Components + same prompt/model
+→ same fingerprint
+→ cached review
+→ 0 Claude calls
+
+changed semantic content / prompt / model
+→ different fingerprint
+→ fresh Claude review
+
+force_review=true
+→ deliberately bypass matching cache
+→ fresh Claude review
+```
+
+## Batch observability
+
+The batch summary exposes:
+
+- requested;
+- eligible;
+- rejected before LLM;
+- READY;
+- NEEDS_CLARIFICATION;
+- cache hits;
+- LLM attempts;
+- successful fresh reviews;
+- execution failures;
+- cache hit rate;
+- LLM execution rate;
+- avoided LLM calls;
+- input/output/total tokens;
+- actual estimated batch cost.
 
 ## Configuration
 
-Use `.env` values based on `config/.env.example`:
+Use `.env` / GitHub variables and secrets based on `config/.env.example`.
+
+Core controls include:
 
 ```text
 LLM_API_KEY=...
-REQUIREMENTS_REVIEW_MODEL=claude-sonnet-5
-JIRA_BASE_URL=https://your-site.atlassian.net
+REQUIREMENTS_REVIEW_MODEL=...
+JIRA_BASE_URL=...
 JIRA_EMAIL=...
 JIRA_API_TOKEN=...
+JIRA_PROJECT_KEY=...
+JIRA_ALLOWED_STATUSES=In Progress
+JIRA_REQUIRE_DESCRIPTION=true
+JIRA_REQUIRE_ACCEPTANCE_CRITERIA=true
 ```
 
-`REQUIREMENTS_REVIEW_MODEL` falls back to `SUT_MODEL` if omitted.
+GitHub Actions additionally exposes `force_review` as a manual boolean workflow input.
 
-## Run locally
+## POC Definition of Done
 
-From the repository root:
+The Requirements Review slice includes:
 
-```bash
-python src/run_requirements_review.py SCRUM-1
-```
+- deterministic zero-cost eligibility gating;
+- semantic readiness assessment;
+- READY / NEEDS_CLARIFICATION governance contract;
+- detailed blocking gaps/questions;
+- compact semantic payload;
+- persistent content-hash cache;
+- semantic-content invalidation;
+- manual force-review bypass;
+- token/cost telemetry;
+- batch quality/efficiency metrics;
+- validation scenarios/tests;
+- orchestration diagrams and operating instructions.
 
-Optional explicit report path:
-
-```bash
-python src/run_requirements_review.py SCRUM-1 --output reports/requirements_review_SCRUM-1.json
-```
-
-## Telemetry
-
-Each run records:
-
-- agent name
-- model
-- input tokens
-- output tokens
-- total tokens
-- cache token usage when available
-- latency
-- stop reason
-- estimated USD cost
-- Jira issue key
-- normalized input requirement
-- structured review result
-
-This keeps agent execution inside the same observable orchestration boundary as the existing AI QE framework.
-
-## Current boundary
-
-The Requirements Review POC is the first read-only agent slice. It is being validated before the framework expands into downstream agents.
-
-Current behavior includes deterministic eligibility checks, minimal semantic payloads, content-hash reuse for unchanged requirements, structured readiness decisions, clarification gaps, and token/cost telemetry.
-
-Not yet implemented:
-
-- writing review results/labels back to Jira
-- Confluence context retrieval
-- orchestrator state transitions
-- Risk Analysis Agent
-- Test Generation Agent
-- Human Approval → governed dataset lifecycle
+Items below are therefore treated as **next architecture slices**, not missing Requirements Review behavior.
 
 ## Planned Agentic QE evolution
 
-The planned sequence after Requirements Review validation is:
-
 ```text
-1. Complete Requirements Review POC validation
-2. Add/confirm batch quality and cost summary
-3. Freeze and document the validated Requirements Review architecture
-4. Implement Risk Analysis Agent
-5. Add targeted retrieval/RAG where Risk Analysis needs cross-document evidence
-6. Implement Test Generation Agent
-7. Connect generated test assets to the governed dataset lifecycle
-8. Integrate the agentic flow with PR evaluation and regression workflows
+Requirements Review Agent
+        ↓ READY
+Risk Analysis Agent
+        ↓
+Targeted retrieval/RAG when cross-document evidence is required
+        ↓
+Test Generation Agent
+        ↓
+Governance / Human Approval
+        ↓
+Governed Dataset Update
+        ↓
+Existing Dataset Validation + Evaluation + CI/CD framework
 ```
 
-### Risk Analysis Agent
-
-Risk Analysis Agent is the next planned major agent after the Requirements Review POC is considered stable.
+### Risk Analysis Agent — next major agent
 
 Entry condition:
 
@@ -146,61 +204,34 @@ Entry condition:
 Requirements Review decision = READY
 ```
 
-Primary responsibility: transform an approved requirement into a structured, risk-based QE view without prematurely generating the final test set.
+Expected risk categories, where applicable:
 
-Expected risk categories include, where applicable:
+- functional;
+- integration;
+- data;
+- AI-specific;
+- security;
+- resilience;
+- performance;
+- business/process.
 
-- functional
-- integration
-- data
-- AI-specific
-- security
-- resilience
-- performance
-- business/process
+Expected structured output will include risk statement, category, likelihood, impact, priority, rationale/evidence and recommended test focus.
 
-Expected structured output should include at least:
+Risk Analysis is the first planned stage where cross-document retrieval should be evaluated. Candidate sources include architecture, business rules, policies, related specifications/stories and historical defects.
 
-- risk statement
-- category
-- likelihood
-- impact
-- priority
-- rationale/evidence
-- recommended test focus
-
-Conceptual flow:
-
-```text
-READY Jira Story
-      ↓
-Risk Analysis Agent
-      ↓
-identify requirement-local risks
-      ↓
-retrieve supporting context when required
-├─ architecture
-├─ business rules / policies
-├─ related specifications or stories
-└─ historical defects
-      ↓
-structured risk register / risk output
-      ↓
-Test Generation Agent
-```
-
-### Retrieval boundary
-
-Requirements Review intentionally evaluates whether the Jira requirement itself is sufficiently explicit. Retrieval must not hide missing acceptance criteria or compensate for an incomplete story.
-
-Risk Analysis is the first planned stage where cross-document retrieval can add material value. The design principle is:
+Design principle:
 
 ```text
 Retrieve broadly → select relevant evidence → send narrowly to the LLM
 ```
 
-Retrieval should therefore be introduced only when the downstream agent requires external evidence, with bounded top-K/context selection and observable retrieval telemetry.
+### Explicitly not implemented by this POC
 
-### Test Generation Agent
-
-After risks are identified, Test Generation Agent will use the validated requirement, structured risks, and only the relevant supporting context to produce risk-based test scenarios/test assets. Generated assets then enter the governed dataset lifecycle rather than being treated as automatically approved truth.
+- Risk Analysis Agent implementation;
+- Risk Analysis retrieval/RAG;
+- Test Generation Agent;
+- Jira write-back;
+- automatic status-change execution;
+- scheduled agent queue;
+- HITL dataset promotion;
+- full multi-agent state orchestration.
