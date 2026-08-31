@@ -1,3 +1,5 @@
+import pytest
+
 from requirements_review_cache import (
     build_review_payload,
     content_hash,
@@ -35,12 +37,41 @@ def test_review_payload_excludes_operational_jira_fields():
     }
 
 
-def test_hash_changes_when_semantic_content_changes():
-    first = {"issue_key": "SCRUM-2", "summary": "A", "description": "B", "acceptance_criteria": "C"}
-    second = {**first, "acceptance_criteria": "Changed"}
+@pytest.mark.parametrize(
+    ("field", "changed_value"),
+    [
+        ("summary", "Changed summary"),
+        ("description", "Changed description"),
+        ("acceptance_criteria", "Changed AC"),
+        ("components", ["Checkout"]),
+    ],
+)
+def test_hash_changes_when_semantic_content_changes(field, changed_value):
+    first = {
+        "issue_key": "SCRUM-2",
+        "summary": "A",
+        "description": "B",
+        "acceptance_criteria": "C",
+        "components": ["Search"],
+    }
+    second = {**first, field: changed_value}
 
     assert content_hash(first, model="claude", prompt_text="prompt") != content_hash(
         second, model="claude", prompt_text="prompt"
+    )
+
+
+def test_hash_stays_same_for_same_semantic_content():
+    payload = {
+        "issue_key": "SCRUM-2",
+        "summary": "A",
+        "description": "B",
+        "acceptance_criteria": "C",
+        "components": ["Search"],
+    }
+
+    assert content_hash(payload, model="claude", prompt_text="prompt") == content_hash(
+        dict(payload), model="claude", prompt_text="prompt"
     )
 
 
