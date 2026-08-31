@@ -6,7 +6,7 @@ Canonical current documentation:
 - `agentic_qe_orchestration.md` — current implemented Requirements Review orchestration, cache/force-review sequence, batch metrics, POC boundary and downstream Risk Analysis/Test Generation flow;
 - `requirements_review_agent.md` — Requirements Review purpose, Python-vs-LLM responsibility boundary, cache contract, Definition of Done and next-agent boundary;
 - `manual_requirements_review_poc.md` — operating instructions for manual GitHub Actions batches, validation scenarios, `force_review`, cache invalidation and batch metric interpretation;
-- `current_status.md` — concise authoritative statement of what is implemented on `main` and the immediate next phase;
+- `current_status.md` — concise authoritative statement of what is implemented on `main`, current specialized AI-testing workflows, and the immediate next phase;
 - `project_overview.md` — target/end-state AI QE operating model, intentionally written in present tense as the completed-product description;
 - `test_strategy.md` — reusable test strategy: risks, techniques, datasets, Oracles, metrics, Judge calibration, Golden change controls, CI levels, entry/exit criteria, failure localization and release governance;
 - `automated_ai_evaluation.md` — Dataset Validation, Oracle routing, deterministic/semantic evaluation and evaluator-governance architecture;
@@ -16,6 +16,7 @@ Canonical current documentation:
 - `judge_calibration_workflow.md` — implemented OLD-vs-NEW Judge calibration using a human-reviewed baseline, path triggers, gates and evidence;
 - `golden_dataset_governance.md` — Golden truth policy plus implemented deterministic PR enforcement;
 - `adversarial_testing_contract.md` — adversarial/prompt-injection test design and governance contract;
+- `future_ai_testing_workflows.md` — current specialized-workflow split: PR Standard + Metamorphic, manual Back-to-Back, scheduled Adversarial, with Drift explicitly deferred;
 - `oracle_routing_fallback.md` — canonical Oracle fallback mechanism;
 - `no_context_hardening.md` — historical hardening record for zero-context, conflict-fixture and generation-path behavior.
 
@@ -36,6 +37,10 @@ Canonical current documentation:
 - Golden is canonical truth. A failing evaluation is not sufficient justification to rewrite Golden expected behavior.
 - Golden changes require explicit reason and source-of-truth metadata through the automated governance check.
 - Release Validation is a separate workflow level using Golden plus broad Nightly validation/evidence.
+- PR quality validation includes the normal PR Critical path plus a dedicated Metamorphic Critical relation check.
+- Back-to-Back is a manual comparative technique: same controlled Critical suite, two selected generation models, evaluator-backed quality/telemetry deltas and case regression classification.
+- Adversarial testing has a separate governed contract and dedicated 10-case manual + nightly workflow, merged via PR #80.
+- Drift testing is intentionally deferred from the current AI-testing workflow roadmap.
 - Requirements Review status is an eligibility concern; the current POC spends LLM tokens only through an explicit manual GitHub Actions batch.
 - Requirements Review uses deterministic Python pre-check/cache control and Claude only for semantic readiness review.
 - Unchanged semantic requirement content reuses a cached structured review; changed Summary/Description/Acceptance Criteria/Components invalidates the fingerprint.
@@ -45,6 +50,20 @@ Canonical current documentation:
 ## CI governance trigger boundaries
 
 ```text
+PR Quality:
+  Standard PR Critical Evaluation
+  Metamorphic Critical Evaluation
+
+Back-to-Back:
+  manual workflow_dispatch
+  Model A + Model B
+  fixed PR Critical dataset
+
+Adversarial:
+  workflow_dispatch + nightly schedule
+  datasets/adversarial_dataset.json
+  adversarial summary + critical gate
+
 Judge Calibration:
   config/judge_config.json
   config/judge_prompt.txt

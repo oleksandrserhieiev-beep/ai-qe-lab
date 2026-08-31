@@ -12,9 +12,31 @@
 - Golden Dataset Governance check requiring Change Reason + Source of Truth.
 - AI-risk/metric aggregation, quality gates, telemetry and failure localization.
 - PR Critical automatic merge gate.
-- Regression, Nightly and Release Validation manual workflows.
+- Metamorphic Critical evaluation integrated into the PR path using deterministic relation checks over base/transformed invocations.
+- Manual Back-to-Back model comparison using the same PR Critical suite for Model A and Model B, with evaluated quality deltas, case regressions, latency and token telemetry.
+- Regression, broad Nightly and Release Validation manual workflows.
+- Dedicated Adversarial workflow merged via PR #80 with a governed 10-case attack dataset, manual + nightly schedule, Attack Success Rate, category breakdown and critical adversarial gate.
 
 ## Current downstream execution model
+
+```text
+PR
+├─ Standard Critical Evaluation
+└─ Metamorphic Critical Evaluation
+
+Manual comparison
+└─ Back-to-Back Model A vs Model B
+
+Nightly / scheduled
+└─ Adversarial Evaluation
+
+Other lifecycle suites
+├─ Regression           = manual
+├─ Broad Nightly        = manual
+└─ Release Validation   = manual
+```
+
+Core governed suite execution remains:
 
 ```text
 Selected Governed Suite
@@ -29,7 +51,53 @@ Selected Governed Suite
 → Lifecycle Decision
 ```
 
-This is the CI/CD execution path. CI/CD does not start after Evaluation; it orchestrates the sequence from Dataset/Oracle Validation through the Quality Gate.
+Metamorphic, Back-to-Back and Adversarial are specialized AI-testing workflows around this core execution model rather than replacements for it.
+
+## AI-specific test techniques
+
+### Metamorphic Testing — implemented
+
+Current PR Critical dataset contains two explicit metamorphic cases. Each runs a base and transformed query and checks a governed invariant using a deterministic relation Oracle. Current relations cover paraphrase invariance and irrelevant-noise invariance for critical policy facts.
+
+### Back-to-Back Testing — implemented
+
+The `Back-to-Back Model Comparison` workflow is manual. It runs the same non-metamorphic PR Critical cases against two selected generation models, evaluates both outputs through the existing evaluator and produces:
+
+- overall pass-rate delta;
+- correctness, groundedness, retrieval-hit, constraint-adherence and hallucination deltas;
+- improved / regressed / unchanged case counts;
+- critical regressions;
+- average and p95 latency;
+- input/output/total token usage.
+
+### Adversarial Testing — implemented
+
+The dedicated adversarial flow is based on `docs/adversarial_testing_contract.md` and uses 10 governed cases across:
+
+- business-policy override;
+- instruction override;
+- unsupported-claim forcing;
+- prompt/system leakage;
+- malicious/conflicting retrieved content;
+- hard-constraint bypass.
+
+The flow reuses the standard SUT runner and evaluator, then adds adversarial-specific aggregation:
+
+```text
+Adversarial Dataset
+→ Dataset Validation
+→ SUT Execution
+→ Existing Evaluator
+→ Adversarial Summary
+   ├─ Adversarial Pass Rate
+   ├─ Attack Success Rate
+   ├─ Category Breakdown
+   └─ Critical Failure Count
+→ Adversarial Gate
+→ Artifact / Step Summary
+```
+
+Drift testing is intentionally excluded from the current roadmap.
 
 ## Implemented upstream Agentic QE slice — Requirements Review
 
@@ -97,16 +165,19 @@ Jira / Confluence
 ## Current CI execution state
 
 ```text
-PR Critical          = automatic merge gate for meaningful PR changes
+PR Critical          = automatic merge gate
+Metamorphic Critical = automatic PR validation
+Back-to-Back         = manual Model A vs Model B comparison
+Adversarial          = manual + nightly scheduled hostile-input evaluation
 Regression           = manual-only
-Nightly              = manual-only
+Broad Nightly        = manual-only
 Release Validation   = manual-only: Golden + broad Nightly + Release Quality Gate
 Judge Calibration    = automatic for Judge/calibration behavior changes + manual
 Golden Governance    = automatic for Golden dataset/check/workflow changes
 Requirements Review  = manual batch execution
 ```
 
-Regression/Nightly schedules remain intentionally paused while the POC baseline is stable and the upstream Jira-driven Agentic QE lifecycle is being introduced.
+The broad Regression/Nightly product-evaluation schedules remain intentionally paused while the POC baseline is stable. The dedicated Adversarial suite is intentionally scheduled separately because it has its own attack taxonomy, metrics and gate.
 
 ## Governance boundaries
 
@@ -146,7 +217,7 @@ Requirements Review is implemented and runnable. Risk Analysis currently has its
 
 ## Next phase
 
-The target continuation is:
+The target Agentic QE continuation remains:
 
 ```text
 Jira Requirement
