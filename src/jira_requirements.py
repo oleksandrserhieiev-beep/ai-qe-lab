@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Any
 
 import httpx
@@ -6,6 +7,19 @@ from dotenv import load_dotenv
 
 
 load_dotenv()
+
+BASE_FIELDS = [
+    "summary",
+    "description",
+    "status",
+    "issuetype",
+    "priority",
+    "labels",
+    "components",
+    "assignee",
+    "reporter",
+    "parent",
+]
 
 
 def _configuration():
@@ -58,30 +72,51 @@ def _adf_to_text(value: Any) -> str:
     return " ".join(rendered).strip()
 
 
+def _acceptance_criteria_from_description(description: str) -> str:
+    """Extract an explicit Acceptance Criteria section when AC is stored in Description."""
+    if not description:
+        return ""
+    match = re.search(
+        r"(?is)(?:^|\n)\s*(?:acceptance\s+criteria|acceptance\s+criterion|ac)\s*:?\s*(?:\n|$)(.+)$",
+        description,
+    )
+    return match.group(1).strip() if match else ""
+
+
 def fetch_issue(issue_key: str) -> dict:
     base_url, email, api_token = _configuration()
     url = f"{base_url}/rest/api/3/issue/{issue_key}"
-    params = {
-        "fields": "summary,description,status,issuetype,priority,labels,components,assignee,reporter,parent"
-    }
+    acceptance_criteria_field = (os.getenv("JIRA_ACCEPTANCE_CRITERIA_FIELD") or "").strip()
+    fields = [*BASE_FIELDS]
+    if acceptance_criteria_field:
+        fields.append(acceptance_criteria_field)
 
     with httpx.Client(timeout=30.0) as client:
-        response = client.get(url, params=params, auth=(email, api_token))
+        response = client.get(url, params={"fields": ",".join(fields)}, auth=(email, api_token))
         response.raise_for_status()
         return response.json()
 
 
 def normalize_requirement(issue: dict) -> dict:
     fields = issue.get("fields") or {}
+    acceptance_criteria_field = (os.getenv("JIRA_ACCEPTANCE_CRITERIA_FIELD") or "").strip()
 
     def _name(value):
         return (value or {}).get("name") if isinstance(value, dict) else None
+
+    description = _adf_to_text(fields.get("description"))
+    acceptance_criteria = ""
+    if acceptance_criteria_field:
+        acceptance_criteria = _adf_to_text(fields.get(acceptance_criteria_field))
+    if not acceptance_criteria:
+        acceptance_criteria = _acceptance_criteria_from_description(description)
 
     return {
         "source": "jira",
         "issue_key": issue.get("key"),
         "summary": fields.get("summary") or "",
-        "description": _adf_to_text(fields.get("description")),
+        "description": description,
+        "acceptance_criteria": acceptance_criteria,
         "status": _name(fields.get("status")),
         "issue_type": _name(fields.get("issuetype")),
         "priority": _name(fields.get("priority")),
