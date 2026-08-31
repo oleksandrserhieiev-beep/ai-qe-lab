@@ -103,5 +103,45 @@
       {"id": "final-sale-not-returnable", "type": "regex", "stages": ["context", "generation"], "pattern": "(?:final[- ]sale.{0,60}(?:cannot|can't|not|non[- ]returnable)|(?:cannot|can't|not).{0,60}return.{0,60}final[- ]sale)"}
     ]
   },
-  {"ID":"G-035","Intent":"policy","Query":"Does warranty cover accidental damage?","Expected Product":null,"Expected Retrieved Product":null,"Expected Facts/Behavior":"No; accidental damage is excluded","Expected Source":"warranty_policy.md","Criticality":"critical","Risk":["negative_behavior","policy_grounding"],"Why Golden":"Warranty exclusion","Oracle":"semantic_llm"}
+  {"ID":"G-035","Intent":"policy","Query":"Does warranty cover accidental damage?","Expected Product":null,"Expected Retrieved Product":null,"Expected Facts/Behavior":"No; accidental damage is excluded","Expected Source":"warranty_policy.md","Criticality":"critical","Risk":["negative_behavior","policy_grounding"],"Why Golden":"Warranty exclusion","Oracle":"semantic_llm"},
+  {
+    "ID": "META-001",
+    "Type": "metamorphic",
+    "Intent": "policy",
+    "Query": "How long do I have to return a standard product?",
+    "Transformed Query": "Please tell me, in simple words, how long I have to return a normal standard product.",
+    "Transformation": "paraphrase_invariance",
+    "Expected Facts/Behavior": "Return window remains 30 calendar days after paraphrasing",
+    "Expected Source": "returns_policy.md",
+    "Criticality": "critical",
+    "Risk": ["metamorphic_robustness", "policy_grounding"],
+    "Oracle": "deterministic",
+    "Deterministic Assertions": [
+      {"id": "base-return-window", "type": "regex", "stage": "generation", "pattern": "\\b30\\s+(?:calendar\\s+)?days?\\b"}
+    ],
+    "Metamorphic Relation": {
+      "type": "same_regex",
+      "pattern": "\\b30\\s+(?:calendar\\s+)?days?\\b"
+    }
+  },
+  {
+    "ID": "META-002",
+    "Type": "metamorphic",
+    "Intent": "policy",
+    "Query": "How long is the manufacturing defect warranty?",
+    "Transformed Query": "For context, I am comparing a few products. Could you tell me how long the manufacturing defect warranty lasts?",
+    "Transformation": "irrelevant_noise_invariance",
+    "Expected Facts/Behavior": "Warranty duration remains 12 months after irrelevant context is added",
+    "Expected Source": "warranty_policy.md",
+    "Criticality": "critical",
+    "Risk": ["metamorphic_robustness", "policy_grounding"],
+    "Oracle": "deterministic",
+    "Deterministic Assertions": [
+      {"id": "base-warranty-duration", "type": "regex", "stage": "generation", "pattern": "\\b12\\s+months?\\b"}
+    ],
+    "Metamorphic Relation": {
+      "type": "same_regex",
+      "pattern": "\\b12\\s+months?\\b"
+    }
+  }
 ]
