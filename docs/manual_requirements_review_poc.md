@@ -1,125 +1,230 @@
-# Manual Requirements Review Batch — Current POC Approach
+# Manual Requirements Review Batch — Validated POC Approach
 
 ## Status
 
-This document describes the current POC decision, not the final production architecture.
+This document describes the implemented Requirements Review POC control boundary. The agent is read-only and the current execution model remains intentionally manual.
 
-The Requirements Review Agent remains read-only. Jira status changes do not automatically trigger LLM execution in this version.
+A Jira status makes a story **eligible** for review; it does not automatically spend LLM tokens. A GitHub Actions manual run is the explicit execution permission.
 
-## Why this approach
+## Run the workflow
 
-The POC separates workflow eligibility from paid AI execution.
-
-A Jira status can indicate that a story is ready to be considered for AI review, but it is not itself an execution trigger. This reduces accidental token/cost consumption, keeps execution auditable, and lets the team validate the approach before adding automation.
-
-## Manual execution point
-
-The current entry point is GitHub Actions:
-
-1. Open the repository.
+1. Open the repository in GitHub.
 2. Open **Actions**.
 3. Select **Requirements Review Agent**.
 4. Select **Run workflow**.
-5. Enter one or more Jira issue keys in the `issue_keys` field, for example:
+5. Enter one or more Jira issue keys in `issue_keys`, for example:
 
 ```text
-AIQE-101, AIQE-105, AIQE-109
+SCRUM-2, SCRUM-3, SCRUM-4
 ```
 
-6. Start the workflow.
+6. Leave `force_review=false` for normal cache-aware execution.
+7. Set `force_review=true` only when you intentionally want Claude to review eligible stories again even if their semantic content has not changed.
+8. Start the workflow.
 
-The input supports comma, whitespace, or semicolon separators. Duplicate issue keys are removed before processing.
+The input accepts comma, whitespace, or semicolon separators and removes duplicate issue keys.
 
-## Processing flow
+## Current orchestration
 
 ```text
 Manual GitHub Actions run
 → parse Jira issue keys
+→ retrieve selected Jira fields
 → deterministic Python pre-check
-→ reject ineligible stories with zero LLM calls
-→ run Requirements Review Agent only for eligible stories
-→ store one report per executed story
-→ aggregate tokens/cost/results into one batch report
-→ publish batch summary in GitHub Actions
+   ├─ reject ineligible story → 0 LLM tokens
+   └─ eligible
+       ↓
+   build minimal semantic payload
+       ↓
+   content fingerprint
+       ↓
+   force_review?
+       ├─ yes → fresh Claude review
+       └─ no → cache lookup
+                ├─ same hash → cached review → 0 LLM tokens
+                └─ no match → fresh Claude review
+       ↓
+READY / NEEDS_CLARIFICATION
+       ↓
+batch quality + efficiency + cost summary
+       ↓
+JSON reports + GitHub Actions Step Summary
 ```
+
+For the detailed flowchart and sequence diagram, see `docs/agentic_qe_orchestration.md`.
 
 ## Deterministic pre-check
 
-The pre-check intentionally happens before Anthropic is called.
-
-A story is rejected before LLM execution when any configured eligibility rule fails. Current rules are:
+Before Anthropic can be called, Python rejects a story when any configured eligibility rule fails:
 
 - invalid Jira issue key format;
 - issue belongs to a different configured Jira project;
 - issue cannot be found/read from Jira;
 - status is not in `JIRA_ALLOWED_STATUSES`;
-- description is missing when `JIRA_REQUIRE_DESCRIPTION=true`;
+- Description is missing when `JIRA_REQUIRE_DESCRIPTION=true`;
 - Acceptance Criteria are missing when `JIRA_REQUIRE_ACCEPTANCE_CRITERIA=true`.
 
-These checks are deterministic and therefore do not consume LLM tokens.
+These checks consume zero LLM tokens.
 
-## Acceptance Criteria source
+## Semantic payload sent to Claude
 
-Two POC patterns are supported:
-
-1. Set `JIRA_ACCEPTANCE_CRITERIA_FIELD` when Jira stores Acceptance Criteria in a dedicated custom field.
-2. Leave it empty when Acceptance Criteria are stored as an explicit `Acceptance Criteria` section inside Description.
-
-Presence is checked by Python. Quality, ambiguity, completeness, and testability remain the responsibility of the Requirements Review Agent.
-
-## Configuration
-
-The main POC controls are:
+After pre-check, Claude receives only the fields relevant to the semantic Requirements Review:
 
 ```text
-JIRA_PROJECT_KEY=AIQE
-JIRA_ALLOWED_STATUSES=Ready for Refinement,Ready for AI Review
-JIRA_REQUIRE_DESCRIPTION=true
-JIRA_REQUIRE_ACCEPTANCE_CRITERIA=true
-JIRA_ACCEPTANCE_CRITERIA_FIELD=
-REQUIREMENTS_REVIEW_MODEL=claude-sonnet-5
+issue_key
+summary
+description
+acceptance_criteria
+components
 ```
 
-In GitHub Actions these values should be configured as repository variables, while API credentials remain repository secrets.
+Operational Jira metadata such as status, priority, labels, assignee, reporter, issue type and parent metadata are not sent to Claude after pre-check.
 
-## Batch observability
+## Content-hash cache
 
-Every manual execution receives a batch Run ID. The batch summary records:
+A SHA-256 fingerprint is calculated over:
 
-- requested issue count;
-- rejected-before-LLM count;
-- executed issue count;
-- execution failure count;
-- per-story decision and readiness score;
-- per-story token usage and estimated cost;
-- total input/output tokens;
-- total estimated batch cost.
+- cache schema version;
+- configured Requirements Review model;
+- Requirements Review prompt text;
+- issue key;
+- summary;
+- description;
+- acceptance criteria;
+- components.
 
-Individual story reports are kept in `reports/requirements_review_<ISSUE>.json`. The batch report is stored as `reports/requirements_review_batch_<RUN_ID>.json` and the entire `reports/` directory is uploaded as a GitHub Actions artifact.
+### Normal cache behavior
 
-## Current boundary
+```text
+same semantic content + same prompt/model
+→ same hash
+→ cached structured review
+→ 0 Claude calls
+→ 0 LLM tokens
+```
 
-This POC does not yet include:
+### Cache invalidation
 
+Any change to Summary, Description, Acceptance Criteria or Components creates a different fingerprint and triggers a fresh Claude review. Prompt/model/cache-schema changes also invalidate the prior fingerprint.
+
+### Force review
+
+`force_review=true` is a manual override. It deliberately bypasses a valid matching cache entry and executes a fresh Claude review.
+
+Use it for a controlled re-review, for example when investigating a suspicious cached result or explicitly testing agent repeatability. It is not the normal execution mode.
+
+## Validation scenarios
+
+| Scenario | Expected result | LLM call |
+|---|---|---:|
+| Unchanged eligible story | cached prior review | No |
+| Summary changed | fresh review | Yes |
+| Description changed | fresh review | Yes |
+| Acceptance Criteria changed | fresh review | Yes |
+| Components changed | fresh review | Yes |
+| `force_review=true` | fresh review despite matching cache | Yes |
+| Missing required AC | rejected by Python | No |
+| Ineligible status | rejected by Python | No |
+| Semantically complete story | READY | Yes on fresh review |
+| Ambiguous/incomplete eligible story | NEEDS_CLARIFICATION + blocking gaps/questions | Yes on fresh review |
+
+## Batch quality and cost summary
+
+The batch report now provides both requirement-quality and execution-efficiency evidence.
+
+### Example
+
+```text
+Requested: 10
+Eligible after pre-check: 7
+Rejected before LLM: 3
+
+READY: 4
+NEEDS_CLARIFICATION: 3
+
+Cache hits: 5
+LLM attempts: 2
+Successful fresh LLM reviews: 2
+Cache hit rate: 71.4%
+LLM execution rate: 28.6%
+Avoided LLM calls: 5
+
+Input tokens: 3100
+Output tokens: 1240
+Total tokens: 4340
+Actual estimated batch cost: $0.021400
+```
+
+The metrics mean:
+
+- **Requested** — unique Jira IDs submitted to the batch.
+- **Eligible** — stories that passed deterministic Python pre-check.
+- **Rejected** — stories stopped before any semantic review.
+- **READY / NEEDS_CLARIFICATION** — final semantic outcomes, including cached outcomes.
+- **Cache hits** — eligible stories whose exact current review fingerprint already existed.
+- **LLM attempts** — eligible stories that did not use cache and therefore entered fresh semantic execution.
+- **Cache hit rate** — cache hits / eligible stories.
+- **LLM execution rate** — fresh LLM attempts / eligible stories.
+- **Avoided LLM calls** — known calls skipped by cache reuse.
+- **Actual estimated batch cost** — estimated cost for calls actually executed in this run.
+
+The POC intentionally does not claim a precise "saved USD" metric because a hypothetical fresh review cost varies by story/token volume. Avoided calls are exact; hypothetical avoided cost is not.
+
+## Reports
+
+Each reviewed or cached eligible story produces:
+
+```text
+reports/requirements_review_<ISSUE>.json
+```
+
+Each batch produces:
+
+```text
+reports/requirements_review_batch_<RUN_ID>.json
+```
+
+The GitHub Actions artifact uploads `reports/`, and the Step Summary renders batch metrics plus per-story results and clarification gaps.
+
+## Requirements Review POC Definition of Done
+
+The first Agentic QE slice is considered complete when the repository contains and tests the following behavior:
+
+- Jira retrieval / normalization;
+- configurable deterministic eligibility pre-check;
+- required Description / Acceptance Criteria presence checks;
+- minimal semantic Claude payload;
+- READY / NEEDS_CLARIFICATION contract;
+- blocking gaps and clarification questions;
+- token/cost telemetry;
+- content-hash reuse for unchanged requirements;
+- invalidation when semantic requirement content changes;
+- manual `force_review` bypass;
+- persistent GitHub Actions cache with serialized writes;
+- batch quality / cache / LLM / cost metrics;
+- documented orchestration and validation examples.
+
+## Explicitly outside this POC
+
+The following are downstream roadmap items, not unfinished Requirements Review work:
+
+- Risk Analysis Agent;
+- cross-document retrieval/RAG for Risk Analysis;
+- Test Generation Agent;
+- Jira write-back;
 - automatic Jira status-change execution;
 - scheduled queue processing;
-- duplicate/content-hash suppression between separate batches;
-- Jira write-back;
-- daily/weekly persistent cost aggregation across GitHub workflow runs;
-- downstream Risk Analysis or Test Design agents.
+- HITL promotion into governed datasets;
+- full multi-agent state orchestration.
 
-Those capabilities should be considered only after the manual batch flow has been validated on real Jira stories and its cost/quality behavior is understood.
-
-## Decision for now
-
-For the current POC, manual GitHub Actions batch execution is the control boundary:
+## Current control boundary
 
 ```text
-Jira status = eligible for review
-Manual GitHub Actions run = explicit permission to spend AI tokens
-Python pre-check = zero-cost eligibility gate
-Requirements Review Agent = semantic quality review
-Batch report = execution and cost evidence
+Jira status = eligibility
+Manual GitHub Actions run = permission to execute
+Python = deterministic control / cache / telemetry
+Claude = semantic Requirements Review
+Batch report = quality + execution + cost evidence
 ```
 
-This is intentionally a reversible POC choice rather than a final orchestration design.
+This remains a reversible POC orchestration choice; it is not presented as the final production trigger architecture.
