@@ -8,12 +8,24 @@ import httpx
 
 from jira_requirements import load_requirement
 from requirement_precheck import parse_issue_keys, precheck_requirement, validate_issue_key
-from requirements_review_agent import review_requirement
+from requirements_review_agent import PROMPT_PATH, review_requirement
+from requirements_review_cache import (
+    build_review_payload,
+    content_hash,
+    get_cached_review,
+    load_cache,
+    put_cached_review,
+    save_cache,
+)
 
 
 def _write_json(path: Path, payload: dict):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _is_true(name: str) -> bool:
+    return (os.getenv(name) or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _append_github_summary(batch: dict):
@@ -27,7 +39,8 @@ def _append_github_summary(batch: dict):
         "",
         f"**Run ID:** `{batch['run_id']}`  ",
         f"**Requested:** {totals['requested']}  ",
-        f"**Eligible / executed:** {totals['executed']}  ",
+        f"**Executed with LLM:** {totals['executed']}  ",
+        f"**Skipped unchanged (cache):** {totals['cached']}  ",
         f"**Rejected before LLM:** {totals['rejected']}  ",
         f"**Failed during execution:** {totals['failed']}  ",
         f"**Total tokens:** {totals['total_tokens']:,}  ",
@@ -39,6 +52,8 @@ def _append_github_summary(batch: dict):
     for item in batch["issues"]:
         precheck = item["precheck"]
         decision = item.get("decision") or item.get("error") or "-"
+        if item.get("cache_hit"):
+            decision = f"CACHED {decision}"
         tokens = item.get("total_tokens", 0)
         cost = item.get("estimated_cost_usd", 0.0)
         reason = "; ".join(item.get("rejection_reasons", []))
@@ -57,8 +72,14 @@ def run_batch(raw_issue_keys: str) -> dict:
     total_output = 0
     total_cost = 0.0
     executed = 0
+    cached = 0
     rejected = 0
     failed = 0
+
+    cache = load_cache()
+    force_review = _is_true("REQUIREMENTS_REVIEW_FORCE")
+    model = os.getenv("REQUIREMENTS_REVIEW_MODEL") or os.getenv("SUT_MODEL") or ""
+    prompt_text = PROMPT_PATH.read_text(encoding="utf-8")
 
     for issue_key in issue_keys:
         item = {"issue_key": issue_key, "precheck": "PENDING"}
@@ -92,13 +113,65 @@ def run_batch(raw_issue_keys: str) -> dict:
             continue
 
         item["precheck"] = "ELIGIBLE"
+        review_payload = build_review_payload(requirement)
+        fingerprint = content_hash(review_payload, model=model, prompt_text=prompt_text)
+        cached_entry = None if force_review else get_cached_review(cache, issue_key, fingerprint)
+
+        if cached_entry:
+            review = cached_entry["review"]
+            cached += 1
+            item.update(
+                cache_hit=True,
+                decision=review["decision"],
+                readiness_score=review["readiness_score"],
+                total_tokens=0,
+                estimated_cost_usd=0.0,
+                cached_from=cached_entry.get("reviewed_at"),
+                report=f"reports/requirements_review_{issue_key}.json",
+            )
+            _write_json(
+                Path(item["report"]),
+                {
+                    "run_timestamp": datetime.now(timezone.utc).isoformat(),
+                    "batch_run_id": run_id,
+                    "issue_key": issue_key,
+                    "cache_hit": True,
+                    "cached_from": cached_entry.get("reviewed_at"),
+                    "content_hash": fingerprint,
+                    "requirement": requirement,
+                    "review_payload": review_payload,
+                    "review": review,
+                    "telemetry": {
+                        "agent": "requirements_review",
+                        "model": cached_entry.get("model"),
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                        "total_tokens": 0,
+                        "estimated_cost_usd": 0.0,
+                        "cache_hit": True,
+                    },
+                },
+            )
+            issues.append(item)
+            continue
+
         try:
-            review, telemetry = review_requirement(requirement)
+            review, telemetry = review_requirement(review_payload)
             executed += 1
             total_input += telemetry["input_tokens"]
             total_output += telemetry["output_tokens"]
             total_cost += float(telemetry.get("estimated_cost_usd") or 0.0)
+            reviewed_at = datetime.now(timezone.utc).isoformat()
+            put_cached_review(
+                cache,
+                issue_key,
+                fingerprint,
+                review=review,
+                model=telemetry.get("model") or model,
+                reviewed_at=reviewed_at,
+            )
             item.update(
+                cache_hit=False,
                 decision=review["decision"],
                 readiness_score=review["readiness_score"],
                 total_tokens=telemetry["total_tokens"],
@@ -108,10 +181,13 @@ def run_batch(raw_issue_keys: str) -> dict:
             _write_json(
                 Path(item["report"]),
                 {
-                    "run_timestamp": datetime.now(timezone.utc).isoformat(),
+                    "run_timestamp": reviewed_at,
                     "batch_run_id": run_id,
                     "issue_key": issue_key,
+                    "cache_hit": False,
+                    "content_hash": fingerprint,
                     "requirement": requirement,
+                    "review_payload": review_payload,
                     "review": review,
                     "telemetry": telemetry,
                 },
@@ -121,13 +197,17 @@ def run_batch(raw_issue_keys: str) -> dict:
             item.update(error=f"agent execution failed: {exc}")
         issues.append(item)
 
+    save_cache(cache)
+
     batch = {
         "run_id": run_id,
         "run_timestamp": datetime.now(timezone.utc).isoformat(),
+        "force_review": force_review,
         "issues": issues,
         "totals": {
             "requested": len(issue_keys),
             "executed": executed,
+            "cached": cached,
             "rejected": rejected,
             "failed": failed,
             "input_tokens": total_input,
@@ -150,7 +230,8 @@ def main():
     totals = batch["totals"]
     print(f"Run ID: {batch['run_id']}")
     print(f"Requested: {totals['requested']}")
-    print(f"Executed: {totals['executed']}")
+    print(f"Executed with LLM: {totals['executed']}")
+    print(f"Skipped unchanged (cache): {totals['cached']}")
     print(f"Rejected before LLM: {totals['rejected']}")
     print(f"Failed during execution: {totals['failed']}")
     print(f"Usage: {totals['input_tokens']} input + {totals['output_tokens']} output = {totals['total_tokens']} tokens")
@@ -160,6 +241,8 @@ def main():
             print(f"{item['issue_key']}: REJECTED - {'; '.join(item['rejection_reasons'])}")
         elif item.get("error"):
             print(f"{item['issue_key']}: ERROR - {item['error']}")
+        elif item.get("cache_hit"):
+            print(f"{item['issue_key']}: CACHED {item['decision']} ({item['readiness_score']}/100) - 0 tokens")
         else:
             print(f"{item['issue_key']}: {item['decision']} ({item['readiness_score']}/100)")
 
