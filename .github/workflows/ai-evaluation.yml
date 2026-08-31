@@ -52,21 +52,53 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # ---------------------------------------------------------
+      # Dataset validation
+      # ---------------------------------------------------------
+
       - name: Validate PR Critical Dataset
         run: |
           python src/dataset_validator.py datasets/pr_critical_dataset.json
 
+      # ---------------------------------------------------------
+      # Standard PR Critical Evaluation
+      # ---------------------------------------------------------
+
       - name: Run PR Critical Evaluation
         run: |
-          python src/evaluation_runner.py --dataset datasets/pr_critical_dataset.json --output reports/pr_critical_results.json
+          python src/evaluation_runner.py \
+            --dataset datasets/pr_critical_dataset.json \
+            --output reports/pr_critical_results.json
 
       - name: Evaluate PR Critical Dataset
         run: |
-          python src/evaluator.py --input reports/pr_critical_results.json --output reports/pr_critical_evaluated.json
+          python src/evaluator.py \
+            --input reports/pr_critical_results.json \
+            --output reports/pr_critical_evaluated.json
 
       - name: PR Critical Quality Gate
         run: |
-          python src/quality_gate.py --report reports/pr_critical_evaluated.json
+          python src/quality_gate.py \
+            --report reports/pr_critical_evaluated.json
+
+      # ---------------------------------------------------------
+      # Metamorphic PR Critical Evaluation
+      # ---------------------------------------------------------
+
+      - name: Run Metamorphic Critical Evaluation
+        run: |
+          python src/metamorphic_runner.py \
+            --dataset datasets/pr_critical_dataset.json \
+            --output reports/metamorphic_results.json
+
+      - name: Metamorphic Critical Quality Gate
+        run: |
+          python src/metamorphic_gate.py \
+            --report reports/metamorphic_results.json
+
+      # ---------------------------------------------------------
+      # Reports
+      # ---------------------------------------------------------
 
       - name: Upload evaluation reports
         if: always()
