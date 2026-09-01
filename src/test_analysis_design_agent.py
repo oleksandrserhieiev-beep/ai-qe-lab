@@ -44,6 +44,73 @@ def _extract_json(text: str) -> dict:
         raise ValueError("Test Analysis & Design Agent returned truncated or malformed JSON") from exc
 
 
+def _normalise_enum(value, mapping: dict[str, str]):
+    if value is None:
+        return value
+    key = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    return mapping.get(key, value)
+
+
+def _normalise_contract(raw: dict, issue_key: str) -> dict:
+    data = dict(raw)
+    data.setdefault("issue_key", issue_key)
+    data.setdefault("health_findings", [])
+    data.setdefault("coverage_gaps", [])
+    data.setdefault("proposals", [])
+    data.setdefault("human_decision_required", True)
+
+    normalised = []
+    for index, original in enumerate(data.get("proposals") or [], start=1):
+        proposal = dict(original)
+        proposal["proposed_id"] = proposal.get("proposed_id") or proposal.get("proposal_id") or f"{issue_key}-P{index}"
+        proposal["title"] = proposal.get("title") or proposal.get("name") or proposal.get("test_title") or f"Proposed test {index}"
+        proposal["test_kind"] = _normalise_enum(
+            proposal.get("test_kind") or proposal.get("test_type") or proposal.get("kind") or "functional",
+            {"functional": "functional", "ai": "ai", "ai_specific": "ai"},
+        )
+        trace = dict(proposal.get("traceability") or {})
+        trace["issue_key"] = trace.get("issue_key") or trace.get("jira_issue") or trace.get("requirement") or issue_key
+        trace["acceptance_criteria"] = trace.get("acceptance_criteria") or trace.get("ac") or []
+        trace["risk_ids"] = trace.get("risk_ids") or trace.get("risks") or []
+        proposal["traceability"] = trace
+        proposal["oracle_type"] = _normalise_enum(
+            proposal.get("oracle_type") or proposal.get("oracle") or "semantic",
+            {"deterministic": "deterministic", "semantic": "semantic", "semantic_llm": "semantic", "llm": "semantic"},
+        )
+        proposal["target_suite"] = _normalise_enum(
+            proposal.get("target_suite") or proposal.get("target") or "regression",
+            {
+                "pr_critical": "pr_critical",
+                "prcritical": "pr_critical",
+                "regression": "regression",
+                "nightly": "nightly",
+                "golden": "golden_candidate",
+                "golden_candidate": "golden_candidate",
+            },
+        )
+        proposal["target_rationale"] = proposal.get("target_rationale") or proposal.get("rationale") or proposal.get("reason") or "Agent-proposed target based on coverage and risk context."
+        proposal["action"] = str(proposal.get("action") or "ADD").strip().upper()
+        proposal["input"] = proposal.get("input") or proposal.get("test_input") or proposal.get("query") or {}
+        if not isinstance(proposal["input"], dict):
+            proposal["input"] = {"query": proposal["input"]}
+        proposal["expected"] = proposal.get("expected") or proposal.get("expected_output") or proposal.get("expected_behavior") or {}
+        if not isinstance(proposal["expected"], dict):
+            proposal["expected"] = {"behavior": proposal["expected"]}
+        similar_cases = []
+        for similar in proposal.get("similar_cases") or []:
+            item = dict(similar)
+            item["case_id"] = item.get("case_id") or item.get("existing_case_id") or item.get("id")
+            item["similarity_score"] = item.get("similarity_score", item.get("similarity", 0.0))
+            item["coverage_note"] = item.get("coverage_note") or item.get("note") or item.get("rationale") or "Similar existing coverage."
+            similar_cases.append(item)
+        proposal["similar_cases"] = similar_cases
+        proposal.setdefault("existing_case_id", None)
+        proposal.setdefault("proposed_extension", None)
+        normalised.append(proposal)
+    data["proposals"] = normalised
+    return data
+
+
 def _response_text(response) -> str:
     return "".join(block.text for block in response.content if block.type == "text")
 
@@ -66,7 +133,8 @@ def analyze_test_design(payload: dict) -> tuple[dict, dict]:
         try:
             if response.stop_reason == "max_tokens":
                 raise ValueError(f"response was truncated at max_tokens={max_tokens}")
-            result = TestAnalysisDesignResult.model_validate(_extract_json(text)).model_dump()
+            raw = _extract_json(text)
+            result = TestAnalysisDesignResult.model_validate(_normalise_contract(raw, payload["issue_key"])).model_dump()
             if result["issue_key"] != payload["issue_key"]:
                 raise ValueError("output issue_key does not match input")
             break
@@ -74,10 +142,9 @@ def analyze_test_design(payload: dict) -> tuple[dict, dict]:
             last_error = exc
             if attempt == 2:
                 raise ValueError(f"Test Analysis & Design contract failure after retry: {exc}") from exc
-            # Retry from the original input instead of feeding a truncated assistant JSON back.
             messages = [{
                 "role": "user",
-                "content": base_message + "\nPrevious attempt failed because its output was truncated or invalid. Return a smaller complete JSON object. Generate only material proposals; use concise strings and never reproduce full existing dataset records.",
+                "content": base_message + "\nPrevious attempt failed contract validation. Return a smaller complete JSON object using the exact field names and enum literals from the system instruction. Generate only material proposals; never reproduce full existing dataset records.",
             }]
     if result is None:
         raise ValueError(f"Test Analysis & Design did not produce a result: {last_error}")
