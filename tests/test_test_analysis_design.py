@@ -21,6 +21,8 @@ def test_functional_proposal_requires_steps_but_not_dataset_fields():
         traceability={"issue_key": "SCRUM-7", "acceptance_criteria": ["AC-1"], "risk_ids": ["R1"]},
         steps=["Submit a budget-constrained request", "Process a product with missing price"],
         expected={"behavior": "Product is not treated as satisfying the budget"},
+        priority="HIGH",
+        estimated_manual_minutes=4,
     )
     assert proposal.steps
     assert proposal.oracle_type is None
@@ -35,6 +37,8 @@ def test_functional_proposal_rejects_missing_steps():
             test_kind="functional",
             traceability={"issue_key": "SCRUM-7", "acceptance_criteria": ["AC-1"], "risk_ids": ["R1"]},
             expected={"behavior": "Expected result"},
+            priority="MEDIUM",
+            estimated_manual_minutes=3,
         )
 
 
@@ -50,6 +54,8 @@ def test_extend_existing_requires_before_after_contract():
         action="EXTEND_EXISTING",
         input={"query": "recommend a jacket"},
         expected={"grounded": True},
+        priority="HIGH",
+        estimated_manual_minutes=3,
         similar_cases=[{"case_id": "AI-043", "similarity_score": 0.68, "coverage_note": "Same grounding intent; missing insufficient-context branch."}],
         existing_case_id="AI-043",
         proposed_extension={"add_expected_behavior": "refuse unsupported recommendation when context is insufficient"},
