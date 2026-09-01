@@ -9,7 +9,7 @@ from cost_reporting import estimate_cost
 from test_analysis_design import TestAnalysisDesignResult
 
 PROMPT_PATH = Path(__file__).resolve().parents[1] / "config" / "test_analysis_design_prompt.txt"
-MAX_TOKENS = 6000
+MAX_TOKENS = 9000
 
 
 def _configuration() -> tuple[str, str]:
