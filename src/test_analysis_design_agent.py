@@ -70,6 +70,9 @@ def _normalise_contract(raw: dict, issue_key: str) -> dict:
     normalised = []
     for index, original in enumerate(data.get("proposals") or [], start=1):
         proposal = dict(original)
+        proposal.pop("assertions", None)
+        proposal.pop("checks", None)
+        proposal.pop("verification", None)
         proposal["proposed_id"] = proposal.get("proposed_id") or proposal.get("proposal_id") or f"{issue_key}-P{index}"
         proposal["title"] = proposal.get("title") or proposal.get("name") or proposal.get("test_title") or f"Proposed test {index}"
         proposal["test_kind"] = _normalise_enum(
@@ -83,7 +86,6 @@ def _normalise_contract(raw: dict, issue_key: str) -> dict:
         proposal["traceability"] = trace
 
         proposal["preconditions"] = _as_list(proposal.get("preconditions") or proposal.get("setup") or proposal.get("test_data"))
-        proposal["assertions"] = _as_list(proposal.get("assertions") or proposal.get("checks") or proposal.get("verification"))
         proposal["priority"] = _normalise_enum(
             proposal.get("priority") or proposal.get("test_priority"),
             {"critical": "CRITICAL", "high": "HIGH", "medium": "MEDIUM", "low": "LOW"},
@@ -147,7 +149,7 @@ def analyze_test_design(payload: dict) -> tuple[dict, dict]:
     prompt = PROMPT_PATH.read_text(encoding="utf-8")
     client = Anthropic(api_key=api_key)
     compact = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-    base_message = "Analyze this requirement, reviewed Risk Register, and governed dataset snapshot. Optimize for the smallest risk-driven test set with concrete preconditions/assertions, explicit traceability, explainable similarity, priority, suite rationale, and manual-time estimate. Return one complete compact JSON object matching the TestAnalysisDesignResult contract only. Do not echo the dataset snapshot or Jira text.\n" + compact
+    base_message = "Analyze this requirement, reviewed Risk Register, and governed dataset snapshot. Optimize for the smallest risk-driven test set with concrete preconditions, steps/input, expected behavior, explicit traceability, explainable similarity, priority, suite rationale, and manual-time estimate. Return one complete compact JSON object matching the TestAnalysisDesignResult contract only. Do not echo the dataset snapshot or Jira text.\n" + compact
     messages = [{"role": "user", "content": base_message}]
     responses = []
     started = time.perf_counter()
@@ -171,7 +173,7 @@ def analyze_test_design(payload: dict) -> tuple[dict, dict]:
                 raise ValueError(f"Test Analysis & Design contract failure after retry: {exc}") from exc
             messages = [{
                 "role": "user",
-                "content": base_message + "\nPrevious attempt failed contract validation. Return a smaller complete JSON object using the exact conditional fields from the system instruction. Every proposal requires traceability, concrete assertions, priority, and estimated_manual_minutes. Functional also requires steps. AI also requires input/oracle/target/action/target_rationale.",
+                "content": base_message + "\nPrevious attempt failed contract validation. Return a smaller complete JSON object using the exact conditional fields from the system instruction. Every proposal requires traceability, expected behavior, priority, and estimated_manual_minutes. Functional also requires steps. AI also requires input/oracle/target/action/target_rationale.",
             }]
     if result is None:
         raise ValueError(f"Test Analysis & Design did not produce a result: {last_error}")
