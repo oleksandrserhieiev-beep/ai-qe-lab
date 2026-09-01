@@ -6,13 +6,15 @@ from pathlib import Path
 
 import httpx
 
+from agent_content_cache import fingerprint, get_cached, load_cache, put_cached, save_cache
 from jira_requirements import load_requirement
 from requirement_precheck import parse_issue_keys, validate_issue_key
-from risk_analysis_agent import analyze_risks, build_risk_analysis_input
+from risk_analysis_agent import PROMPT_PATH, analyze_risks, build_risk_analysis_input
 
 
 STATE_PATH = Path("reports/risk_analysis_batch_state.json")
 REPORT_PATH = Path("reports/risk_analysis_batch.json")
+DEFAULT_CACHE_PATH = Path(".cache/risk-analysis/cache.json")
 DEFAULT_REVIEW_LABEL = "review-completed"
 
 
@@ -27,6 +29,19 @@ def _read_json(path: Path) -> dict:
 
 def _review_label() -> str:
     return (os.getenv("JIRA_REVIEW_COMPLETED_LABEL") or DEFAULT_REVIEW_LABEL).strip()
+
+
+def _cache_path() -> Path:
+    configured = (os.getenv("RISK_ANALYSIS_CACHE_PATH") or "").strip()
+    return Path(configured) if configured else DEFAULT_CACHE_PATH
+
+
+def _force_analysis() -> bool:
+    return (os.getenv("RISK_ANALYSIS_FORCE") or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _model() -> str:
+    return (os.getenv("RISK_ANALYSIS_MODEL") or os.getenv("REQUIREMENTS_REVIEW_MODEL") or os.getenv("SUT_MODEL") or "").strip()
 
 
 def eligibility_reasons(requirement: dict, review_label: str | None = None) -> list[str]:
@@ -132,6 +147,12 @@ def analyze() -> dict:
     results = []
     total_tokens = 0
     total_cost = 0.0
+    cache_hits = 0
+    llm_attempts = 0
+    cache = load_cache(_cache_path())
+    force = _force_analysis()
+    model = _model()
+    prompt_text = PROMPT_PATH.read_text(encoding="utf-8")
 
     for requirement in state.get("eligible_requirements", []):
         issue_key = requirement["issue_key"]
@@ -140,18 +161,67 @@ def analyze() -> dict:
                 requirement,
                 {"decision": "READY", "known_constraints": [], "dependencies": []},
             )
+            content_hash = fingerprint(
+                agent="risk_analysis",
+                semantic_input=payload,
+                model=model,
+                prompt_text=prompt_text,
+            )
+            cached_entry = None if force else get_cached(cache, issue_key, content_hash)
+            if cached_entry:
+                cache_hits += 1
+                results.append({
+                    "issue_key": issue_key,
+                    "status": "CACHED",
+                    "cache_hit": True,
+                    "content_hash": content_hash,
+                    "cached_from": cached_entry.get("created_at"),
+                    "result": cached_entry["result"],
+                    "telemetry": {
+                        "agent": "risk_analysis",
+                        "model": cached_entry.get("model") or model,
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                        "total_tokens": 0,
+                        "estimated_cost_usd": 0.0,
+                        "cache_hit": True,
+                    },
+                })
+                continue
+
+            llm_attempts += 1
             result, telemetry = analyze_risks(payload)
             total_tokens += int(telemetry.get("total_tokens") or 0)
             total_cost += float(telemetry.get("estimated_cost_usd") or 0.0)
-            results.append({"issue_key": issue_key, "status": "ANALYZED", "result": result, "telemetry": telemetry})
+            created_at = datetime.now(timezone.utc).isoformat()
+            put_cached(
+                cache,
+                issue_key,
+                content_hash,
+                result=result,
+                model=telemetry.get("model") or model,
+                created_at=created_at,
+            )
+            results.append({
+                "issue_key": issue_key,
+                "status": "ANALYZED",
+                "cache_hit": False,
+                "content_hash": content_hash,
+                "result": result,
+                "telemetry": telemetry,
+            })
         except Exception as exc:
-            results.append({"issue_key": issue_key, "status": "ERROR", "error": str(exc)})
+            results.append({"issue_key": issue_key, "status": "ERROR", "cache_hit": False, "error": str(exc)})
 
+    save_cache(cache, _cache_path())
     report = {
         "run_timestamp": datetime.now(timezone.utc).isoformat(),
+        "force_analysis": force,
         "requested": state["requested"],
         "eligible": state["eligible"],
         "analyzed": sum(1 for item in results if item["status"] == "ANALYZED"),
+        "cached": cache_hits,
+        "llm_attempts": llm_attempts,
         "failed": sum(1 for item in results if item["status"] == "ERROR"),
         "total_tokens": total_tokens,
         "estimated_cost_usd": round(total_cost, 6),
@@ -160,17 +230,29 @@ def analyze() -> dict:
     }
     _write_json(REPORT_PATH, report)
 
+    _append_summary([
+        "## Risk Analysis — Execution",
+        "",
+        f"**Fresh LLM analyses:** {report['analyzed']} | **Cache hits:** {report['cached']} | **LLM attempts:** {report['llm_attempts']} | **Failed:** {report['failed']}",
+        f"**Force analysis:** {'yes' if force else 'no'} | **Actual tokens this run:** {total_tokens:,} | **Estimated cost:** ${report['estimated_cost_usd']:.6f}",
+        "",
+        "Unchanged ticket semantic content + unchanged Risk Agent prompt + unchanged model reuses cached output and spends 0 LLM tokens.",
+    ])
+
     if not results:
         print("No eligible tickets for Risk Analysis. LLM execution skipped.")
     else:
-        print(f"Risk Analysis completed: {report['analyzed']} analyzed, {report['failed']} failed")
+        print(
+            f"Risk Analysis completed: {report['analyzed']} fresh, {report['cached']} cached, "
+            f"{report['failed']} failed, {report['total_tokens']} actual tokens"
+        )
     return report
 
 
 def _risk_rows(report: dict) -> list[dict]:
     rows = []
     for item in report.get("results", []):
-        if item.get("status") != "ANALYZED":
+        if item.get("status") not in {"ANALYZED", "CACHED"}:
             continue
         for risk in item["result"].get("risks", []):
             rows.append({"issue_key": item["issue_key"], **risk})
@@ -221,7 +303,7 @@ def render_prioritized() -> None:
         "",
         "**Human review required:** this register is a decision-support output. A person reviews the generated risks before deciding what to do next.",
         "",
-        f"**LLM usage:** {report.get('total_tokens', 0):,} tokens | **Estimated cost:** ${report.get('estimated_cost_usd', 0.0):.6f}",
+        f"**LLM usage this run:** {report.get('total_tokens', 0):,} tokens | **Estimated cost:** ${report.get('estimated_cost_usd', 0.0):.6f} | **Cache hits:** {report.get('cached', 0)}",
     ])
     print(f"Prioritized Risk Register contains {len(rows)} risks, sorted by Risk Score descending.")
 
