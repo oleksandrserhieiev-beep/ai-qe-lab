@@ -19,9 +19,13 @@ on:
       - src/agent_content_cache.py
       - src/risk_analysis_agent.py
       - src/run_risk_analysis_batch.py
+      - src/test_analysis_design.py
+      - src/test_analysis_design_cache.py
       - tests/test_agent_content_cache.py
       - tests/test_risk_analysis_agent.py
       - tests/test_risk_analysis_execution.py
+      - tests/test_test_analysis_design.py
+      - docs/test_analysis_design_agent.md
       - .github/workflows/risk-analysis-agent.yml
       - requirements-dev.txt
       - pytest.ini
@@ -47,7 +51,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
       - name: Contract tests
-        run: python -m pytest -q tests/test_agent_content_cache.py tests/test_risk_analysis_agent.py tests/test_risk_analysis_execution.py
+        run: python -m pytest -q tests/test_agent_content_cache.py tests/test_risk_analysis_agent.py tests/test_risk_analysis_execution.py tests/test_test_analysis_design.py
 
   run-risk-analysis:
     if: github.event_name == 'workflow_dispatch'
@@ -64,23 +68,19 @@ jobs:
       RISK_ANALYSIS_CACHE_PATH: .cache/risk-analysis/cache.json
       RISK_ANALYSIS_FORCE: ${{ inputs.force_analysis }}
       ISSUE_KEYS: ${{ inputs.issue_keys }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements.txt
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
       - name: Restore Risk Analysis content cache
         uses: actions/cache/restore@v4
         with:
@@ -88,7 +88,6 @@ jobs:
           key: risk-analysis-cache-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             risk-analysis-cache-
-
       - name: Validate ticket input
         run: |
           if [ -z "$(echo "$ISSUE_KEYS" | tr -d '[:space:],;')" ]; then
@@ -96,26 +95,20 @@ jobs:
             exit 1
           fi
           echo "Risk Analysis Agent batch: $ISSUE_KEYS"
-
       - name: Eligibility check
         run: python src/run_risk_analysis_batch.py check "$ISSUE_KEYS"
-
       - name: Analyze eligible tickets
         run: python src/run_risk_analysis_batch.py analyze
-
       - name: Likelihood × Impact scoring
         run: python src/run_risk_analysis_batch.py scores
-
       - name: Prioritized risk table
         run: python src/run_risk_analysis_batch.py prioritized
-
       - name: Save Risk Analysis content cache
         if: always()
         uses: actions/cache/save@v4
         with:
           path: .cache/risk-analysis
           key: risk-analysis-cache-${{ github.run_id }}-${{ github.run_attempt }}
-
       - name: Upload Risk Analysis reports
         if: always()
         uses: actions/upload-artifact@v4
