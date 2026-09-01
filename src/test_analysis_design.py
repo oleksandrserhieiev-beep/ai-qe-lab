@@ -69,7 +69,11 @@ def dataset_health_check(records: list[dict], required_fields: set[str]) -> list
     seen_ids: set[str] = set()
     for index, record in enumerate(records):
         record_id = str(record.get("id") or "").strip() or None
-        missing = sorted(field for field in required_fields if not record.get(field))
+        missing = sorted(
+            field
+            for field in required_fields
+            if field not in record or record[field] is None or (isinstance(record[field], str) and not record[field].strip())
+        )
         if missing:
             findings.append(DatasetHealthFinding(severity="ERROR", code="MISSING_REQUIRED_FIELDS", message=f"Missing required fields: {', '.join(missing)}", dataset="evaluation", record_id=record_id or f"row-{index + 1}"))
         if record_id:
