@@ -7,17 +7,28 @@ on:
         description: "Jira issue keys (one or many; comma, space, or semicolon separated)"
         required: true
         type: string
+      force_analysis:
+        description: "Ignore unchanged-content cache and run the LLM again"
+        required: false
+        default: false
+        type: boolean
   pull_request:
     branches: [main]
     paths:
       - config/risk_analysis_prompt.txt
+      - src/agent_content_cache.py
       - src/risk_analysis_agent.py
       - src/run_risk_analysis_batch.py
+      - tests/test_agent_content_cache.py
       - tests/test_risk_analysis_agent.py
       - tests/test_risk_analysis_execution.py
       - .github/workflows/risk-analysis-agent.yml
       - requirements-dev.txt
       - pytest.ini
+
+concurrency:
+  group: risk-analysis-cache
+  cancel-in-progress: false
 
 jobs:
   contract-tests:
@@ -36,7 +47,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
       - name: Contract tests
-        run: python -m pytest -q tests/test_risk_analysis_agent.py tests/test_risk_analysis_execution.py
+        run: python -m pytest -q tests/test_agent_content_cache.py tests/test_risk_analysis_agent.py tests/test_risk_analysis_execution.py
 
   run-risk-analysis:
     if: github.event_name == 'workflow_dispatch'
@@ -50,6 +61,8 @@ jobs:
       JIRA_ACCEPTANCE_CRITERIA_FIELD: ${{ vars.JIRA_ACCEPTANCE_CRITERIA_FIELD }}
       JIRA_REVIEW_COMPLETED_LABEL: ${{ vars.JIRA_REVIEW_COMPLETED_LABEL || 'review-completed' }}
       RISK_ANALYSIS_MODEL: ${{ vars.RISK_ANALYSIS_MODEL || vars.REQUIREMENTS_REVIEW_MODEL }}
+      RISK_ANALYSIS_CACHE_PATH: .cache/risk-analysis/cache.json
+      RISK_ANALYSIS_FORCE: ${{ inputs.force_analysis }}
       ISSUE_KEYS: ${{ inputs.issue_keys }}
 
     steps:
@@ -67,6 +80,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Restore Risk Analysis content cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/risk-analysis
+          key: risk-analysis-cache-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            risk-analysis-cache-
 
       - name: Validate ticket input
         run: |
@@ -87,6 +108,13 @@ jobs:
 
       - name: Prioritized risk table
         run: python src/run_risk_analysis_batch.py prioritized
+
+      - name: Save Risk Analysis content cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/risk-analysis
+          key: risk-analysis-cache-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload Risk Analysis reports
         if: always()
