@@ -37,7 +37,6 @@ class TestProposal(BaseModel):
     traceability: Traceability
     preconditions: list[str] = []
     steps: list[str] = []
-    assertions: list[str] = Field(min_length=1)
     input: dict | None = None
     expected: dict
     priority: TestPriority
