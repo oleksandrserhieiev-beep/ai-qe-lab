@@ -43,7 +43,8 @@ class RiskItem(BaseModel):
     priority: RiskLevel = "low"
     rationale: str = Field(min_length=1)
     evidence: list[str] = []
-    recommended_test_focus: list[str] = []
+    mitigation: list[str] = Field(min_length=1)
+    recommended_test_focus: list[str] = Field(min_length=1)
 
     @model_validator(mode="after")
     def calculate_score_and_priority(self):
