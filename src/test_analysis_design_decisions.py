@@ -15,6 +15,8 @@ def build_decision_package(report: dict) -> dict:
             continue
         issue_key = item["issue_key"]
         for proposal in item.get("result", {}).get("proposals", []):
+            if proposal.get("test_kind") != "ai":
+                continue
             rows.append({
                 "issue_key": issue_key,
                 "proposed_id": proposal["proposed_id"],
