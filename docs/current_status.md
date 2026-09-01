@@ -1,271 +1,110 @@
 # Current Evaluation and Agentic QE Status
 
-## Implemented downstream QE framework
+_Last synchronized with repository: 2026-09-01._
 
-- Shopping RAG Assistant reference SUT with deterministic constraint extraction/validation, structured filtering, FAISS retrieval, adaptive context selection and Claude generation.
-- Deterministic clarification, no-product-match, deterministic catalogue routing and no-context abstention paths that can skip Claude where applicable.
-- Governed Golden, PR Critical, Regression, Nightly and Adversarial datasets/assets.
-- Dataset/Oracle Validation as the first technical stage before active SUT/Judge model execution where applicable.
-- Deterministic Python assertions plus semantic LLM Judge evaluation.
-- Version-controlled Judge model/prompt/rubric configuration; current semantic prompt contract is `v2`.
-- Semantic Judge PASS/FAIL verdicts require a short non-empty rationale; missing `reason` is an evaluator contract violation.
-- Human-reviewed 8-case Judge Calibration Dataset and OLD-vs-NEW calibration gate.
-- Golden Dataset Governance check requiring Change Reason + Source of Truth.
-- AI-risk/metric aggregation, quality gates, telemetry and failure localization.
-- Standard PR Critical automatic merge gate over 10 standard cases.
-- Metamorphic Critical evaluation integrated into the PR path using 2 dedicated META records and deterministic relation checks over base/transformed invocations.
-- Manual Back-to-Back model comparison reusing the same 10 standard PR Critical cases for Model A and Model B, with evaluated quality deltas, case regressions, latency and token telemetry.
-- Regression, broad Nightly and Release Validation manual workflows.
-- Dedicated Adversarial workflow with a governed 10-case attack dataset, manual + nightly schedule, Attack Success Rate, category breakdown and critical adversarial gate.
+## Downstream QE framework — implemented
 
-## Current downstream execution model
+The Shopping RAG Assistant remains the executable reference SUT. The implemented QE framework includes deterministic constraint handling, FAISS retrieval, adaptive context selection, Claude generation, Dataset/Oracle Validation, deterministic Python assertions, semantic LLM Judge evaluation, metrics/risk aggregation, failure localization, telemetry, quality gates, Judge Calibration, Golden Governance, Metamorphic, Back-to-Back and Adversarial testing.
+
+Current execution inventory:
 
 ```text
-PR
-├─ Standard Critical Evaluation     = 10 standard cases
-└─ Metamorphic Critical Evaluation  = 2 META records
-
-Manual comparison
-└─ Back-to-Back Model A vs Model B  = reuse 10 standard Critical cases
-
-Scheduled / manual
-└─ Adversarial Evaluation           = separate 10-case dataset
-
-Other lifecycle suites
-├─ Regression           = 15 cases, manual
-├─ Broad Nightly        = 80 cases, manual
-└─ Release Validation   = 35 Golden + broad Nightly evidence, manual
-```
-
-Core governed suite execution remains:
-
-```text
-Selected Governed Suite
-→ Dataset / Oracle Validation
-→ SUT Execution
-→ Evaluation
-   ├─ deterministic Python
-   └─ semantic LLM Judge
-→ Metrics / Risk Aggregation
-→ Quality Gate
-→ PASS / FAIL + Evidence
-→ Lifecycle Decision
-```
-
-Metamorphic, Back-to-Back and Adversarial are specialized AI-testing workflows around this core execution model rather than replacements for it.
-
-## Current evaluation/test-asset inventory
-
-```text
-Standard routine SUT inventory
 PR Critical standard = 10 (6 deterministic / 4 semantic)
-Regression           = 15 (7 deterministic / 8 semantic)
-Broad Nightly        = 80 (48 deterministic / 32 semantic)
-Total                = 105 (61 deterministic / 44 semantic)
-
-Separate / technique-specific / governance assets
-Metamorphic Critical = 2 META records in pr_critical_dataset.json
-Adversarial          = 10 cases in adversarial_dataset.json
+Metamorphic Critical = 2 META records
+Regression           = 15 (manual)
+Broad Nightly        = 80 (manual)
 Golden               = 35 canonical cases
-Judge Calibration    = 8 evaluator cases
-Back-to-Back         = no separate dataset; reuses 10 standard Critical cases
+Adversarial          = 10 (manual + nightly schedule)
+Judge Calibration    = 8
+Back-to-Back         = reuses 10 standard PR Critical cases
 ```
 
-## AI-specific test techniques
+Broad Regression and Broad Nightly product schedules remain intentionally paused. Release Validation is manual.
 
-### Metamorphic Testing — implemented
+## Upstream Agentic QE — implemented state
 
-Current PR Critical dataset contains two explicit metamorphic records. Each runs a base and transformed query and checks a governed invariant using a deterministic relation Oracle. Current relations cover paraphrase invariance and irrelevant-noise invariance for critical policy facts.
-
-### Back-to-Back Testing — implemented
-
-The `Back-to-Back Model Comparison` workflow is manual. It runs the same 10 non-metamorphic standard PR Critical cases against two selected generation models, evaluates both outputs through the existing evaluator and produces:
-
-- overall pass-rate delta;
-- correctness, groundedness, retrieval-hit, constraint-adherence and hallucination deltas;
-- improved / regressed / unchanged case counts;
-- critical regressions;
-- average and p95 latency;
-- input/output/total token usage.
-
-### Adversarial Testing — implemented
-
-The dedicated adversarial flow is based on `docs/adversarial_testing_contract.md` and uses 10 governed cases across:
-
-- business-policy override;
-- instruction override;
-- unsupported-claim forcing;
-- prompt/system leakage;
-- malicious/conflicting retrieved content;
-- hard-constraint bypass.
-
-The flow reuses the standard SUT runner and evaluator, then adds adversarial-specific aggregation:
-
-```text
-Adversarial Dataset
-→ Dataset Validation
-→ SUT Execution
-→ Existing Evaluator
-→ Adversarial Summary
-   ├─ Adversarial Pass Rate
-   ├─ Attack Success Rate
-   ├─ Category Breakdown
-   └─ Critical Failure Count
-→ Adversarial Gate
-→ Artifact / Step Summary
-```
-
-Drift testing is intentionally excluded from the current roadmap.
-
-## Implemented upstream Agentic QE slice — Requirements Review
-
-The first complete agentic component is the read-only Requirements Review Agent.
-
-Current implemented flow:
-
-```text
-Manual GitHub Actions batch
-→ Jira retrieval
-→ deterministic Python eligibility pre-check
-   ├─ reject → 0 LLM tokens
-   └─ eligible
-       ↓
-minimal semantic payload
-       ↓
-content fingerprint
-       ↓
-cache / force-review decision
-   ├─ matching cache → reuse → 0 LLM tokens
-   └─ fresh review → Claude
-       ↓
-READY / NEEDS_CLARIFICATION
-       ↓
-blocking gaps / clarification questions
-       ↓
-batch quality + cache + token + cost metrics
-```
-
-Implemented controls include:
-
-- issue/project/status/Description/Acceptance Criteria pre-checks before Claude;
-- minimal semantic payload: issue key, summary, description, acceptance criteria and components;
-- structured READY / NEEDS_CLARIFICATION contract;
-- blocking-gap clarification evidence;
-- compact prompt/output budgets and malformed-JSON retry;
-- persistent content-hash cache;
-- invalidation when Summary / Description / Acceptance Criteria / Components, model or prompt changes;
-- manual `force_review=true` cache bypass;
-- serialized GitHub cache persistence;
-- batch quality/efficiency/cost metrics: requested, eligible, rejected, READY, NEEDS_CLARIFICATION, cache hits, LLM attempts, cache hit rate, LLM execution rate, avoided LLM calls, tokens and actual estimated cost.
-
-Detailed orchestration and sequence diagrams: `docs/agentic_qe_orchestration.md`.  
-Manual operating/validation instructions: `docs/manual_requirements_review_poc.md`.
-
-## Target Agentic QE architecture
-
-The master architecture intentionally keeps the full target flow even though implementation is incremental:
-
-```text
-Jira / Confluence
-→ Requirements Review
-→ Risk Analysis
-→ targeted evidence retrieval where needed
-→ Human Governance
-→ Test Analysis & Design
-→ Proposed Test / Evaluation Assets
-→ Human Review / Approval
-→ Governed Test Assets
-→ downstream CI/CD Quality Execution
-```
-
-`Governed Test Assets` are approved artifacts, not an agent. Human Governance / Approval is the promotion boundary. Dataset/Oracle Validation is a later runtime/execution-precondition check.
-
-## Current CI execution state
-
-```text
-Standard PR Critical = automatic merge gate
-Metamorphic Critical = automatic PR validation
-Back-to-Back         = manual Model A vs Model B comparison
-Adversarial          = manual + nightly scheduled hostile-input evaluation
-Regression           = manual-only
-Broad Nightly        = manual-only
-Release Validation   = manual-only: Golden + broad Nightly + Release Quality Gate
-Judge Calibration    = automatic for Judge/calibration behavior changes + manual
-Golden Governance    = automatic for Golden dataset/check/workflow changes
-Requirements Review  = manual batch execution
-```
-
-The broad Regression/Nightly product-evaluation schedules remain intentionally paused while the POC baseline is stable. The dedicated Adversarial suite is intentionally scheduled separately because it has its own attack taxonomy, metrics and gate.
-
-## Governance boundaries
-
-```text
-Proposed test/evaluation asset
-→ Human Review / Approval
-→ Governed Test Asset
-
-Selected governed suite
-→ Dataset / Oracle Validation
-→ SUT Execution
-→ Evaluation
-→ Metrics / Risk Aggregation
-→ Product Quality Gate
-
-Judge behavior change
-→ OLD vs NEW Judge
-→ Human Calibration Truth
-→ Judge Calibration Gate
-
-Golden truth change
-→ Change Reason + Source of Truth
-→ Golden Governance Check
-
-Jira requirement
-→ deterministic eligibility
-→ Requirements Review Agent
-→ READY / NEEDS_CLARIFICATION
-→ cache / cost / batch evidence
-```
-
-These are separate controls. Human test-asset approval governs promotion. Dataset/Oracle Validation governs execution eligibility under the implemented contract. Requirements Review creates upstream quality evidence; it does not replace independent product evaluation, Judge calibration, Golden governance or release accountability.
-
-## Current implementation maturity
-
-Requirements Review is implemented and runnable. Risk Analysis currently has its contract/skeleton and validation tests, while LLM execution/retrieval orchestration remains a later implementation slice. Test Analysis & Design, governed dataset promotion and full multi-agent state orchestration remain target architecture.
-
-## Next phase
-
-The target Agentic QE continuation remains:
+The upstream flow is no longer Requirements-Review-only.
 
 ```text
 Jira Requirement
-→ Requirements Review
-   ├─ NEEDS_CLARIFICATION → requirement clarification → re-review
-   └─ READY
-        ↓
-Risk Analysis Agent
-        ↓
-Targeted retrieval/RAG where cross-document evidence is needed
-        ↓
-Test Analysis & Design Agent
-        ↓
-Proposed Test / Evaluation Assets
-        ↓
-Human Governance / Approval
-        ↓
-Governed Test Assets
-        ↓
-Dataset / Oracle Validation
-        ↓
-SUT Execution
-        ↓
-Evaluation
-        ↓
-Metrics / Risk Aggregation
-        ↓
-Quality Gate
-        ↓
-Regression / Release Evidence
+→ Requirements Review Agent
+→ human readiness boundary / review-completed
+→ Risk Analysis Agent
+→ Prioritized Risk Register
+→ human approval
+→ approved Risk Register appended to Jira Description
+→ risk-analysis-completed
+→ Test Analysis & Design Agent
+→ Dataset Health + Existing Coverage / Similarity
+→ Proposed Test / Evaluation Assets
+→ Human Decision workflow
+→ APPROVE / REJECT / EDIT / EXTEND_EXISTING
+→ explicit confirmation
+→ decision evidence
 ```
 
-Risk Analysis is intentionally downstream of the readiness gate. Requirements Review asks whether the story itself is sufficient; Risk Analysis asks what can go wrong and may retrieve architecture, business rules, policies, related specifications and historical defects as supporting evidence.
+### Requirements Review
+
+Implemented: Jira batch input, deterministic eligibility before LLM, minimal semantic payload, structured READY / NEEDS_CLARIFICATION contract, content-aware cache, force-review bypass, prompt/model-sensitive invalidation, malformed-output handling, batch quality/cost telemetry and GitHub Step Summary evidence.
+
+The current downstream Risk Analysis eligibility expects the `review-completed` Jira label. Automatic Requirements Review approval → Jira label write-back is not yet implemented and remains a future integration choice.
+
+### Risk Analysis
+
+Implemented: Jira batch input, deterministic eligibility requiring `review-completed` + Acceptance Criteria, content-aware per-ticket cache, force-analysis bypass, Claude semantic risk identification, Python Likelihood × Impact scoring and priority, mitigation, recommended test focus, prioritized Risk Register, token/cost telemetry and per-ticket error isolation.
+
+Human approval is a hard mutation boundary. Risk Analysis itself does not modify Jira. The separate approval workflow writes the approved Risk Register to Jira Description and adds `risk-analysis-completed` only after explicit confirmation.
+
+### Test Analysis & Design
+
+Implemented: Jira/AC/reviewed-risk input, governed dataset snapshots (PR Critical, Regression, Nightly, Golden), deterministic dataset-health checks, existing coverage/similarity analysis, missing/extendable coverage proposals, traceability, Oracle assignment, target-suite recommendation and decision-package generation.
+
+Output resilience includes a strict Pydantic contract, exact prompt schema, normalization of known LLM aliases, larger output budget, malformed/truncated JSON retry from original input and per-ticket failure isolation.
+
+Proposal actions are agent recommendations:
+
+- `ADD` — genuinely new coverage;
+- `EXTEND_EXISTING` — modify an existing similar case instead of creating a duplicate;
+- `SKIP` — existing coverage is sufficient.
+
+### Human Decision workflow
+
+Implemented as a separate `workflow_dispatch` continuation because a GitHub Actions Step Summary is not an interactive form. GitHub supports typed manual inputs including `choice` and `boolean`.
+
+The workflow accepts Proposal ID, human decision (`APPROVE`, `REJECT`, `EDIT`, `EXTEND_EXISTING`), optional edited proposal JSON and an explicit confirmation boolean. It validates the decision and records decision evidence. Analysis alone never mutates a governed dataset.
+
+## Current governance boundaries
+
+```text
+Requirements Review output
+→ human readiness boundary
+→ Risk Analysis eligibility
+
+Risk Analysis proposal
+→ explicit human approval
+→ Jira Description write-back + risk-analysis-completed
+
+Test Analysis proposal
+→ explicit Human Decision workflow
+→ decision evidence
+
+Governed Dataset mutation
+→ NOT YET IMPLEMENTED after Human Decision
+```
+
+Golden remains canonical truth under separate governance. Judge changes remain protected by Judge Calibration. Dataset/Oracle Validation remains a runtime technical contract check and does not replace human promotion governance.
+
+## Remaining implementation work
+
+Only work not yet implemented is listed here:
+
+1. **Dataset promotion after Human Decision** — apply approved ADD, validated EDIT, or reviewed BEFORE → AFTER EXTEND_EXISTING; REJECT is a no-op.
+2. **Post-mutation deterministic validation** — schema, IDs, references, Oracle contract and dataset integrity before promotion.
+3. **Source-control promotion** — produce the governed dataset diff/commit/PR only after successful validation.
+4. **Requirements Review Jira approval write-back** — optional automation for applying `review-completed`; currently external/manual.
+5. **Targeted Risk evidence retrieval/RAG** — architecture/rules/policies/related specs/defects only when relevant; not a broad context dump.
+6. **Agent Evaluation Dataset** — expected/prohibited actions, permissions, tool use and HITL behavior.
+7. **State-driven multi-agent orchestration** — introduce after manual human gates are proven stable; do not force unconditional Agent 1 → Agent 2 → Agent 3 execution.
+8. **Optional later integrations** — Confluence evidence, test-management system write-back and release/residual-risk automation where a real project requires them.
+
+Drift testing remains intentionally outside the current roadmap.
