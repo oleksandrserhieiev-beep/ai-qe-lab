@@ -1,26 +1,28 @@
-name: Risk Analysis Agent Evaluation
+name: Risk Analysis Agent
 
 on:
   workflow_dispatch:
+    inputs:
+      issue_keys:
+        description: "Jira issue keys (one or many; comma, space, or semicolon separated)"
+        required: true
+        type: string
   pull_request:
     branches: [main]
     paths:
       - config/risk_analysis_prompt.txt
       - src/risk_analysis_agent.py
-      - src/run_risk_analysis.py
-      - src/evaluate_risk_analysis_agent.py
-      - datasets/risk_analysis_evaluation_dataset.json
+      - src/run_risk_analysis_batch.py
       - tests/test_risk_analysis_agent.py
       - tests/test_risk_analysis_execution.py
       - .github/workflows/risk-analysis-agent.yml
       - requirements-dev.txt
+      - pytest.ini
 
 jobs:
-  evaluate-risk-agent:
+  contract-tests:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    env:
-      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-      RISK_ANALYSIS_MODEL: ${{ vars.RISK_ANALYSIS_MODEL || vars.REQUIREMENTS_REVIEW_MODEL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,11 +37,60 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Contract tests
         run: python -m pytest -q tests/test_risk_analysis_agent.py tests/test_risk_analysis_execution.py
-      - name: Controlled Risk Agent evaluation
-        run: python src/evaluate_risk_analysis_agent.py
-      - name: Upload evaluation evidence
+
+  run-risk-analysis:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      JIRA_BASE_URL: ${{ vars.JIRA_BASE_URL }}
+      JIRA_EMAIL: ${{ vars.JIRA_EMAIL }}
+      JIRA_PROJECT_KEY: ${{ vars.JIRA_PROJECT_KEY }}
+      JIRA_ACCEPTANCE_CRITERIA_FIELD: ${{ vars.JIRA_ACCEPTANCE_CRITERIA_FIELD }}
+      JIRA_REVIEW_COMPLETED_LABEL: ${{ vars.JIRA_REVIEW_COMPLETED_LABEL || 'review-completed' }}
+      RISK_ANALYSIS_MODEL: ${{ vars.RISK_ANALYSIS_MODEL || vars.REQUIREMENTS_REVIEW_MODEL }}
+      ISSUE_KEYS: ${{ inputs.issue_keys }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate ticket input
+        run: |
+          if [ -z "$(echo "$ISSUE_KEYS" | tr -d '[:space:],;')" ]; then
+            echo "At least one Jira issue key is required."
+            exit 1
+          fi
+          echo "Risk Analysis Agent batch: $ISSUE_KEYS"
+
+      - name: Eligibility check
+        run: python src/run_risk_analysis_batch.py check "$ISSUE_KEYS"
+
+      - name: Analyze eligible tickets
+        run: python src/run_risk_analysis_batch.py analyze
+
+      - name: Likelihood × Impact scoring
+        run: python src/run_risk_analysis_batch.py scores
+
+      - name: Prioritized risk table
+        run: python src/run_risk_analysis_batch.py prioritized
+
+      - name: Upload Risk Analysis reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: risk-analysis-agent-evaluation-${{ github.run_id }}
-          path: reports/risk_analysis_agent_evaluation.json
+          name: risk-analysis-batch-${{ github.run_id }}
+          path: reports/
