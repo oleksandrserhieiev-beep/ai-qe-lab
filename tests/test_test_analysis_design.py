@@ -19,10 +19,17 @@ def test_functional_proposal_requires_steps_but_not_dataset_fields():
         title="Missing price handling",
         test_kind="functional",
         traceability={"issue_key": "SCRUM-7", "acceptance_criteria": ["AC-1"], "risk_ids": ["R1"]},
+        preconditions=["A product has no price value"],
         steps=["Submit a budget-constrained request", "Process a product with missing price"],
+        assertions=["The product is not treated as satisfying the budget"],
         expected={"behavior": "Product is not treated as satisfying the budget"},
+        priority="HIGH",
+        estimated_manual_minutes=3,
     )
     assert proposal.steps
+    assert proposal.assertions
+    assert proposal.priority == "HIGH"
+    assert proposal.estimated_manual_minutes == 3
     assert proposal.oracle_type is None
     assert proposal.action is None
 
@@ -34,7 +41,10 @@ def test_functional_proposal_rejects_missing_steps():
             title="Missing steps",
             test_kind="functional",
             traceability={"issue_key": "SCRUM-7", "acceptance_criteria": ["AC-1"], "risk_ids": ["R1"]},
+            assertions=["Expected result is observable"],
             expected={"behavior": "Expected result"},
+            priority="MEDIUM",
+            estimated_manual_minutes=2,
         )
 
 
@@ -44,6 +54,10 @@ def test_extend_existing_requires_before_after_contract():
         title="Extend grounding coverage",
         test_kind="ai",
         traceability={"issue_key": "SCRUM-5", "acceptance_criteria": ["AC-2"], "risk_ids": ["R1"]},
+        preconditions=["Retrieved context is insufficient to support a recommendation"],
+        assertions=["The assistant refuses an unsupported recommendation"],
+        priority="HIGH",
+        estimated_manual_minutes=3,
         oracle_type="semantic",
         target_suite="regression",
         target_rationale="Semantic grounding coverage is valuable but not required on every PR.",
@@ -56,6 +70,7 @@ def test_extend_existing_requires_before_after_contract():
     )
     assert proposal.action == "EXTEND_EXISTING"
     assert proposal.traceability.risk_ids == ["R1"]
+    assert proposal.priority == "HIGH"
 
 
 def test_result_blocks_on_dataset_error():
