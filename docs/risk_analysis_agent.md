@@ -2,9 +2,9 @@
 
 ## Status
 
-**Jira-driven manual Risk Analysis execution is implemented with deterministic eligibility checks, LLM risk identification, deterministic scoring, prioritized output, and human review.**
+**Jira-driven manual Risk Analysis execution is implemented with deterministic eligibility checks, content-aware caching, LLM risk identification, deterministic scoring, prioritized output, and human review.**
 
-The Risk Analysis Agent remains intentionally simple: a user supplies one or more Jira issue keys, deterministic checks decide which tickets are eligible, the LLM identifies material risks for eligible tickets, Python calculates the score and priority, and the final register is reviewed by a person.
+The Risk Analysis Agent remains intentionally simple: a user supplies one or more Jira issue keys, deterministic checks decide which tickets are eligible, unchanged analysis may be reused from cache, the LLM identifies material risks for eligible cache misses, Python calculates the score and priority, and the final register is reviewed by a person.
 
 ## Operational flow
 
@@ -19,7 +19,11 @@ Acceptance Criteria present and non-empty?
         ↓
 Eligible tickets only
         ↓
-Risk Analysis Agent (LLM)
+Content + Risk prompt + model fingerprint
+        ↓
+Cache hit?
+   ├─ yes → reuse previous Risk Analysis → 0 LLM tokens
+   └─ no  → Risk Analysis Agent (LLM)
         ↓
 Functional / Non-functional / AI risks as applicable
         ↓
@@ -58,10 +62,11 @@ The label is expected to be applied only after Requirements Review has been acce
 
 ## Input
 
-The manual GitHub Actions workflow accepts one required string input:
+The manual GitHub Actions workflow accepts:
 
 ```text
-issue_keys
+issue_keys       required
+force_analysis   optional, default false
 ```
 
 Examples:
@@ -74,6 +79,47 @@ AX-101;AX-102;AX-103
 ```
 
 The parser de-duplicates issue keys and has no configured maximum batch-size limit.
+
+`force_analysis=true` bypasses a valid cache entry and deliberately runs the LLM again.
+
+## Content-aware cache
+
+Risk Analysis uses the reusable `src/agent_content_cache.py` helper.
+
+The fingerprint contains:
+
+```text
+agent identity
+semantic Risk Analysis input
+model
+Risk Analysis prompt
+cache schema version
+```
+
+A cached result is reused only when that fingerprint is unchanged. Therefore these changes invalidate the cache automatically:
+
+- ticket semantic content used by Risk Analysis changes;
+- Risk Analysis prompt changes;
+- Risk Analysis model changes;
+- cache contract version changes.
+
+A cache hit returns the previous validated Risk Analysis result, reports `0` input/output/total tokens for that ticket, and does not call the LLM.
+
+GitHub Actions persists the Risk Analysis cache under:
+
+```text
+.cache/risk-analysis/cache.json
+```
+
+using `actions/cache/restore` and `actions/cache/save`. Cache writes are serialized with a dedicated workflow concurrency group to avoid competing runs overwriting the persisted agent cache.
+
+The Step Summary reports fresh analyses, cache hits, LLM attempts, actual tokens consumed in the current run, and actual estimated cost.
+
+### Standard for future agents
+
+Content-aware caching should be the default pattern for future semantic agents where the same semantic input may be processed repeatedly. New agents should reuse the generic cache helper and fingerprint the agent-specific semantic input together with the model and prompt. They should also expose an explicit force/bypass option for controlled re-execution.
+
+Caching is an execution-cost optimization, not a quality oracle. It does not replace eligibility checks, output-contract validation, human review, or future agent evaluation where those controls are required.
 
 ## Risk analysis responsibility
 
@@ -135,12 +181,14 @@ Risks are sorted by Risk Score descending before the final table is rendered.
 
 The workflow is split into explicit steps:
 
-1. Validate ticket input
-2. Eligibility check
-3. Analyze eligible tickets
-4. Likelihood × Impact scoring
-5. Prioritized risk table
-6. Upload Risk Analysis reports
+1. Restore Risk Analysis content cache
+2. Validate ticket input
+3. Eligibility check
+4. Analyze eligible tickets / reuse cache
+5. Likelihood × Impact scoring
+6. Prioritized risk table
+7. Save Risk Analysis content cache
+8. Upload Risk Analysis reports
 
 GitHub Step Summary tables use centered Markdown alignment so values remain aligned under their columns.
 
