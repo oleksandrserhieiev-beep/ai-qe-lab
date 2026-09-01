@@ -1,77 +1,58 @@
 # AI QE Lab — Project Description
 
-AI QE Lab is a practical Quality Engineering reference implementation for AI-enabled systems. The Shopping RAG Assistant is the reference System Under Test (SUT) used to prove the reusable QE framework; on a real project, the application pipeline would normally already exist and be owned by Development / AI Engineering.
+AI QE Lab is a practical Quality Engineering reference implementation for AI-enabled systems. The Shopping RAG Assistant is the reference SUT used to prove the reusable QE framework; on a real project, the application pipeline would normally already exist and be owned by Development / AI Engineering.
 
-The reference SUT includes deterministic constraint handling, structured filtering, FAISS Top-K retrieval, adaptive context selection, deterministic context construction and Claude generation. The QE framework around it combines governed datasets, Dataset/Oracle Validation, deterministic Python assertions, semantic LLM-as-a-Judge evaluation, AI-risk metadata, CI/CD quality gates, specialized AI testing workflows, operational telemetry, failure localization and release validation.
+The downstream framework combines governed datasets, Dataset/Oracle Validation, deterministic Python assertions, semantic LLM-as-a-Judge evaluation, AI-risk metadata, CI/CD quality gates, Metamorphic, Back-to-Back and Adversarial testing, operational telemetry, failure localization, Judge Calibration, Golden Governance and Release Validation.
 
-## Current governed evaluation assets
-
-The standard routine SUT inventory remains 105 cases:
-
-- PR Critical standard cases: 10 total — 6 deterministic / 4 semantic;
-- Regression: 15 total — 7 deterministic / 8 semantic;
-- Broad Nightly Evaluation: 80 total — 48 deterministic / 32 semantic.
-
-That standard 105-case inventory is supplemented by:
-
-- 2 Metamorphic Critical records stored in `datasets/pr_critical_dataset.json` and executed through the dedicated metamorphic runner/gate;
-- 10 governed Adversarial cases in `datasets/adversarial_dataset.json`;
-- 35 Golden cases for canonical release/reference validation;
-- 8 Judge Calibration cases that test the evaluator rather than the Shopping Assistant.
-
-Back-to-Back does not introduce another dataset. It reuses the same 10 standard PR Critical cases against two selected models/configurations and compares evaluated quality plus operational telemetry.
-
-Explicit Oracle metadata in governed datasets is primary. Missing metadata can use the reviewed fallback registry; invalid non-empty Oracle metadata fails validation before evaluation. Semantic Judge results require a short non-empty rationale; a missing `reason` is an evaluator contract violation rather than valid evidence.
-
-## Current workflow model
+## Current governed assets
 
 ```text
-PR
-├─ Standard Critical Evaluation     = automatic merge gate
-└─ Metamorphic Critical             = automatic relation gate
-
-Manual
-└─ Back-to-Back                     = Model A vs Model B on the same 10 standard Critical cases
-
-Scheduled / manual
-└─ Adversarial                      = dedicated 10-case hostile-input suite
-
-Other lifecycle workflows
-├─ Regression                       = manual-only
-├─ Broad Nightly                    = manual-only
-└─ Release Validation               = manual-only: Golden + broad Nightly + Release Quality Gate
+PR Critical standard = 10 (6 deterministic / 4 semantic)
+Metamorphic Critical = 2 META records
+Regression           = 15 (7 deterministic / 8 semantic)
+Broad Nightly        = 80 (48 deterministic / 32 semantic)
+Golden               = 35
+Adversarial          = 10
+Judge Calibration    = 8
+Back-to-Back         = reuses 10 standard PR cases
 ```
 
-Drift testing is intentionally outside the current roadmap.
+Regression and Broad Nightly product schedules are currently manual; Adversarial remains manual + nightly scheduled. Drift testing is outside the current roadmap.
 
-The upstream Agentic QE phase has started with the **Requirements Review Agent** as the first controlled slice:
+## Current Agentic QE orchestration
 
-```text
-Manual Jira batch
-→ Python deterministic eligibility gate
-→ minimal semantic requirement payload
-→ content fingerprint / cache decision
-→ Claude Requirements Review when needed
-→ READY / NEEDS_CLARIFICATION
-→ batch quality + cache + token + cost evidence
-```
-
-Unchanged eligible requirements can reuse their structured review with zero LLM calls. Changes to Summary, Description, Acceptance Criteria or Components invalidate the fingerprint; `force_review=true` is an explicit manual bypass for a controlled fresh review.
-
-The next architectural progression is:
+The upstream phase now implements three semantic agents plus explicit human gates:
 
 ```text
 Jira Requirement
-→ Requirements Review / Entry Gate
+→ Requirements Review
+→ human readiness boundary / review-completed
 → Risk Analysis
-→ targeted cross-document retrieval/RAG where needed
+→ Prioritized Risk Register
+→ explicit human approval
+→ approved Risk Register → Jira Description + risk-analysis-completed
 → Test Analysis & Design
-→ Governance / Human Approval
-→ Governed Dataset Update
-→ existing Dataset Validation + Evaluation + CI framework
-→ Defect / Regression / Release Evidence
+→ coverage/similarity/test proposals
+→ Human Decision workflow
+→ APPROVE / REJECT / EDIT / EXTEND_EXISTING
+→ explicit confirmation + decision evidence
 ```
 
-Requirements Review intentionally evaluates the Jira requirement itself; external retrieval should not hide missing requirement content. Risk Analysis is the first planned stage where architecture, business rules, policies, related specifications and historical defects can become evidence through bounded retrieval.
+Requirements Review, Risk Analysis and Test Analysis & Design all use deterministic validation around semantic LLM reasoning. Content-aware caches avoid unnecessary repeated model calls. Risk scoring, eligibility, dataset health, contract validation and governance controls remain deterministic Python responsibilities.
 
-See `README.md`, `docs/current_status.md`, `docs/test_strategy.md`, `docs/master_architecture.md` and `docs/future_ai_testing_workflows.md` for the current canonical architecture and execution model.
+The Human Decision workflow is a real manually dispatched GitHub gate using typed choice/boolean inputs. It complements the non-interactive Step Summary and makes the test-asset decision explicit and auditable.
+
+## Remaining work
+
+Implemented items are no longer treated as future roadmap. Remaining slices are:
+
+1. confirmed Human Decision → governed dataset mutation for ADD / EDIT / EXTEND_EXISTING;
+2. post-mutation deterministic dataset validation;
+3. governed source-control diff/commit/PR promotion;
+4. optional Requirements Review approval → `review-completed` Jira write-back;
+5. targeted Risk Analysis retrieval/RAG where relevant;
+6. Agent Evaluation Dataset and agent-behavior evaluation;
+7. state-driven multi-agent orchestration after manual gates are stable;
+8. optional Confluence/test-management/release integrations.
+
+See `README.md`, `docs/current_status.md`, `docs/agentic_qe_orchestration.md`, `docs/test_strategy.md` and `docs/master_architecture.md` for detailed architecture and controls.
