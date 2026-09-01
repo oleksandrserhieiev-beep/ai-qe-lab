@@ -4,165 +4,179 @@ _Last synchronized with repository: 2026-09-01._
 
 ## Purpose
 
-This document is the repository source of truth for upstream Agentic QE/STLC orchestration. The SUT/evaluation pipelines remain independent downstream quality controls. Agents create decision-support evidence and proposed quality assets; humans retain mutation/approval boundaries where explicitly defined.
+Canonical source of truth for upstream Agentic QE/STLC orchestration. Agents create decision-support evidence and proposals; humans retain approval/mutation boundaries. Downstream SUT/evaluation remains an independent quality-control system.
 
-## Implemented orchestration
+## Overall implemented workflow
 
-```text
-Jira Requirement
-        ↓
-Requirements Review Agent
-        ↓
-READY / NEEDS_CLARIFICATION
-        ↓ human readiness boundary
-review-completed
-        ↓
-Risk Analysis Agent
-        ↓
-Prioritized Risk Register
-Risk + Mitigation + Recommended Test Focus
-        ↓ explicit human approval
-Jira Description append
-+ risk-analysis-completed
-        ↓
-Test Analysis & Design Agent
-        ↓
-Dataset Health
-+ Existing Coverage / Similarity
-+ Missing/Extendable Coverage
-        ↓
-Proposal / Traceability / Decision Package
-        ↓
-Human Decision workflow
-APPROVE / REJECT / EDIT / EXTEND_EXISTING
-        ↓ explicit confirmation
-Decision Evidence
+```mermaid
+flowchart LR
+    J["Jira Requirement"] --> RR["Requirements Review"]
+    RR --> HR{"Human readiness?"}
+    HR -->|proceed| RL["review-completed"]
+    HR -->|clarify / reject| STOP1["Stop / requirement update"]
+    RL --> RA["Risk Analysis"]
+    RA --> RH{"Approve risks?"}
+    RH -->|yes| JW["Risk Register → Jira\nrisk-analysis-completed"]
+    RH -->|no| STOP2["No Jira mutation"]
+    JW --> TD["Test Analysis & Design"]
+    TD --> HD["Human Decision Workflow"]
+    HD --> DE["Confirmed Decision Evidence"]
+    DE -. "NEXT" .-> DP["Governed Dataset Promotion"]
 ```
 
 The next unimplemented boundary is **confirmed decision → governed dataset mutation/promotion**.
 
 ## Architectural rules
 
-### Minimal context
-Each agent receives only evidence required for its responsibility. Requirements Review evaluates the requirement itself. Risk Analysis may later use targeted external evidence, but broad Jira/Confluence/document dumps are prohibited. Test Analysis receives AC, approved/reviewed risks and governed dataset snapshots needed for coverage analysis.
+- **Understand → Identify Risks → Design Tests.** Agent responsibilities remain separated.
+- **Deterministic before semantic.** Python owns parsing, eligibility, contracts, scoring, cache, dataset health and mutation controls.
+- **Minimal context.** Each LLM receives only evidence needed for its responsibility.
+- **Human mutation boundaries.** Semantic output remains a proposal until the relevant human gate is passed.
+- **Per-ticket isolation.** One failed ticket must not abort valid tickets in a batch where isolation is implemented.
+- **No silent dataset mutation.** Test Analysis never changes governed assets.
 
-### Deterministic before semantic
-Use Python for input parsing, eligibility, schema/contract checks, risk scoring, dataset health, cache fingerprints, validation and mutation controls. Use the LLM where semantic reasoning adds value: requirement quality, risk identification and coverage/test-design reasoning.
+## 1. Requirements Review Agent — implemented decision flow
 
-### Human mutation boundaries
-Semantic output is a proposal until the relevant human gate is passed.
-
-```text
-Risk proposal
-→ human approval
-→ Jira write-back
-
-Test proposal
-→ Human Decision
-→ decision evidence
-→ future dataset promotion
+```mermaid
+flowchart TD
+    A["Input Jira IDs"] --> B{"At least one valid ID?"}
+    B -->|no| X1["FAIL input"]
+    B -->|yes| C["Parse + de-duplicate"]
+    C --> D["Load Jira ticket"]
+    D --> E{"Eligibility satisfied?"}
+    E -->|no| X2["INELIGIBLE\n0 LLM calls"]
+    E -->|yes| F["Build minimal semantic payload"]
+    F --> G{"Matching content fingerprint?"}
+    G -->|yes| H["Reuse cached review\n0 LLM calls"]
+    G -->|no / force_review| I["Claude Requirements Review"]
+    H --> J{"Review decision"}
+    I --> J
+    J -->|NEEDS_CLARIFICATION| K["Blocking gaps + questions"]
+    J -->|READY| L["READY evidence"]
+    K --> M["Human / Jira requirement update\nthen re-run"]
+    L --> N{"Human proceed?"}
+    N -->|no| O["Stop / hold"]
+    N -->|yes| P["review-completed\ncurrently manual/external"]
+    P --> Q["Eligible for Risk Analysis"]
 ```
 
-No analysis workflow is allowed to mutate governed datasets merely because an agent produced a proposal.
+Requirements Review evaluates whether the Jira requirement itself is sufficient. External retrieval must not hide missing requirement behavior. Automatic approval → `review-completed` write-back is not implemented.
 
-### Understand → Identify Risks → Design Tests
-Responsibilities remain separated:
+## 2. Risk Analysis Agent — implemented decision flow
 
-- Requirements Review: **Is the requirement sufficiently explicit?**
-- Risk Analysis: **What can go wrong?**
-- Test Analysis & Design: **What coverage should address the AC and reviewed risks?**
-- Human Governance: **What is accepted, rejected, edited or used to extend existing coverage?**
-- Dataset promotion: **What exact governed JSON change is applied?**
-
-## Requirements Review — implemented
-
-Manual GitHub Actions batch → parse/de-duplicate IDs → Jira retrieval → deterministic eligibility → minimal payload → content fingerprint/cache → Claude only on cache miss/force review → READY or NEEDS_CLARIFICATION → report/telemetry.
-
-Cache invalidates when semantic Jira content, prompt, model or cache version changes. Ineligible tickets and matching cache hits spend zero LLM tokens.
-
-Risk Analysis currently expects `review-completed`. Applying that label automatically after Requirements Review approval is not yet implemented.
-
-## Risk Analysis — implemented
-
-Eligibility requires Jira access, `review-completed` and non-empty Acceptance Criteria. Eligible tickets use per-ticket content-aware caching. Claude identifies conventional/AI risks; Python validates the contract and calculates Likelihood × Impact score/priority. Output includes mitigation and recommended test focus.
-
-```text
-Risk score = Likelihood (1..5) × Impact (1..5)
-20–25 = CRITICAL
-12–19 = HIGH
-6–11  = MEDIUM
-1–5   = LOW
+```mermaid
+flowchart TD
+    A["Jira IDs"] --> B{"Ticket accessible?"}
+    B -->|no| X1["INELIGIBLE"]
+    B -->|yes| C{"review-completed present?"}
+    C -->|no| X2["INELIGIBLE\n0 LLM calls"]
+    C -->|yes| D{"Acceptance Criteria present?"}
+    D -->|no| X3["INELIGIBLE\n0 LLM calls"]
+    D -->|yes| E{"Matching content fingerprint?"}
+    E -->|yes| F["Reuse cached Risk result\n0 LLM calls"]
+    E -->|no / force_analysis| G["Claude Risk Analysis"]
+    F --> H["Python contract + L×I scoring"]
+    G --> H
+    H --> I["Prioritized Risk Register\nRisk + Mitigation + Test Focus"]
+    I --> J{"Human approves write-back?"}
+    J -->|no| K["No Jira mutation"]
+    J -->|yes| L["Append Reviewed Risk Register\nto Jira Description"]
+    L --> M["Add risk-analysis-completed"]
+    M --> N["Eligible input for Test Analysis"]
 ```
 
-Risk Analysis itself is read-only. A separate manual approval workflow performs Jira write-back only after explicit human approval: preserve existing Description → append `Reviewed Risk Register` → add `risk-analysis-completed`.
+Risk Analysis itself is read-only. The separate approval workflow owns Jira mutation.
 
-## Test Analysis & Design — implemented
+## 3. Test Analysis & Design Agent — implemented decision flow
 
-Eligibility requires usable Jira content, Acceptance Criteria and reviewed Risk Register in Jira Description. The runtime loads governed PR Critical, Regression, Nightly and Golden snapshots and performs deterministic dataset-health checks before semantic analysis.
-
-The agent compares AC + reviewed risks with existing coverage and returns exact/similar/already-covered/gap evidence. Similarity is decision support, never an automatic duplicate threshold. It proposes only missing or meaningfully extendable coverage and assigns traceability, Oracle and target suite with rationale.
-
-Agent proposal actions:
-
-- `ADD` — new coverage;
-- `EXTEND_EXISTING` — existing similar case should be extended rather than duplicated;
-- `SKIP` — coverage is already sufficient.
-
-Runtime resilience includes strict Pydantic validation, exact output-schema instructions, deterministic normalization of known LLM aliases, larger output budget, malformed/truncated JSON retry from the original input and per-ticket failure isolation.
-
-## Actionable Human Decision — implemented
-
-GitHub Step Summary is evidence, not an interactive form. Therefore the human gate is a separate manually dispatched workflow using GitHub typed inputs.
-
-Inputs:
-
-```text
-Issue key
-Proposal ID
-Decision: APPROVE | REJECT | EDIT | EXTEND_EXISTING
-Optional edited proposal JSON
-Confirm decision: true/false
+```mermaid
+flowchart TD
+    A["Jira IDs"] --> B{"Ticket + AC available?"}
+    B -->|no| X1["INELIGIBLE"]
+    B -->|yes| C{"Reviewed Risk Register available?"}
+    C -->|no| X2["INELIGIBLE"]
+    C -->|yes| D["Load PR / Regression / Nightly / Golden snapshots"]
+    D --> E{"Dataset health valid?"}
+    E -->|blocking error| X3["BLOCK\nNo dataset mutation"]
+    E -->|healthy / warning| F{"Matching content fingerprint?"}
+    F -->|yes| G["Reuse cached analysis\n0 LLM calls"]
+    F -->|no / force| H["Semantic coverage analysis"]
+    G --> I{"Coverage state?"}
+    H --> I
+    I -->|already covered| J["SKIP proposal"]
+    I -->|similar / extendable| K["EXTEND_EXISTING proposal"]
+    I -->|coverage gap| L["ADD proposal"]
+    J --> M["Traceability + Decision Package"]
+    K --> M
+    L --> M
+    M --> N["Human Decision Workflow"]
 ```
 
-`Run workflow` is the explicit confirmation action. The workflow validates the decision against the decision package and records decision evidence.
+Similarity is decision evidence, not an automatic duplicate threshold. Runtime resilience includes strict Pydantic validation, schema instructions, known-alias normalization, bounded malformed/truncated-output retry and per-ticket failure isolation.
 
-Decision semantics:
+## 4. Human Decision — implemented decision flow
 
-- APPROVE = accept proposed new case;
-- REJECT = no change;
-- EDIT = human modifies the proposal before addition;
-- EXTEND_EXISTING = modify/merge the existing case using a reviewed BEFORE → AFTER change.
+```mermaid
+flowchart TD
+    A["Decision Package"] --> B["Select Issue + Proposal ID"]
+    B --> C{"Human decision"}
+    C -->|REJECT| R["No change"]
+    C -->|APPROVE| AP["Accept proposed ADD"]
+    C -->|EDIT| ED["Provide edited proposal JSON"]
+    C -->|EXTEND_EXISTING| EX["Reviewed existing-case extension"]
+    AP --> CF{"Explicit confirm = true?"}
+    ED --> CF
+    EX --> CF
+    R --> EV["Decision Evidence"]
+    CF -->|no| X["Stop / no mutation"]
+    CF -->|yes| EV
+    EV -. "NEXT implementation" .-> MUT["Apply governed dataset mutation"]
+    MUT -.-> VAL["Post-mutation deterministic validation"]
+    VAL -.-> PR["Dataset diff / commit / PR"]
+```
 
-The current workflow **does not yet mutate the governed dataset**.
+`Run workflow` is the explicit confirmation action. Today the workflow validates and records the decision; the dotted promotion path is deliberately marked as future because dataset mutation is not implemented yet.
 
-## Downstream handoff
+### Decision semantics
 
-After dataset promotion is implemented, the handoff remains:
+| Agent recommendation / human action | Meaning |
+|---|---|
+| ADD → APPROVE | add a new proposed case after promotion is implemented |
+| SKIP / REJECT | no governed change |
+| EDIT | human changes the proposed new case before addition |
+| EXTEND_EXISTING | exact reviewed BEFORE → AFTER modification of an existing case |
 
-```text
-Approved governed dataset change
-→ Dataset / Oracle Validation
-→ SUT Execution
-→ deterministic or semantic Oracle
-→ Metrics / Risk Aggregation
-→ Quality Gate
-→ Evidence / lifecycle decision
+## 5. Downstream handoff
+
+```mermaid
+flowchart LR
+    A["Approved Governed Dataset"] --> V{"Dataset / Oracle valid?"}
+    V -->|no| F["FAIL before model calls"]
+    V -->|yes| S["SUT Execution"]
+    S --> O{"Oracle"}
+    O -->|deterministic| P["Python Assertions"]
+    O -->|semantic_llm| J["Calibrated Judge"]
+    P --> M["Metrics + Risk"]
+    J --> M
+    M --> G{"Quality Gate"}
+    G -->|pass| E1["PASS Evidence"]
+    G -->|fail| E2["FAIL + Localization"]
 ```
 
 Golden canonical truth and Judge Calibration remain separate governance systems.
 
 ## Remaining orchestration roadmap
 
-Implemented items have been removed from this roadmap. Remaining work only:
+Only unimplemented work:
 
-1. Apply confirmed Human Decisions to governed JSON datasets.
-2. For `EXTEND_EXISTING`, generate and validate the exact BEFORE → AFTER change; never concatenate blindly.
-3. Validate schema, IDs, references, Oracle contract and integrity after mutation.
-4. Produce a source-control diff/commit/PR for the validated dataset change.
-5. Optionally implement Requirements Review approval → `review-completed` Jira write-back.
-6. Add targeted Risk Analysis retrieval from architecture/rules/policies/related specs/historical defects where useful.
-7. Add Agent Evaluation Dataset and evaluation of tool use, permissions, prohibited actions and HITL behavior.
-8. Move from manually chained workflows to state-driven orchestration only after these human gates are stable and measurable.
-9. Add Confluence/test-management/release integrations only when required by the target project.
+1. apply confirmed Human Decisions to governed JSON datasets;
+2. generate exact BEFORE → AFTER change for `EXTEND_EXISTING`;
+3. validate schema, IDs, references, Oracle contract and integrity after mutation;
+4. produce governed dataset diff/commit/PR;
+5. optionally automate Requirements Review approval → `review-completed` Jira write-back;
+6. add targeted Risk evidence retrieval from architecture/rules/policies/specs/defects where justified;
+7. add Agent Evaluation Dataset for tools, permissions, prohibited actions and HITL;
+8. move to state-driven orchestration only after manual gates are stable and measurable;
+9. add Confluence/test-management/release integrations only when required.
 
 Drift testing remains outside the current roadmap.
