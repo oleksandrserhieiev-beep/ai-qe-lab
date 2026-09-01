@@ -30,6 +30,7 @@ on:
 
 jobs:
   contract-tests:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,15 +39,12 @@ jobs:
           python-version: "3.12"
           cache: pip
           cache-dependency-path: requirements-dev.txt
-      - run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
       - name: Validate Test Analysis & Design contracts
         run: python -m pytest -q tests/test_test_analysis_design.py tests/test_test_analysis_design_agent.py tests/test_test_analysis_design_decisions.py
 
   run-test-analysis-design:
     if: github.event_name == 'workflow_dispatch'
-    needs: contract-tests
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -63,10 +61,10 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements.txt
-      - run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Validate Test Analysis & Design contracts
+        run: python -m pytest -q tests/test_test_analysis_design.py tests/test_test_analysis_design_agent.py tests/test_test_analysis_design_decisions.py
       - name: Restore Test Analysis cache
         uses: actions/cache@v4
         with:
