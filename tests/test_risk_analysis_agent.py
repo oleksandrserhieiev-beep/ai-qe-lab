@@ -13,7 +13,7 @@ def _requirement():
         "components": ["shopping"],
         "status": "In Progress",
         "priority": "High",
-        "labels": ["ai-review"],
+        "labels": ["review-completed"],
         "assignee": "someone",
     }
 
@@ -43,27 +43,64 @@ def test_risk_input_keeps_only_semantic_handoff_fields():
     assert "assignee" not in payload
 
 
-def test_risk_output_contract():
+def test_risk_output_calculates_score_priority_and_sorting_deterministically():
     result = validate_risk_analysis_output(
         {
             "issue_key": "SCRUM-2",
             "summary": "Color filtering risks",
             "risks": [
                 {
-                    "risk_id": "RISK-1",
+                    "risk_id": "RISK-LOW",
+                    "risk_type": "functional",
                     "category": "functional",
-                    "risk_statement": "Filter may return products with a non-selected color.",
-                    "likelihood": "medium",
-                    "impact": "high",
-                    "priority": "high",
-                    "rationale": "Filtering directly affects product relevance.",
+                    "risk_statement": "Filter may return a minor display mismatch.",
+                    "likelihood": 2,
+                    "impact": 2,
+                    "rationale": "Filtering affects visible results.",
                     "evidence": ["AC requires selected color to limit results"],
-                    "recommended_test_focus": ["exact color match", "no cross-color leakage"],
-                }
+                    "recommended_test_focus": ["exact color match"],
+                },
+                {
+                    "risk_id": "RISK-HIGH",
+                    "risk_type": "functional",
+                    "category": "data",
+                    "risk_statement": "Incorrect catalogue color data may return wrong products.",
+                    "likelihood": 4,
+                    "impact": 5,
+                    "rationale": "Filtering depends on catalogue color data.",
+                    "evidence": ["selected color must match returned products"],
+                    "recommended_test_focus": ["catalogue color integrity"],
+                },
             ],
-            "overall_risk_level": "high",
             "recommended_next_action": "continue_to_test_analysis_and_design",
         }
     )
 
-    assert result["risks"][0]["category"] == "functional"
+    assert result["risks"][0]["risk_id"] == "RISK-HIGH"
+    assert result["risks"][0]["risk_score"] == 20
+    assert result["risks"][0]["priority"] == "critical"
+    assert result["risks"][1]["risk_score"] == 4
+    assert result["risks"][1]["priority"] == "low"
+    assert result["overall_risk_level"] == "critical"
+
+
+def test_likelihood_and_impact_are_limited_to_one_through_five():
+    with pytest.raises(ValidationError):
+        validate_risk_analysis_output(
+            {
+                "issue_key": "SCRUM-2",
+                "summary": "Invalid scale",
+                "risks": [
+                    {
+                        "risk_id": "RISK-1",
+                        "risk_type": "functional",
+                        "category": "functional",
+                        "risk_statement": "Example",
+                        "likelihood": 6,
+                        "impact": 2,
+                        "rationale": "Example",
+                    }
+                ],
+                "recommended_next_action": "continue_to_test_analysis_and_design",
+            }
+        )
