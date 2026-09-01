@@ -41,18 +41,17 @@ flowchart TB
 
     subgraph DOWN["Downstream Product Quality"]
         GTA --> DV["Dataset / Oracle Validation"]
-        DV --> SUT["SUT Execution"]
-        SUT --> OR["Oracle Resolution"]
-        OR --> PY["Deterministic Python"]
-        OR --> JG["Calibrated Semantic Judge"]
-        PY --> MR["Metrics / Risk Aggregation"]
-        JG --> MR
-        MR --> QG["Quality Gate"]
-        QG --> EV["PASS / FAIL + Evidence"]
-        EV --> LD["Lifecycle Decision"]
+        DV --> SUT["Application / SUT Pipeline"]
+        SUT --> OUT["SUT Output + Telemetry"]
+        OUT --> EV["Evaluation Pipeline\nOracle Resolution -> Python Assertions / LLM Judge"]
+        EV --> MR["Metrics / Risk Aggregation"]
+        MR --> LOC["Failure Localization"]
+        LOC --> QG["Product Quality Gate"]
+        QG --> EVID["PASS / FAIL + Evidence"]
+        EVID --> LD["CI/CD / Lifecycle Decision"]
     end
 
-    JC["Judge Calibration"] -. validates .-> JG
+    JC["Judge Calibration"] -. validates .-> EV
     GG["Golden Governance"] -. protects .-> GTA
 ```
 
