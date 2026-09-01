@@ -1,3 +1,5 @@
+import pytest
+
 from test_analysis_design import TestAnalysisDesignResult, TestProposal, can_propose, dataset_health_check
 from test_analysis_design_cache import content_fingerprint
 
@@ -9,6 +11,31 @@ def test_dataset_errors_block_proposals_but_warnings_do_not():
     warnings = dataset_health_check([{"id": "E-2", "input": {"q": "x"}, "expected": {"ok": True}, "active": False}], required)
     assert can_propose(warnings) is True
     assert warnings[0].severity == "WARNING"
+
+
+def test_functional_proposal_requires_steps_but_not_dataset_fields():
+    proposal = TestProposal(
+        proposed_id="F-1",
+        title="Missing price handling",
+        test_kind="functional",
+        traceability={"issue_key": "SCRUM-7", "acceptance_criteria": ["AC-1"], "risk_ids": ["R1"]},
+        steps=["Submit a budget-constrained request", "Process a product with missing price"],
+        expected={"behavior": "Product is not treated as satisfying the budget"},
+    )
+    assert proposal.steps
+    assert proposal.oracle_type is None
+    assert proposal.action is None
+
+
+def test_functional_proposal_rejects_missing_steps():
+    with pytest.raises(ValueError, match="functional proposal requires steps"):
+        TestProposal(
+            proposed_id="F-2",
+            title="Missing steps",
+            test_kind="functional",
+            traceability={"issue_key": "SCRUM-7", "acceptance_criteria": ["AC-1"], "risk_ids": ["R1"]},
+            expected={"behavior": "Expected result"},
+        )
 
 
 def test_extend_existing_requires_before_after_contract():
