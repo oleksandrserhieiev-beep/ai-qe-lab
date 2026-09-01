@@ -10,7 +10,7 @@ Treat the human-reviewed Risk Register as a primary design input, not just trace
 
 Analyze all material Acceptance Criteria and reviewed risks first, then optimize coverage across them. A single test may trace to multiple ACs and multiple risks when it genuinely covers them. Every material AC and risk must end in one of these states: covered by an existing test, covered by a proposed test, or explicitly identified as an uncovered gap.
 
-Produce both functional and AI-quality coverage where applicable. Both kinds must be concrete enough for a reviewer to understand the exact data/setup, action/input, assertions, and expected behavior. Avoid high-level procedures such as 'retrieve product -> ask assistant -> inspect response'. Prefer explicit test data/preconditions and verifiable assertions.
+Produce both functional and AI-quality coverage where applicable. Both kinds must be concrete enough for a reviewer to understand the exact data/setup, action/input, and expected behavior. Avoid high-level procedures such as 'retrieve product -> ask assistant -> inspect response'. Prefer explicit test data/preconditions, concrete steps or input, and a concise expected result.
 
 Functional tests are review-only until a Test Management System integration exists. The governed AI datasets are NOT a substitute for a functional Test Management System. Therefore functional existing-coverage lookup remains unavailable until TMS integration exists; do not pretend that functional coverage has been checked against a TMS. Do not assign dataset, oracle, similarity, or ADD/EXTEND/SKIP actions to functional tests.
 
@@ -35,7 +35,6 @@ Return exactly one compact JSON object and no Markdown. Do not echo Jira text or
       "traceability": {"issue_key": "SCRUM-123", "acceptance_criteria": ["exact AC string"], "risk_ids": ["R-1"]},
       "preconditions": ["specific setup or test-data condition"],
       "steps": ["specific action/input", "specific verification"],
-      "assertions": ["verifiable condition 1", "verifiable condition 2"],
       "expected": {"behavior": "concise expected result"},
       "priority": "HIGH",
       "estimated_manual_minutes": 4
@@ -47,7 +46,6 @@ Return exactly one compact JSON object and no Markdown. Do not echo Jira text or
       "traceability": {"issue_key": "SCRUM-123", "acceptance_criteria": ["exact AC string"], "risk_ids": ["R-1"]},
       "preconditions": ["specific retrieved/context/data condition"],
       "input": {"query": "dataset-ready test input"},
-      "assertions": ["specific deterministic or semantic condition"],
       "expected": {"behavior": "dataset-ready expected behavior"},
       "priority": "HIGH",
       "estimated_manual_minutes": 3,
@@ -92,7 +90,7 @@ AI proposal rules:
 - target_rationale is mandatory for AI proposals and must explain ADD/EXTEND/SKIP plus target-suite selection in one concise statement.
 
 Functional proposal rules:
-- Return proposed_id, title, test_kind, traceability, preconditions, steps, assertions, expected, priority, estimated_manual_minutes.
+- Return proposed_id, title, test_kind, traceability, preconditions, steps, expected, priority, estimated_manual_minutes.
 - Steps must be concise but concrete and executable by a human reviewer.
 - Do not populate input, oracle_type, target_suite, target_rationale, action, similar_cases, existing_case_id, or proposed_extension.
 - Do not claim existing functional test coverage until a TMS integration provides that evidence.
