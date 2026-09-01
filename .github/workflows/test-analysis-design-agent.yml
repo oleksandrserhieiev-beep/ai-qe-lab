@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       force_analysis:
-        description: "Ignore unchanged-content cache when semantic execution is enabled"
+        description: "Ignore unchanged-content cache"
         required: false
         default: false
         type: boolean
@@ -18,9 +18,10 @@ on:
       - config/test_analysis_design_prompt.txt
       - src/agent_content_cache.py
       - src/test_analysis_design.py
+      - src/test_analysis_design_agent.py
       - src/test_analysis_design_cache.py
+      - src/run_test_analysis_design_batch.py
       - tests/test_test_analysis_design.py
-      - docs/test_analysis_design_agent.md
       - .github/workflows/test-analysis-design-agent.yml
 
 jobs:
@@ -38,9 +39,43 @@ jobs:
           pip install -r requirements-dev.txt
       - name: Validate Test Analysis & Design contracts
         run: python -m pytest -q tests/test_test_analysis_design.py
-      - name: Skeleton boundary
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          echo "Test Analysis & Design semantic execution is intentionally not enabled in this skeleton."
-          echo "Input Jira IDs: ${{ inputs.issue_keys }}"
-          echo "Next implementation phase: eligibility -> dataset health -> coverage/similarity -> cached proposal -> human decision -> validated JSON promotion."
+
+  run-test-analysis-design:
+    if: github.event_name == 'workflow_dispatch'
+    needs: contract-tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      TEST_ANALYSIS_DESIGN_MODEL: ${{ vars.TEST_ANALYSIS_DESIGN_MODEL || vars.RISK_ANALYSIS_MODEL || vars.SUT_MODEL }}
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      TEST_ANALYSIS_DESIGN_FORCE: ${{ inputs.force_analysis }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Restore Test Analysis cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/test-analysis-design
+          key: test-analysis-design-${{ runner.os }}-${{ github.ref_name }}
+          restore-keys: |
+            test-analysis-design-${{ runner.os }}-
+      - name: Run Test Analysis & Design
+        run: python src/run_test_analysis_design_batch.py "${{ inputs.issue_keys }}"
+      - name: Upload proposal evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-analysis-design-report
+          path: reports/test_analysis_design_batch.json
+          if-no-files-found: warn
