@@ -34,21 +34,37 @@ class TestProposal(BaseModel):
     title: str = Field(min_length=1)
     test_kind: Literal["functional", "ai"]
     traceability: Traceability
-    oracle_type: OracleType
-    target_suite: TargetSuite
-    target_rationale: str = Field(min_length=1)
-    action: ProposalAction
-    input: dict
+    steps: list[str] = []
+    input: dict | None = None
     expected: dict
+    oracle_type: OracleType | None = None
+    target_suite: TargetSuite | None = None
+    target_rationale: str | None = None
+    action: ProposalAction | None = None
     similar_cases: list[SimilarCase] = []
     existing_case_id: str | None = None
     proposed_extension: dict | None = None
 
     @model_validator(mode="after")
-    def validate_action_contract(self):
-        if self.action == "EXTEND_EXISTING":
-            if not self.existing_case_id or not self.proposed_extension:
-                raise ValueError("EXTEND_EXISTING requires existing_case_id and proposed_extension")
+    def validate_kind_contract(self):
+        if self.test_kind == "functional":
+            if not self.steps:
+                raise ValueError("functional proposal requires steps")
+            return self
+
+        missing = []
+        if not self.input:
+            missing.append("input")
+        if not self.oracle_type:
+            missing.append("oracle_type")
+        if not self.target_suite:
+            missing.append("target_suite")
+        if not self.action:
+            missing.append("action")
+        if missing:
+            raise ValueError(f"ai proposal requires: {', '.join(missing)}")
+        if self.action == "EXTEND_EXISTING" and (not self.existing_case_id or not self.proposed_extension):
+            raise ValueError("EXTEND_EXISTING requires existing_case_id and proposed_extension")
         return self
 
 
