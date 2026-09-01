@@ -14,55 +14,52 @@ Engineering owns the SUT implementation. QE defines risks and expected behavior,
 
 ## Master architecture
 
-The README keeps the master view compact and visual. It separates upstream Agentic QE / human governance from downstream CI/CD quality execution.
+The README shows the **complete end-to-end architecture in compact form**. `docs/master_architecture.md` and `docs/architecture.md` expand the full architecture; dedicated pipeline documents zoom into the same blocks with detailed state/decision transitions.
 
 ```mermaid
 flowchart TB
-    ORCH["Agentic QE / STLC Orchestration\nRequirements Review -> Risk Analysis -> Test Analysis & Design"]
+    ORCH["Agentic QE / STLC\nRequirements Review -> Risk Analysis -> Test Analysis & Design"]
     HGA["Human Governance / Approval\nReadiness -> Risk Approval -> Test Decision"]
     GTA["Governed Test Assets\nApproved datasets + Oracle/assertion/risk metadata"]
 
     ORCH --> HGA
     HGA --> GTA
 
-    subgraph CICD["CI/CD Quality Execution"]
-        VALID["Dataset / Oracle Validation\nContract + identity + Oracle/assertion checks"]
-        SUITE["Suite Evaluation\nSUT Execution -> Oracle Resolution -> Python / LLM Judge"]
-        MET["Metrics / Risk Aggregation"]
-        QG["Quality Gate"]
-        EVID["PASS / FAIL + Evidence"]
+    GGOV["Golden / Canonical Truth Governance"] -. protects .-> GTA
 
-        VALID --> SUITE
-        SUITE --> MET
-        MET --> QG
-        QG --> EVID
-    end
+    GTA --> VALID["Dataset / Oracle Validation"]
+    VALID --> SUT["Application / SUT Pipeline\nInput -> Constraints -> Filter -> Retrieval -> Context -> Generation / deterministic exits"]
+    SUT --> OUT["SUT Output + Telemetry"]
+    OUT --> EVAL["Evaluation Pipeline\nOracle Resolution -> Python Assertions / LLM Judge"]
 
-    GTA --> VALID
-    EVID --> DEC["PR / Regression / Nightly / Release Decision"]
+    EGOV["Evaluator Governance\nJudge Calibration"] -. validates .-> EVAL
 
-    EGOV["Evaluator Governance\nJudge Calibration"] -. validates .-> SUITE
-    GGOV["Golden / Canonical Truth Governance\nGolden change control"] -. protects .-> GTA
+    EVAL --> MET["Metrics / Risk Aggregation"]
+    MET --> LOC["Failure Localization"]
+    LOC --> QG["Product Quality Gate"]
+    QG --> EVID["PASS / FAIL + Evidence"]
+    EVID --> DEC["CI/CD / Lifecycle Decision\nPR / Regression / Nightly / Adversarial / Release"]
 ```
 
 **Current upstream state:** Requirements Review, Risk Analysis and Test Analysis & Design are runnable. Risk Jira write-back is approval-gated. Test proposals continue through the actionable Human Decision workflow (`APPROVE / REJECT / EDIT / EXTEND_EXISTING`) and explicit confirmation. Confirmed decision -> governed dataset mutation/promotion is the next unimplemented boundary.
 
-**Boundaries:** `Governed Test Assets` are approved artifacts, not an agent or execution pipeline. Human governance decides whether proposals become governed assets. Dataset/Oracle Validation is a separate technical execution-precondition check.
+**Boundaries:** `Governed Test Assets` are approved artifacts, not an agent or execution pipeline. Human governance decides whether proposals become governed assets. Dataset/Oracle Validation is a separate technical execution-precondition check. The Application/SUT pipeline ends at `SUT Output + Telemetry`; the Evaluation pipeline starts from that evidence and owns Oracle resolution through quality evidence.
 
 ## Architecture navigation
 
 | Pipeline / control plane | Responsibility | Detailed view |
 |---|---|---|
-| **Agentic QE / STLC Orchestration** | Requirements Review -> Risk Analysis -> Test Analysis & Design -> Human Decision | [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md) |
-| **Human Governance / Approval** | readiness, Risk write-back, test proposal decision | [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md) |
+| **Full Detailed Architecture** | end-to-end architecture and responsibility boundaries | [`docs/architecture.md`](docs/architecture.md) |
+| **Master Architecture** | expanded end-to-end map and pipeline boundaries | [`docs/master_architecture.md`](docs/master_architecture.md) |
+| **Agentic QE / STLC Pipeline** | Requirements Review -> Risk Analysis -> Test Analysis & Design -> Human Decision | [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md) |
 | **Dataset / Oracle Validation Pipeline** | case identity and Oracle/assertion contract before model calls | [`docs/dataset_oracle_validation_pipeline.md`](docs/dataset_oracle_validation_pipeline.md) |
-| **Application / SUT Pipeline** | constraints -> filtering -> retrieval -> adaptive context -> generation/deterministic exits | [`docs/architecture.md`](docs/architecture.md) |
-| **Evaluation Pipeline** | Oracle routing -> Python / semantic Judge -> evaluated case | [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) |
+| **Application / SUT Pipeline** | constraints -> filtering -> retrieval -> adaptive context -> generation/deterministic exits | [`docs/sut_application_pipeline.md`](docs/sut_application_pipeline.md) |
+| **Evaluation Pipeline** | SUT evidence -> Oracle routing -> Python / semantic Judge -> metrics/gate | [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) |
+| **CI/CD / Suite Execution Pipeline** | lifecycle trigger -> selected suite -> shared execution -> lifecycle decision | [`docs/cicd_suite_execution_pipeline.md`](docs/cicd_suite_execution_pipeline.md) |
 | **Dataset Design / Oracle Contract** | dataset purposes and Oracle/assertion metadata | [`docs/dataset_design.md`](docs/dataset_design.md) |
 | **Specialized AI Testing** | Metamorphic, Back-to-Back and Adversarial | [`docs/future_ai_testing_workflows.md`](docs/future_ai_testing_workflows.md) |
 | **Golden Governance** | canonical expected-truth change control | [`docs/golden_dataset_governance.md`](docs/golden_dataset_governance.md) |
 | **Evaluator Governance** | OLD vs NEW Judge calibration against human truth | [`docs/judge_calibration_workflow.md`](docs/judge_calibration_workflow.md) |
-| **Master Architecture** | expanded end-to-end map and boundaries | [`docs/master_architecture.md`](docs/master_architecture.md) |
 
 ### Agent-level navigation
 
@@ -107,8 +104,9 @@ For each lifecycle execution:
 ```text
 Selected Governed Suite
 -> Dataset / Oracle Validation
--> Suite Evaluation
-   -> SUT Execution
+-> Application / SUT Pipeline
+-> SUT Output + Telemetry
+-> Evaluation Pipeline
    -> Oracle Resolution
    -> deterministic Python OR semantic LLM Judge
 -> Metrics / Risk Aggregation
@@ -157,8 +155,8 @@ Golden is canonical truth under separate governance. Judge behavior is protected
 ```text
 Requirement -> Acceptance Criterion -> Risk -> Proposed Test / Evaluation Asset
 -> Human Decision -> Governed Test Asset
--> Dataset / Oracle Validation -> SUT Execution -> Evidence
--> Oracle / Metric / Quality Gate -> Defect / Regression
+-> Dataset / Oracle Validation -> Application / SUT Execution -> SUT Evidence
+-> Evaluation -> Oracle / Metric / Quality Gate -> Defect / Regression
 -> Residual Risk -> Release Decision
 ```
 
@@ -180,10 +178,12 @@ Only unimplemented work remains here:
 
 - [`QUICKSTART.md`](QUICKSTART.md) — clone, configure and run locally;
 - [`docs/master_architecture.md`](docs/master_architecture.md) — expanded master architecture and responsibility boundaries;
-- [`docs/dataset_oracle_validation_pipeline.md`](docs/dataset_oracle_validation_pipeline.md) — dataset/oracle execution-precondition pipeline;
-- [`docs/architecture.md`](docs/architecture.md) — detailed reference SUT/application architecture;
-- [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md) — Agentic QE orchestration and decision branches;
-- [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) — Oracle/evaluation details;
+- [`docs/architecture.md`](docs/architecture.md) — full detailed end-to-end architecture reference;
+- [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md) — detailed Agentic QE state/decision flow;
+- [`docs/dataset_oracle_validation_pipeline.md`](docs/dataset_oracle_validation_pipeline.md) — detailed dataset/oracle validation state flow;
+- [`docs/sut_application_pipeline.md`](docs/sut_application_pipeline.md) — detailed Application/SUT state and decision flow;
+- [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) — detailed Oracle/evaluation pipeline;
+- [`docs/cicd_suite_execution_pipeline.md`](docs/cicd_suite_execution_pipeline.md) — detailed CI/CD/suite lifecycle pipeline;
 - [`docs/dataset_design.md`](docs/dataset_design.md) — dataset purposes and Oracle contract;
 - [`docs/adversarial_testing_contract.md`](docs/adversarial_testing_contract.md) — adversarial test-design contract;
 - [`docs/future_ai_testing_workflows.md`](docs/future_ai_testing_workflows.md) — specialized workflow split and remaining roadmap;
