@@ -20,10 +20,13 @@ on:
       - src/test_analysis_design.py
       - src/test_analysis_design_agent.py
       - src/test_analysis_design_cache.py
+      - src/test_analysis_design_decisions.py
       - src/run_test_analysis_design_batch.py
       - tests/test_test_analysis_design.py
       - tests/test_test_analysis_design_agent.py
+      - tests/test_test_analysis_design_decisions.py
       - .github/workflows/test-analysis-design-agent.yml
+      - .github/workflows/test-analysis-design-decision.yml
 
 jobs:
   contract-tests:
@@ -39,7 +42,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
       - name: Validate Test Analysis & Design contracts
-        run: python -m pytest -q tests/test_test_analysis_design.py tests/test_test_analysis_design_agent.py
+        run: python -m pytest -q tests/test_test_analysis_design.py tests/test_test_analysis_design_agent.py tests/test_test_analysis_design_decisions.py
 
   run-test-analysis-design:
     if: github.event_name == 'workflow_dispatch'
@@ -73,10 +76,30 @@ jobs:
             test-analysis-design-${{ runner.os }}-
       - name: Run Test Analysis & Design
         run: python src/run_test_analysis_design_batch.py "${{ inputs.issue_keys }}"
+      - name: Build human decision package
+        if: always() && hashFiles('reports/test_analysis_design_batch.json') != ''
+        run: python src/test_analysis_design_decisions.py build
+      - name: Add actionable next-step summary
+        if: always() && hashFiles('reports/test_analysis_design_decisions.json') != ''
+        run: |
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Human decision — actionable gate" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Open **Actions → Test Analysis & Design — Human Decision → Run workflow**." >> "$GITHUB_STEP_SUMMARY"
+          echo "Choose the proposal ID, select **APPROVE / REJECT / EDIT / EXTEND_EXISTING** from the Decision dropdown, set **Confirm this decision = true**, then click **Run workflow**." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "No governed dataset is changed by this analysis run." >> "$GITHUB_STEP_SUMMARY"
       - name: Upload proposal evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-analysis-design-report
           path: reports/test_analysis_design_batch.json
+          if-no-files-found: warn
+      - name: Upload human decision package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-analysis-design-decision-package
+          path: reports/test_analysis_design_decisions.json
           if-no-files-found: warn
