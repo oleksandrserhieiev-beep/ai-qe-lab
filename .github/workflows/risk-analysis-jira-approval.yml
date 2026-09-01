@@ -1,0 +1,46 @@
+name: Apply Approved Risk Register to Jira
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_key:
+        description: "Jira issue whose analyzed Risk Register is being approved"
+        required: true
+        type: string
+      confirm_approval:
+        description: "Human approval: write the Risk Register to Jira Description"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  apply-approved-risk-register:
+    if: ${{ inputs.confirm_approval == true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    env:
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Download Risk Analysis evidence
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: risk-analysis-agent.yml
+          name: risk-analysis-report
+          path: reports
+          workflow_conclusion: success
+          search_artifacts: true
+      - name: Apply explicitly approved Risk Register
+        run: python src/apply_risk_analysis_approval.py "${{ inputs.issue_key }}" --approve
