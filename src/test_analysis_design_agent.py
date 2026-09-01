@@ -73,6 +73,24 @@ def _normalise_contract(raw: dict, issue_key: str) -> dict:
         trace["acceptance_criteria"] = trace.get("acceptance_criteria") or trace.get("ac") or []
         trace["risk_ids"] = trace.get("risk_ids") or trace.get("risks") or []
         proposal["traceability"] = trace
+
+        proposal["expected"] = proposal.get("expected") or proposal.get("expected_output") or proposal.get("expected_behavior") or {}
+        if not isinstance(proposal["expected"], dict):
+            proposal["expected"] = {"behavior": proposal["expected"]}
+
+        if proposal["test_kind"] == "functional":
+            steps = proposal.get("steps") or proposal.get("test_steps") or []
+            if isinstance(steps, str):
+                steps = [steps]
+            proposal["steps"] = steps
+            for field in ("input", "oracle_type", "target_suite", "target_rationale", "action", "similar_cases", "existing_case_id", "proposed_extension"):
+                proposal.pop(field, None)
+            normalised.append(proposal)
+            continue
+
+        proposal["input"] = proposal.get("input") or proposal.get("test_input") or proposal.get("query") or {}
+        if not isinstance(proposal["input"], dict):
+            proposal["input"] = {"query": proposal["input"]}
         proposal["oracle_type"] = _normalise_enum(
             proposal.get("oracle_type") or proposal.get("oracle") or "semantic",
             {"deterministic": "deterministic", "semantic": "semantic", "semantic_llm": "semantic", "llm": "semantic"},
@@ -88,24 +106,20 @@ def _normalise_contract(raw: dict, issue_key: str) -> dict:
                 "golden_candidate": "golden_candidate",
             },
         )
-        proposal["target_rationale"] = proposal.get("target_rationale") or proposal.get("rationale") or proposal.get("reason") or "Agent-proposed target based on coverage and risk context."
         proposal["action"] = str(proposal.get("action") or "ADD").strip().upper()
-        proposal["input"] = proposal.get("input") or proposal.get("test_input") or proposal.get("query") or {}
-        if not isinstance(proposal["input"], dict):
-            proposal["input"] = {"query": proposal["input"]}
-        proposal["expected"] = proposal.get("expected") or proposal.get("expected_output") or proposal.get("expected_behavior") or {}
-        if not isinstance(proposal["expected"], dict):
-            proposal["expected"] = {"behavior": proposal["expected"]}
+        rationale = proposal.get("target_rationale") or proposal.get("rationale") or proposal.get("reason")
+        proposal["target_rationale"] = rationale if rationale else None
         similar_cases = []
         for similar in proposal.get("similar_cases") or []:
             item = dict(similar)
             item["case_id"] = item.get("case_id") or item.get("existing_case_id") or item.get("id")
             item["similarity_score"] = item.get("similarity_score", item.get("similarity", 0.0))
-            item["coverage_note"] = item.get("coverage_note") or item.get("note") or item.get("rationale") or "Similar existing coverage."
+            item["coverage_note"] = item.get("coverage_note") or item.get("note") or item.get("rationale") or "Similar coverage."
             similar_cases.append(item)
         proposal["similar_cases"] = similar_cases
         proposal.setdefault("existing_case_id", None)
         proposal.setdefault("proposed_extension", None)
+        proposal.pop("steps", None)
         normalised.append(proposal)
     data["proposals"] = normalised
     return data
@@ -120,7 +134,7 @@ def analyze_test_design(payload: dict) -> tuple[dict, dict]:
     prompt = PROMPT_PATH.read_text(encoding="utf-8")
     client = Anthropic(api_key=api_key)
     compact = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-    base_message = "Analyze this requirement, reviewed risks, and governed dataset snapshot. Return one complete compact JSON object matching the TestAnalysisDesignResult contract only. Do not echo the dataset snapshot. Keep rationale and coverage notes concise.\n" + compact
+    base_message = "Analyze this requirement, reviewed risks, and governed dataset snapshot. Return one complete compact JSON object matching the TestAnalysisDesignResult contract only. Do not echo the dataset snapshot or Jira text. Generate minimal functional tests and dataset-ready AI-quality proposals only.\n" + compact
     messages = [{"role": "user", "content": base_message}]
     responses = []
     started = time.perf_counter()
@@ -134,7 +148,7 @@ def analyze_test_design(payload: dict) -> tuple[dict, dict]:
             if response.stop_reason == "max_tokens":
                 raise ValueError(f"response was truncated at max_tokens={max_tokens}")
             raw = _extract_json(text)
-            result = TestAnalysisDesignResult.model_validate(_normalise_contract(raw, payload["issue_key"])).model_dump()
+            result = TestAnalysisDesignResult.model_validate(_normalise_contract(raw, payload["issue_key"])).model_dump(exclude_none=True)
             if result["issue_key"] != payload["issue_key"]:
                 raise ValueError("output issue_key does not match input")
             break
@@ -144,7 +158,7 @@ def analyze_test_design(payload: dict) -> tuple[dict, dict]:
                 raise ValueError(f"Test Analysis & Design contract failure after retry: {exc}") from exc
             messages = [{
                 "role": "user",
-                "content": base_message + "\nPrevious attempt failed contract validation. Return a smaller complete JSON object using the exact field names and enum literals from the system instruction. Generate only material proposals; never reproduce full existing dataset records.",
+                "content": base_message + "\nPrevious attempt failed contract validation. Return a smaller complete JSON object using the exact conditional fields from the system instruction. Functional: title/steps/expected only plus traceability. AI: input/expected/oracle/target/action plus optional existing coverage fields.",
             }]
     if result is None:
         raise ValueError(f"Test Analysis & Design did not produce a result: {last_error}")
