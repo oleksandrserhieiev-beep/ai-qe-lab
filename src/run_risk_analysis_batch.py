@@ -74,6 +74,25 @@ def _centered_markdown_table(headers: list[str], rows: list[list[object]]) -> li
     return lines
 
 
+def _print_console_table(headers: list[str], rows: list[list[object]]) -> None:
+    if not rows:
+        print("No rows to display.")
+        return
+    text_rows = [[str(value).replace("\n", " ") for value in row] for row in rows]
+    widths = [len(str(header)) for header in headers]
+    for row in text_rows:
+        for index, value in enumerate(row):
+            widths[index] = max(widths[index], len(value))
+
+    def render(row: list[str]) -> str:
+        return "| " + " | ".join(value.center(widths[index]) for index, value in enumerate(row)) + " |"
+
+    print(render([str(header) for header in headers]))
+    print("|-" + "-|-".join("-" * width for width in widths) + "-|")
+    for row in text_rows:
+        print(render(row))
+
+
 def check(raw_issue_keys: str) -> dict:
     issue_keys = parse_issue_keys(raw_issue_keys)
     if not issue_keys:
@@ -135,10 +154,12 @@ def check(raw_issue_keys: str) -> dict:
         "No LLM call is made for ineligible tickets.",
     ])
 
+    print("\n=== Risk Analysis — Eligibility Check ===")
+    _print_console_table(["Issue", "Eligibility", "Reason"], rows)
     if not eligible_requirements:
-        print("No eligible tickets for Risk Analysis.")
+        print("\nNo eligible tickets for Risk Analysis.")
     else:
-        print(f"Eligible tickets for Risk Analysis: {len(eligible_requirements)}")
+        print(f"\nEligible tickets for Risk Analysis: {len(eligible_requirements)}")
     return state
 
 
@@ -239,13 +260,13 @@ def analyze() -> dict:
         "Unchanged ticket semantic content + unchanged Risk Agent prompt + unchanged model reuses cached output and spends 0 LLM tokens.",
     ])
 
+    print("\n=== Risk Analysis — Execution ===")
+    _print_console_table(
+        ["Fresh", "Cached", "LLM Attempts", "Failed", "Tokens", "Cost"],
+        [[report["analyzed"], report["cached"], report["llm_attempts"], report["failed"], report["total_tokens"], f"${report['estimated_cost_usd']:.6f}"]],
+    )
     if not results:
         print("No eligible tickets for Risk Analysis. LLM execution skipped.")
-    else:
-        print(
-            f"Risk Analysis completed: {report['analyzed']} fresh, {report['cached']} cached, "
-            f"{report['failed']} failed, {report['total_tokens']} actual tokens"
-        )
     return report
 
 
@@ -272,7 +293,8 @@ def render_scores() -> None:
         *_centered_markdown_table(["Issue", "Risk ID", "Likelihood", "Impact", "Calculation", "Risk Score"], rows),
         "" if rows else "No risks were produced.",
     ])
-    print(f"Risk scores calculated deterministically for {len(rows)} risks.")
+    print("\n=== Risk Analysis — Likelihood × Impact ===")
+    _print_console_table(["Issue", "Risk ID", "Likelihood", "Impact", "Calculation", "Risk Score"], rows)
 
 
 def render_prioritized() -> None:
@@ -305,7 +327,15 @@ def render_prioritized() -> None:
         "",
         f"**LLM usage this run:** {report.get('total_tokens', 0):,} tokens | **Estimated cost:** ${report.get('estimated_cost_usd', 0.0):.6f} | **Cache hits:** {report.get('cached', 0)}",
     ])
-    print(f"Prioritized Risk Register contains {len(rows)} risks, sorted by Risk Score descending.")
+    print("\n=== Prioritized Risk Register ===")
+    _print_console_table(
+        ["#", "Issue", "Risk Type", "Category", "Risk", "Likelihood", "Impact", "Score", "Priority"],
+        rows,
+    )
+    print(
+        f"\nLLM usage this run: {report.get('total_tokens', 0):,} tokens | "
+        f"Estimated cost: ${report.get('estimated_cost_usd', 0.0):.6f} | Cache hits: {report.get('cached', 0)}"
+    )
 
 
 def main() -> None:
