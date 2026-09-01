@@ -51,6 +51,14 @@ def _normalise_enum(value, mapping: dict[str, str]):
     return mapping.get(key, value)
 
 
+def _as_list(value) -> list:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
 def _normalise_contract(raw: dict, issue_key: str) -> dict:
     data = dict(raw)
     data.setdefault("issue_key", issue_key)
@@ -70,19 +78,24 @@ def _normalise_contract(raw: dict, issue_key: str) -> dict:
         )
         trace = dict(proposal.get("traceability") or {})
         trace["issue_key"] = trace.get("issue_key") or trace.get("jira_issue") or trace.get("requirement") or issue_key
-        trace["acceptance_criteria"] = trace.get("acceptance_criteria") or trace.get("ac") or []
-        trace["risk_ids"] = trace.get("risk_ids") or trace.get("risks") or []
+        trace["acceptance_criteria"] = _as_list(trace.get("acceptance_criteria") or trace.get("ac"))
+        trace["risk_ids"] = _as_list(trace.get("risk_ids") or trace.get("risks"))
         proposal["traceability"] = trace
+
+        proposal["preconditions"] = _as_list(proposal.get("preconditions") or proposal.get("setup") or proposal.get("test_data"))
+        proposal["assertions"] = _as_list(proposal.get("assertions") or proposal.get("checks") or proposal.get("verification"))
+        proposal["priority"] = _normalise_enum(
+            proposal.get("priority") or proposal.get("test_priority"),
+            {"critical": "CRITICAL", "high": "HIGH", "medium": "MEDIUM", "low": "LOW"},
+        )
+        proposal["estimated_manual_minutes"] = proposal.get("estimated_manual_minutes") or proposal.get("manual_minutes") or proposal.get("estimated_minutes")
 
         proposal["expected"] = proposal.get("expected") or proposal.get("expected_output") or proposal.get("expected_behavior") or {}
         if not isinstance(proposal["expected"], dict):
             proposal["expected"] = {"behavior": proposal["expected"]}
 
         if proposal["test_kind"] == "functional":
-            steps = proposal.get("steps") or proposal.get("test_steps") or []
-            if isinstance(steps, str):
-                steps = [steps]
-            proposal["steps"] = steps
+            proposal["steps"] = _as_list(proposal.get("steps") or proposal.get("test_steps"))
             for field in ("input", "oracle_type", "target_suite", "target_rationale", "action", "similar_cases", "existing_case_id", "proposed_extension"):
                 proposal.pop(field, None)
             normalised.append(proposal)
@@ -114,7 +127,7 @@ def _normalise_contract(raw: dict, issue_key: str) -> dict:
             item = dict(similar)
             item["case_id"] = item.get("case_id") or item.get("existing_case_id") or item.get("id")
             item["similarity_score"] = item.get("similarity_score", item.get("similarity", 0.0))
-            item["coverage_note"] = item.get("coverage_note") or item.get("note") or item.get("rationale") or "Similar coverage."
+            item["coverage_note"] = item.get("coverage_note") or item.get("note") or item.get("rationale") or "Similar coverage; review overlap and differences."
             similar_cases.append(item)
         proposal["similar_cases"] = similar_cases
         proposal.setdefault("existing_case_id", None)
@@ -134,7 +147,7 @@ def analyze_test_design(payload: dict) -> tuple[dict, dict]:
     prompt = PROMPT_PATH.read_text(encoding="utf-8")
     client = Anthropic(api_key=api_key)
     compact = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-    base_message = "Analyze this requirement, reviewed risks, and governed dataset snapshot. Return one complete compact JSON object matching the TestAnalysisDesignResult contract only. Do not echo the dataset snapshot or Jira text. Generate minimal functional tests and dataset-ready AI-quality proposals only.\n" + compact
+    base_message = "Analyze this requirement, reviewed Risk Register, and governed dataset snapshot. Optimize for the smallest risk-driven test set with concrete preconditions/assertions, explicit traceability, explainable similarity, priority, suite rationale, and manual-time estimate. Return one complete compact JSON object matching the TestAnalysisDesignResult contract only. Do not echo the dataset snapshot or Jira text.\n" + compact
     messages = [{"role": "user", "content": base_message}]
     responses = []
     started = time.perf_counter()
@@ -158,7 +171,7 @@ def analyze_test_design(payload: dict) -> tuple[dict, dict]:
                 raise ValueError(f"Test Analysis & Design contract failure after retry: {exc}") from exc
             messages = [{
                 "role": "user",
-                "content": base_message + "\nPrevious attempt failed contract validation. Return a smaller complete JSON object using the exact conditional fields from the system instruction. Functional: title/steps/expected only plus traceability. AI: input/expected/oracle/target/action plus optional existing coverage fields.",
+                "content": base_message + "\nPrevious attempt failed contract validation. Return a smaller complete JSON object using the exact conditional fields from the system instruction. Every proposal requires traceability, concrete assertions, priority, and estimated_manual_minutes. Functional also requires steps. AI also requires input/oracle/target/action/target_rationale.",
             }]
     if result is None:
         raise ValueError(f"Test Analysis & Design did not produce a result: {last_error}")
