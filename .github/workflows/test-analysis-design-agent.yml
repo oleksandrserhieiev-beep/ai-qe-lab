@@ -22,6 +22,7 @@ on:
       - src/test_analysis_design_cache.py
       - src/run_test_analysis_design_batch.py
       - tests/test_test_analysis_design.py
+      - tests/test_test_analysis_design_agent.py
       - .github/workflows/test-analysis-design-agent.yml
 
 jobs:
@@ -38,7 +39,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
       - name: Validate Test Analysis & Design contracts
-        run: python -m pytest -q tests/test_test_analysis_design.py
+        run: python -m pytest -q tests/test_test_analysis_design.py tests/test_test_analysis_design_agent.py
 
   run-test-analysis-design:
     if: github.event_name == 'workflow_dispatch'
