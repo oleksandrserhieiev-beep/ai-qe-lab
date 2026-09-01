@@ -1,0 +1,78 @@
+name: Test Analysis & Design — Human Decision
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_key:
+        description: "Jira issue key"
+        required: true
+        type: string
+      proposal_id:
+        description: "Proposal ID from Test Analysis summary/artifact"
+        required: true
+        type: string
+      decision:
+        description: "Human decision"
+        required: true
+        type: choice
+        options:
+          - APPROVE
+          - REJECT
+          - EDIT
+          - EXTEND_EXISTING
+      edited_proposal_json:
+        description: "Required for EDIT; optional override for EXTEND_EXISTING"
+        required: false
+        type: string
+      confirm_apply:
+        description: "Confirm this decision"
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  apply-human-decision:
+    if: ${{ inputs.confirm_apply == true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download latest Test Analysis decision package
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: test-analysis-design-agent.yml
+          name: test-analysis-design-decision-package
+          path: reports
+          workflow_conclusion: success
+          search_artifacts: true
+      - name: Apply explicit human decision
+        env:
+          EDITED_PROPOSAL_JSON: ${{ inputs.edited_proposal_json }}
+        run: |
+          python src/test_analysis_design_decisions.py decide \
+            --package reports/test_analysis_design_decisions.json \
+            --issue-key "${{ inputs.issue_key }}" \
+            --proposal-id "${{ inputs.proposal_id }}" \
+            --decision "${{ inputs.decision }}" \
+            --confirm \
+            --edited-json "$EDITED_PROPOSAL_JSON"
+      - name: Human decision summary
+        run: |
+          echo "## Test Analysis & Design — Human Decision" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Issue | Proposal | Decision | Confirmed |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ${{ inputs.issue_key }} | ${{ inputs.proposal_id }} | ${{ inputs.decision }} | yes |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "This workflow records and validates the human decision. Governed dataset mutation remains a separate promotion step and is never automatic." >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload confirmed human decision
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-analysis-design-human-decision-${{ inputs.issue_key }}-${{ inputs.proposal_id }}
+          path: reports/test_analysis_design_decision.json
+          if-no-files-found: error
