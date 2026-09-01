@@ -9,7 +9,6 @@ import httpx
 
 from jira_requirements import load_requirement
 from requirement_precheck import parse_issue_keys, validate_issue_key
-from test_analysis_design import dataset_health_check, can_propose
 from test_analysis_design_agent import PROMPT_PATH, analyze_test_design
 from test_analysis_design_cache import DEFAULT_CACHE_PATH, content_fingerprint, get_cached, load_cache, put_cached, save_cache
 
@@ -106,23 +105,31 @@ def run(raw_issue_keys: str) -> dict:
             key = requirement["issue_key"]
             content_hash = content_fingerprint(issue_key=key, acceptance_criteria=requirement["acceptance_criteria"], risks=risks, dataset_snapshot=snapshot, model=_model(), prompt_text=prompt)
             cached = None if _force() else get_cached(cache, key, content_hash)
-            if cached:
-                hits += 1; result = cached["result"]; telemetry = {"model": cached.get("model") or _model(), "total_tokens": 0, "estimated_cost_usd": 0.0, "cache_hit": True}
-            else:
-                attempts += 1
-                payload = {"issue_key": key, "summary": requirement.get("summary", ""), "acceptance_criteria": requirement["acceptance_criteria"], "reviewed_risks": risks, "dataset_snapshot": snapshot, "dataset_health_findings": health}
-                result, telemetry = analyze_test_design(payload); total_tokens += telemetry["total_tokens"]; total_cost += telemetry["estimated_cost_usd"]
-                put_cached(cache, key, content_hash, result=result, model=telemetry.get("model") or _model(), created_at=datetime.now(timezone.utc).isoformat())
-            results.append({"issue_key": key, "cache_hit": bool(cached), "result": result, "telemetry": telemetry})
+            try:
+                if cached:
+                    hits += 1; result = cached["result"]; telemetry = {"model": cached.get("model") or _model(), "total_tokens": 0, "estimated_cost_usd": 0.0, "cache_hit": True}
+                    status = "CACHED"
+                else:
+                    attempts += 1
+                    payload = {"issue_key": key, "summary": requirement.get("summary", ""), "acceptance_criteria": requirement["acceptance_criteria"], "reviewed_risks": risks, "dataset_snapshot": snapshot, "dataset_health_findings": health}
+                    result, telemetry = analyze_test_design(payload); total_tokens += telemetry["total_tokens"]; total_cost += telemetry["estimated_cost_usd"]
+                    put_cached(cache, key, content_hash, result=result, model=telemetry.get("model") or _model(), created_at=datetime.now(timezone.utc).isoformat())
+                    status = "ANALYZED"
+                results.append({"issue_key": key, "status": status, "cache_hit": bool(cached), "result": result, "telemetry": telemetry})
+            except Exception as exc:
+                results.append({"issue_key": key, "status": "ERROR", "cache_hit": False, "error": str(exc)})
     save_cache(cache, DEFAULT_CACHE_PATH)
     trace_rows = []
     for item in results:
+        if item.get("status") == "ERROR":
+            continue
         for proposal in item["result"].get("proposals", []):
             trace = proposal["traceability"]
             similar = max(proposal.get("similar_cases") or [], key=lambda x: x["similarity_score"], default=None)
             trace_rows.append([item["issue_key"], "; ".join(trace["acceptance_criteria"]), "; ".join(trace["risk_ids"]), similar["case_id"] if similar else "-", proposal["title"], f"{similar['similarity_score']:.0%}" if similar else "-", proposal["oracle_type"], proposal["target_suite"], proposal["action"], proposal["target_rationale"]])
-    _summary(["", "## Traceability & Coverage Proposals", "", *_table(["Jira", "Acceptance Criteria", "Risks", "Existing Coverage", "Proposed Test", "Similarity", "Oracle", "Target", "Action", "Rationale"], trace_rows), "", "### Human decision contract", "`APPROVE = add new` · `REJECT = no change` · `EDIT = edit proposal before add` · `EXTEND_EXISTING = modify existing case after BEFORE → AFTER review`", "", f"**Cache hits:** {hits} | **LLM attempts:** {attempts} | **Tokens:** {total_tokens:,} | **Estimated cost:** ${total_cost:.6f}"])
-    report = {"run_timestamp": datetime.now(timezone.utc).isoformat(), "requested": len(issue_keys), "eligible": len(requirements), "ineligible": len(issue_keys)-len(requirements), "dataset_blocked": blocking, "dataset_health": health, "cache_hits": hits, "llm_attempts": attempts, "total_tokens": total_tokens, "estimated_cost_usd": round(total_cost, 6), "eligibility": eligibility, "results": results}
+    failed = [item for item in results if item.get("status") == "ERROR"]
+    _summary(["", "## Traceability & Coverage Proposals", "", *_table(["Jira", "Acceptance Criteria", "Risks", "Existing Coverage", "Proposed Test", "Similarity", "Oracle", "Target", "Action", "Rationale"], trace_rows), "", "### Agent execution", f"**Succeeded:** {len(results)-len(failed)} | **Failed:** {len(failed)} | **Cache hits:** {hits} | **LLM attempts:** {attempts} | **Tokens:** {total_tokens:,} | **Estimated cost:** ${total_cost:.6f}", *(["", *_table(["Issue", "Status", "Error"], [[x["issue_key"], "ERROR", x["error"]] for x in failed])] if failed else []), "", "### Human decision contract", "`APPROVE = add new` · `REJECT = no change` · `EDIT = edit proposal before add` · `EXTEND_EXISTING = modify existing case after BEFORE → AFTER review`"])
+    report = {"run_timestamp": datetime.now(timezone.utc).isoformat(), "requested": len(issue_keys), "eligible": len(requirements), "ineligible": len(issue_keys)-len(requirements), "dataset_blocked": blocking, "dataset_health": health, "cache_hits": hits, "llm_attempts": attempts, "failed": len(failed), "total_tokens": total_tokens, "estimated_cost_usd": round(total_cost, 6), "eligibility": eligibility, "results": results}
     _write_json(REPORT_PATH, report); print(json.dumps(report, ensure_ascii=False, indent=2)); return report
 
 
