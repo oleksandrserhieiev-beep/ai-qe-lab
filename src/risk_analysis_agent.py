@@ -18,29 +18,52 @@ PRIMARY_MAX_TOKENS = 2200
 RETRY_MAX_TOKENS = 3200
 
 RiskCategory = Literal["functional", "integration", "data", "ai", "security", "resilience", "performance", "business"]
+RiskType = Literal["functional", "non-functional", "ai"]
 RiskLevel = Literal["critical", "high", "medium", "low"]
-Likelihood = Literal["high", "medium", "low"]
-Impact = Literal["high", "medium", "low"]
+
+
+def priority_from_score(score: int) -> RiskLevel:
+    if score >= 20:
+        return "critical"
+    if score >= 12:
+        return "high"
+    if score >= 6:
+        return "medium"
+    return "low"
 
 
 class RiskItem(BaseModel):
     risk_id: str = Field(min_length=1)
+    risk_type: RiskType
     category: RiskCategory
     risk_statement: str = Field(min_length=1)
-    likelihood: Likelihood
-    impact: Impact
-    priority: RiskLevel
+    likelihood: int = Field(ge=1, le=5)
+    impact: int = Field(ge=1, le=5)
+    risk_score: int = 0
+    priority: RiskLevel = "low"
     rationale: str = Field(min_length=1)
     evidence: list[str] = []
     recommended_test_focus: list[str] = []
+
+    @model_validator(mode="after")
+    def calculate_score_and_priority(self):
+        self.risk_score = self.likelihood * self.impact
+        self.priority = priority_from_score(self.risk_score)
+        return self
 
 
 class RiskAnalysisResult(BaseModel):
     issue_key: str = Field(min_length=1)
     summary: str = Field(min_length=1)
     risks: list[RiskItem] = Field(min_length=1)
-    overall_risk_level: RiskLevel
+    overall_risk_level: RiskLevel = "low"
     recommended_next_action: Literal["continue_to_test_analysis_and_design"]
+
+    @model_validator(mode="after")
+    def calculate_overall_risk_level(self):
+        self.risks.sort(key=lambda risk: risk.risk_score, reverse=True)
+        self.overall_risk_level = self.risks[0].priority
+        return self
 
 
 class RiskAnalysisInput(BaseModel):
@@ -141,7 +164,6 @@ def analyze_risks(payload: dict) -> tuple[dict, dict]:
 
     start = time.perf_counter()
     responses = []
-    last_error = None
     for attempt, max_tokens in enumerate((PRIMARY_MAX_TOKENS, RETRY_MAX_TOKENS), start=1):
         response = _call_agent(client, model, prompt, messages, max_tokens)
         responses.append(response)
@@ -152,7 +174,6 @@ def analyze_risks(payload: dict) -> tuple[dict, dict]:
                 raise ValueError("Risk Analysis output issue_key does not match input")
             break
         except Exception as exc:
-            last_error = exc
             if attempt == 2:
                 raise ValueError(f"Risk Analysis Agent contract failure after retry: {exc}") from exc
             messages.extend([
