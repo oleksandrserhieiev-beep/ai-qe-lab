@@ -32,7 +32,8 @@ For each material risk return:
 - impact: integer from 1 to 5
 - rationale
 - evidence: concise list of evidence strings from the supplied requirement
-- recommended_test_focus: concise list of test focus areas
+- mitigation: concise list of practical controls/actions that could reduce likelihood and/or impact; this is risk treatment advice, not a test case
+- recommended_test_focus: concise list of test focus areas that would verify the risk and/or mitigation controls
 
 Likelihood and impact are semantic assessments made from the available requirement context. Do not return risk_score or priority; those are calculated deterministically after your response as likelihood × impact.
 

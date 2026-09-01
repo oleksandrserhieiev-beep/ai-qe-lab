@@ -58,6 +58,7 @@ def test_risk_output_calculates_score_priority_and_sorting_deterministically():
                     "impact": 2,
                     "rationale": "Filtering affects visible results.",
                     "evidence": ["AC requires selected color to limit results"],
+                    "mitigation": ["validate normalized catalogue colors before filtering"],
                     "recommended_test_focus": ["exact color match"],
                 },
                 {
@@ -69,6 +70,7 @@ def test_risk_output_calculates_score_priority_and_sorting_deterministically():
                     "impact": 5,
                     "rationale": "Filtering depends on catalogue color data.",
                     "evidence": ["selected color must match returned products"],
+                    "mitigation": ["enforce catalogue color validation and normalization"],
                     "recommended_test_focus": ["catalogue color integrity"],
                 },
             ],
@@ -79,9 +81,33 @@ def test_risk_output_calculates_score_priority_and_sorting_deterministically():
     assert result["risks"][0]["risk_id"] == "RISK-HIGH"
     assert result["risks"][0]["risk_score"] == 20
     assert result["risks"][0]["priority"] == "critical"
+    assert result["risks"][0]["mitigation"] == ["enforce catalogue color validation and normalization"]
+    assert result["risks"][0]["recommended_test_focus"] == ["catalogue color integrity"]
     assert result["risks"][1]["risk_score"] == 4
     assert result["risks"][1]["priority"] == "low"
     assert result["overall_risk_level"] == "critical"
+
+
+def test_mitigation_and_test_focus_are_required():
+    with pytest.raises(ValidationError):
+        validate_risk_analysis_output(
+            {
+                "issue_key": "SCRUM-2",
+                "summary": "Missing treatment",
+                "risks": [{
+                    "risk_id": "RISK-1",
+                    "risk_type": "functional",
+                    "category": "functional",
+                    "risk_statement": "Example",
+                    "likelihood": 2,
+                    "impact": 2,
+                    "rationale": "Example",
+                    "evidence": ["example"],
+                    "recommended_test_focus": ["example"],
+                }],
+                "recommended_next_action": "continue_to_test_analysis_and_design",
+            }
+        )
 
 
 def test_likelihood_and_impact_are_limited_to_one_through_five():
@@ -99,6 +125,9 @@ def test_likelihood_and_impact_are_limited_to_one_through_five():
                         "likelihood": 6,
                         "impact": 2,
                         "rationale": "Example",
+                        "evidence": ["example"],
+                        "mitigation": ["example"],
+                        "recommended_test_focus": ["example"],
                     }
                 ],
                 "recommended_next_action": "continue_to_test_analysis_and_design",
