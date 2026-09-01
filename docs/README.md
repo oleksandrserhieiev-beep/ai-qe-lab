@@ -4,6 +4,7 @@ Canonical current documentation:
 
 - [Master Architecture](master_architecture.md) — expanded framework boundaries and CI/CD execution model.
 - [Architecture](architecture.md) — canonical current reference-SUT architecture.
+- [Layered Metric Architecture](metric_architecture.md) — canonical metric taxonomy across SUT/Product Quality, Evaluation Pipeline Health, Judge Quality and Operational metrics, with the RAG-stage diagnostic mapping and legend.
 - [Automated AI Evaluation](automated_ai_evaluation.md) — Dataset Validation, Oracle routing, deterministic vs semantic evaluation and metric populations.
 - [Dataset Design](dataset_design.md) — purpose-based PR Critical, Regression, Nightly, Golden, Metamorphic, Adversarial and Judge Calibration asset model.
 - [Specialized AI Testing Workflows](future_ai_testing_workflows.md) — current PR Metamorphic, manual Back-to-Back and scheduled/manual Adversarial execution split; Drift deferred.
