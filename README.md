@@ -4,101 +4,192 @@ Practical AI Quality Engineering lab for building, testing, evaluating, observin
 
 ## Quick start
 
-Follow [`QUICKSTART.md`](QUICKSTART.md) to clone, configure and run the lab.
+New to the lab? Follow [`QUICKSTART.md`](QUICKSTART.md) to clone the repository, configure the local environment and run the project on Windows.
 
 ## What this lab is
 
-The executable reference SUT is a Shopping RAG Assistant. The primary outcome is the reusable QE framework around it: governed requirements/risks/test assets, Dataset/Oracle Validation, deterministic and semantic evaluation, AI-risk evidence, evaluator calibration, canonical-truth governance, CI quality gates, telemetry, failure localization and Agentic QE/STLC orchestration.
+The executable System Under Test (SUT) is a Shopping RAG Assistant. The main purpose of the repository is the QE framework around that SUT: governed test assets, dataset validation, deterministic and semantic evaluation, AI-risk evidence, evaluator calibration, canonical-truth governance, CI quality gates, telemetry, failure localization and Agentic QE/STLC orchestration.
 
-## Current architecture
+Engineering owns the SUT implementation. QE defines risks and expected behavior, builds evaluation assets, governs their promotion, executes the real SUT, evaluates evidence, validates the evaluator itself, governs canonical test truth, gates quality and localizes failures.
 
-```text
-UPSTREAM AGENTIC QE
-Jira Requirement
-→ Requirements Review
-→ human readiness boundary / review-completed
-→ Risk Analysis
-→ human Risk approval
-→ approved Risk Register → Jira Description + risk-analysis-completed
-→ Test Analysis & Design
-→ proposal / traceability / decision package
-→ Human Decision workflow
-→ APPROVE / REJECT / EDIT / EXTEND_EXISTING
-→ explicit confirmation + decision evidence
-→ [next: governed dataset promotion]
+## Master architecture
 
-DOWNSTREAM QUALITY EXECUTION
-Governed Dataset
-→ Dataset / Oracle Validation
-→ SUT Execution
-→ deterministic Python OR semantic LLM Judge
-→ Metrics / Risk Aggregation
-→ Quality Gate
-→ Evidence / Lifecycle Decision
+The README keeps the master view compact and visual. It separates upstream Agentic QE / human governance from downstream CI/CD quality execution.
+
+```mermaid
+flowchart TB
+    ORCH["Agentic QE / STLC Orchestration\nRequirements Review -> Risk Analysis -> Test Analysis & Design"]
+    HGA["Human Governance / Approval\nReadiness -> Risk Approval -> Test Decision"]
+    GTA["Governed Test Assets\nApproved datasets + Oracle/assertion/risk metadata"]
+
+    ORCH --> HGA
+    HGA --> GTA
+
+    subgraph CICD["CI/CD Quality Execution"]
+        VALID["Dataset / Oracle Validation\nContract + identity + Oracle/assertion checks"]
+        SUITE["Suite Evaluation\nSUT Execution -> Oracle Resolution -> Python / LLM Judge"]
+        MET["Metrics / Risk Aggregation"]
+        QG["Quality Gate"]
+        EVID["PASS / FAIL + Evidence"]
+
+        VALID --> SUITE
+        SUITE --> MET
+        MET --> QG
+        QG --> EVID
+    end
+
+    GTA --> VALID
+    EVID --> DEC["PR / Regression / Nightly / Release Decision"]
+
+    EGOV["Evaluator Governance\nJudge Calibration"] -. validates .-> SUITE
+    GGOV["Golden / Canonical Truth Governance\nGolden change control"] -. protects .-> GTA
 ```
 
-Requirements Review, Risk Analysis and Test Analysis & Design are runnable. The Risk Jira write-back is approval-gated. Test-asset Human Decision is actionable through a separate GitHub `workflow_dispatch` choice/confirmation workflow. Test Analysis itself never mutates governed datasets.
+**Current upstream state:** Requirements Review, Risk Analysis and Test Analysis & Design are runnable. Risk Jira write-back is approval-gated. Test proposals continue through the actionable Human Decision workflow (`APPROVE / REJECT / EDIT / EXTEND_EXISTING`) and explicit confirmation. Confirmed decision -> governed dataset mutation/promotion is the next unimplemented boundary.
 
-See [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md), [`docs/master_architecture.md`](docs/master_architecture.md) and [`docs/current_status.md`](docs/current_status.md).
+**Boundaries:** `Governed Test Assets` are approved artifacts, not an agent or execution pipeline. Human governance decides whether proposals become governed assets. Dataset/Oracle Validation is a separate technical execution-precondition check.
 
-## Governed evaluation assets
+## Architecture navigation
 
-| Asset | Scope | Execution purpose |
-|---|---:|---|
-| PR Critical standard | 10 | automatic merge gate |
-| Metamorphic Critical | 2 | PR invariant gate |
-| Regression | 15 | manual regression health |
-| Broad Nightly | 80 | manual broad AI-risk evaluation |
-| Golden | 35 | canonical release/reference truth |
-| Adversarial | 10 | manual + nightly hostile-input gate |
-| Judge Calibration | 8 | evaluator regression gate |
-| Back-to-Back | reuses 10 PR cases | manual model/config comparison |
-| Agent Evaluation | planned | agent tools/permissions/HITL behavior |
+| Pipeline / control plane | Responsibility | Detailed view |
+|---|---|---|
+| **Agentic QE / STLC Orchestration** | Requirements Review -> Risk Analysis -> Test Analysis & Design -> Human Decision | [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md) |
+| **Human Governance / Approval** | readiness, Risk write-back, test proposal decision | [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md) |
+| **Dataset / Oracle Validation Pipeline** | case identity and Oracle/assertion contract before model calls | [`docs/dataset_oracle_validation_pipeline.md`](docs/dataset_oracle_validation_pipeline.md) |
+| **Application / SUT Pipeline** | constraints -> filtering -> retrieval -> adaptive context -> generation/deterministic exits | [`docs/architecture.md`](docs/architecture.md) |
+| **Evaluation Pipeline** | Oracle routing -> Python / semantic Judge -> evaluated case | [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) |
+| **Dataset Design / Oracle Contract** | dataset purposes and Oracle/assertion metadata | [`docs/dataset_design.md`](docs/dataset_design.md) |
+| **Specialized AI Testing** | Metamorphic, Back-to-Back and Adversarial | [`docs/future_ai_testing_workflows.md`](docs/future_ai_testing_workflows.md) |
+| **Golden Governance** | canonical expected-truth change control | [`docs/golden_dataset_governance.md`](docs/golden_dataset_governance.md) |
+| **Evaluator Governance** | OLD vs NEW Judge calibration against human truth | [`docs/judge_calibration_workflow.md`](docs/judge_calibration_workflow.md) |
+| **Master Architecture** | expanded end-to-end map and boundaries | [`docs/master_architecture.md`](docs/master_architecture.md) |
 
-Broad Regression/Nightly product schedules remain intentionally paused. Drift testing is outside the current roadmap.
+### Agent-level navigation
 
-## Core engineering rules
+| Agent / gate | Detailed view |
+|---|---|
+| Requirements Review Agent | [`docs/requirements_review_agent.md`](docs/requirements_review_agent.md) |
+| Risk Analysis Agent | [`docs/risk_analysis_agent.md`](docs/risk_analysis_agent.md) |
+| Test Analysis & Design + Human Decision | [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md) |
 
-- deterministic/formal checks stay in Python;
-- semantic reasoning uses LLMs only where it adds value;
-- deterministic eligibility runs before paid semantic agent execution;
-- content-aware caches avoid unchanged repeat calls;
-- human approval is required before governed/external mutations where defined;
-- Golden truth and Judge behavior have independent governance;
-- similar coverage is evidence, not an automatic duplicate decision;
-- one failed ticket should not crash an entire agent batch;
-- preserve model/prompt/token/cost/evidence traceability.
+## Dataset and CI model
 
-## Human Decision semantics
+SUT evaluation datasets are organized by execution purpose, not inheritance:
 
-Agent recommendation and human decision are separate.
+- **PR Critical — 12 physical records:** 10 standard fast merge-blocking cases + 2 Metamorphic Critical records;
+- **Regression — 15 cases:** stable behavior and fixed-defect health;
+- **Broad Nightly Evaluation — 80 cases:** broad AI-risk, edge and robustness signal;
+- **Golden — 35 cases:** trusted canonical baseline / release validation;
+- **Adversarial — 10 cases:** governed hostile-input coverage;
+- **Judge Calibration — 8 cases:** human-reviewed evaluator truth.
+
+Back-to-Back reuses the 10 standard PR Critical cases; it does not own another dataset.
 
 ```text
-Agent: ADD / EXTEND_EXISTING / SKIP
-Human: APPROVE / REJECT / EDIT / EXTEND_EXISTING
+PR
+├─ Standard Critical Evaluation     = automatic merge gate
+└─ Metamorphic Critical             = automatic relation gate
+
+Manual comparison
+└─ Back-to-Back                     = Model A vs Model B on same 10 PR cases
+
+Scheduled / manual
+└─ Adversarial                      = 10 hostile-input cases
+
+Other lifecycle workflows
+├─ Regression                       = manual-only
+├─ Broad Nightly                    = manual-only
+└─ Release Validation               = manual / RC
 ```
 
-APPROVE adds new coverage; REJECT changes nothing; EDIT modifies the proposal before addition; EXTEND_EXISTING applies a reviewed BEFORE → AFTER change to an existing case.
+For each lifecycle execution:
 
-## Current remaining roadmap
+```text
+Selected Governed Suite
+-> Dataset / Oracle Validation
+-> Suite Evaluation
+   -> SUT Execution
+   -> Oracle Resolution
+   -> deterministic Python OR semantic LLM Judge
+-> Metrics / Risk Aggregation
+-> Quality Gate
+-> PASS / FAIL + Evidence
+-> Lifecycle Decision
+```
 
-Implemented work is not repeated here. Remaining slices only:
+Specialized flows remain separate:
 
-1. confirmed Human Decision → governed dataset mutation;
-2. deterministic post-mutation validation;
-3. governed dataset diff/commit/PR promotion;
-4. optional Requirements Review approval → Jira `review-completed` write-back;
-5. targeted cross-document retrieval for Risk Analysis where useful;
-6. Agent Evaluation Dataset and agent-behavior evaluation;
-7. state-driven multi-agent orchestration after manual gates are stable;
-8. optional Confluence/test-management/release integrations.
+```text
+Metamorphic
+base + transformed invocation
+-> deterministic relation Oracle
+-> Metamorphic Gate
+
+Back-to-Back
+same Critical suite -> Model A + Model B
+-> evaluate both
+-> quality / regression / latency / token comparison
+
+Adversarial
+10-case attack dataset
+-> SUT + evaluator
+-> Adversarial Pass Rate / Attack Success Rate / category breakdown
+-> Adversarial Gate
+```
+
+Drift testing is intentionally outside the current roadmap.
+
+## Core governing rules
+
+```text
+Agent output -> proposal until applicable human approval.
+Formal assertion -> deterministic Python.
+Meaning / behavior judgment -> calibrated semantic LLM Judge.
+Validate dataset/oracle contracts before expensive model calls.
+Deterministic agent eligibility before paid semantic reasoning.
+Similarity -> human evidence, not automatic duplicate verdict.
+```
+
+Golden is canonical truth under separate governance. Judge behavior is protected by Judge Calibration.
+
+## Traceability target
+
+```text
+Requirement -> Acceptance Criterion -> Risk -> Proposed Test / Evaluation Asset
+-> Human Decision -> Governed Test Asset
+-> Dataset / Oracle Validation -> SUT Execution -> Evidence
+-> Oracle / Metric / Quality Gate -> Defect / Regression
+-> Residual Risk -> Release Decision
+```
+
+## Remaining roadmap
+
+Only unimplemented work remains here:
+
+1. confirmed Human Decision -> governed dataset ADD / EDIT / EXTEND_EXISTING mutation;
+2. exact BEFORE -> AFTER handling for `EXTEND_EXISTING`;
+3. deterministic post-mutation validation;
+4. governed dataset diff/commit/PR promotion;
+5. optional Requirements Review approval -> Jira `review-completed` write-back;
+6. targeted Risk evidence retrieval where justified;
+7. Agent Evaluation Dataset and agent-behavior evaluation;
+8. state-driven orchestration after manual gates are stable;
+9. optional Confluence/test-management/release integrations.
 
 ## Documentation
 
-- [`docs/test_strategy.md`](docs/test_strategy.md) — test strategy and quality governance.
-- [`docs/master_architecture.md`](docs/master_architecture.md) — top-level architecture.
-- [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md) — agent responsibilities, human gates and remaining orchestration.
-- [`docs/current_status.md`](docs/current_status.md) — executable current state.
-- [`docs/architecture.md`](docs/architecture.md) — detailed Shopping RAG SUT architecture.
-- [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) — evaluation/Oracle/Judge design.
-- [`docs/adversarial_testing_contract.md`](docs/adversarial_testing_contract.md) — adversarial testing contract.
+- [`QUICKSTART.md`](QUICKSTART.md) — clone, configure and run locally;
+- [`docs/master_architecture.md`](docs/master_architecture.md) — expanded master architecture and responsibility boundaries;
+- [`docs/dataset_oracle_validation_pipeline.md`](docs/dataset_oracle_validation_pipeline.md) — dataset/oracle execution-precondition pipeline;
+- [`docs/architecture.md`](docs/architecture.md) — detailed reference SUT/application architecture;
+- [`docs/agentic_qe_orchestration.md`](docs/agentic_qe_orchestration.md) — Agentic QE orchestration and decision branches;
+- [`docs/automated_ai_evaluation.md`](docs/automated_ai_evaluation.md) — Oracle/evaluation details;
+- [`docs/dataset_design.md`](docs/dataset_design.md) — dataset purposes and Oracle contract;
+- [`docs/adversarial_testing_contract.md`](docs/adversarial_testing_contract.md) — adversarial test-design contract;
+- [`docs/future_ai_testing_workflows.md`](docs/future_ai_testing_workflows.md) — specialized workflow split and remaining roadmap;
+- [`docs/metric_contract.md`](docs/metric_contract.md) — canonical metric definitions and denominators;
+- [`docs/test_strategy.md`](docs/test_strategy.md) — complete test strategy;
+- [`docs/judge_calibration_workflow.md`](docs/judge_calibration_workflow.md) — Judge calibration;
+- [`docs/golden_dataset_governance.md`](docs/golden_dataset_governance.md) — Golden truth governance;
+- [`docs/current_status.md`](docs/current_status.md) — concise implementation status;
+- [`docs/documentation_index.md`](docs/documentation_index.md) — full documentation map.
