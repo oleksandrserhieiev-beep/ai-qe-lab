@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import re
+from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,12 +26,97 @@ def _read_json(path): return json.loads(path.read_text(encoding="utf-8"))
 def _write_json(path, value): path.parent.mkdir(parents=True, exist_ok=True); path.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
 def _force(): return (os.getenv("TEST_ANALYSIS_DESIGN_FORCE") or "").lower() in {"1", "true", "yes", "on"}
 def _model(): return (os.getenv("TEST_ANALYSIS_DESIGN_MODEL") or os.getenv("RISK_ANALYSIS_MODEL") or os.getenv("SUT_MODEL") or "").strip()
-def _escape(value): return str(value).replace("|", "\\|").replace("\n", " ")
+def _escape(value): return str(value).replace("|", "\\|").replace("\n", "<br>")
 def _table(headers, rows): return ["| " + " | ".join(headers) + " |", "| " + " | ".join(":---:" for _ in headers) + " |", *["| " + " | ".join(_escape(v) for v in row) + " |" for row in rows]]
 def _summary(lines):
     path = os.getenv("GITHUB_STEP_SUMMARY")
     if path:
         with open(path, "a", encoding="utf-8") as handle: handle.write("\n".join(lines) + "\n")
+
+
+def _compact_value(value, preferred_key=None):
+    if value is None:
+        return "-"
+    if isinstance(value, dict):
+        if preferred_key and value.get(preferred_key) is not None:
+            return str(value[preferred_key])
+        if len(value) == 1:
+            return str(next(iter(value.values())))
+        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    if isinstance(value, list):
+        return "; ".join(str(item) for item in value)
+    return str(value)
+
+
+def _proposal_summary(results: list[dict]) -> list[str]:
+    lines = ["", "## Test Analysis & Design — Coverage Proposals", ""]
+    for item in results:
+        if item.get("status") == "ERROR":
+            continue
+        proposals = item.get("result", {}).get("proposals", [])
+        issue_key = item["issue_key"]
+        lines.extend([f"<details>", f"<summary><strong>{issue_key}</strong></summary>", ""])
+        if not proposals:
+            lines.extend(["No new material coverage proposed.", "", "</details>", ""])
+            continue
+
+        ac_labels = OrderedDict()
+        groups = OrderedDict()
+        for proposal in proposals:
+            trace = proposal.get("traceability") or {}
+            acs = trace.get("acceptance_criteria") or ["Unmapped AC"]
+            labels = []
+            for ac in acs:
+                if ac not in ac_labels:
+                    ac_labels[ac] = f"AC{len(ac_labels) + 1}"
+                labels.append(ac_labels[ac])
+            ac_label = ", ".join(labels)
+            risk_label = ", ".join(trace.get("risk_ids") or []) or "Unmapped risk"
+            groups.setdefault((ac_label, risk_label), []).append(proposal)
+
+        for (ac_label, risk_label), grouped in groups.items():
+            lines.extend([f"### {ac_label}", f"**Risk:** `{risk_label}`", ""])
+            functional = [p for p in grouped if p.get("test_kind") == "functional"]
+            ai = [p for p in grouped if p.get("test_kind") == "ai"]
+
+            if functional:
+                rows = []
+                for proposal in functional:
+                    steps = proposal.get("steps") or []
+                    rows.append([
+                        proposal["title"],
+                        "<br>".join(f"{index}. {step}" for index, step in enumerate(steps, start=1)),
+                        _compact_value(proposal.get("expected"), "behavior"),
+                    ])
+                lines.extend(["#### Functional", "", *_table(["Test", "Steps", "Expected"], rows), ""])
+
+            if ai:
+                rows = []
+                rationales = []
+                for proposal in ai:
+                    similar = max(proposal.get("similar_cases") or [], key=lambda x: x.get("similarity_score", 0.0), default=None)
+                    existing_id = proposal.get("existing_case_id") or (similar or {}).get("case_id")
+                    similarity = (similar or {}).get("similarity_score")
+                    existing = "-"
+                    if existing_id:
+                        existing = existing_id + (f" ({similarity:.0%})" if similarity is not None else "")
+                    rows.append([
+                        proposal["title"],
+                        _compact_value(proposal.get("input"), "query"),
+                        _compact_value(proposal.get("expected"), "behavior"),
+                        existing,
+                        proposal.get("oracle_type") or "-",
+                        proposal.get("target_suite") or "-",
+                        proposal.get("action") or "-",
+                    ])
+                    if proposal.get("target_rationale"):
+                        rationales.append(f"- **{proposal['proposed_id']} rationale:** {proposal['target_rationale']}")
+                lines.extend(["#### AI Quality", "", *_table(["Test", "Input", "Expected", "Existing", "Oracle", "Dataset", "Action"], rows), ""])
+                if rationales:
+                    lines.extend(rationales + [""])
+
+        lines.extend(["</details>", ""])
+    return lines
 
 
 def _extract_risks(description: str) -> list[dict]:
@@ -119,16 +205,8 @@ def run(raw_issue_keys: str) -> dict:
             except Exception as exc:
                 results.append({"issue_key": key, "status": "ERROR", "cache_hit": False, "error": str(exc)})
     save_cache(cache, DEFAULT_CACHE_PATH)
-    trace_rows = []
-    for item in results:
-        if item.get("status") == "ERROR":
-            continue
-        for proposal in item["result"].get("proposals", []):
-            trace = proposal["traceability"]
-            similar = max(proposal.get("similar_cases") or [], key=lambda x: x["similarity_score"], default=None)
-            trace_rows.append([item["issue_key"], "; ".join(trace["acceptance_criteria"]), "; ".join(trace["risk_ids"]), similar["case_id"] if similar else "-", proposal["title"], f"{similar['similarity_score']:.0%}" if similar else "-", proposal["oracle_type"], proposal["target_suite"], proposal["action"], proposal["target_rationale"]])
     failed = [item for item in results if item.get("status") == "ERROR"]
-    _summary(["", "## Traceability & Coverage Proposals", "", *_table(["Jira", "Acceptance Criteria", "Risks", "Existing Coverage", "Proposed Test", "Similarity", "Oracle", "Target", "Action", "Rationale"], trace_rows), "", "### Agent execution", f"**Succeeded:** {len(results)-len(failed)} | **Failed:** {len(failed)} | **Cache hits:** {hits} | **LLM attempts:** {attempts} | **Tokens:** {total_tokens:,} | **Estimated cost:** ${total_cost:.6f}", *(["", *_table(["Issue", "Status", "Error"], [[x["issue_key"], "ERROR", x["error"]] for x in failed])] if failed else []), "", "### Human decision contract", "`APPROVE = add new` · `REJECT = no change` · `EDIT = edit proposal before add` · `EXTEND_EXISTING = modify existing case after BEFORE → AFTER review`"])
+    _summary([*_proposal_summary(results), "### Agent execution", f"**Succeeded:** {len(results)-len(failed)} | **Failed:** {len(failed)} | **Cache hits:** {hits} | **LLM attempts:** {attempts} | **Tokens:** {total_tokens:,} | **Estimated cost:** ${total_cost:.6f}", *(["", *_table(["Issue", "Status", "Error"], [[x["issue_key"], "ERROR", x["error"]] for x in failed])] if failed else []), "", "### Human decision contract", "AI Quality only: `APPROVE = add new` · `REJECT = no change` · `EDIT = edit proposal before add` · `EXTEND_EXISTING = modify existing case after BEFORE → AFTER review`. Functional tests are review-only until TMS integration."])
     report = {"run_timestamp": datetime.now(timezone.utc).isoformat(), "requested": len(issue_keys), "eligible": len(requirements), "ineligible": len(issue_keys)-len(requirements), "dataset_blocked": blocking, "dataset_health": health, "cache_hits": hits, "llm_attempts": attempts, "failed": len(failed), "total_tokens": total_tokens, "estimated_cost_usd": round(total_cost, 6), "eligibility": eligibility, "results": results}
     _write_json(REPORT_PATH, report); print(json.dumps(report, ensure_ascii=False, indent=2)); return report
 
