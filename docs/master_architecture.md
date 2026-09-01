@@ -4,50 +4,74 @@ _Last synchronized with repository: 2026-09-01._
 
 ## Purpose
 
-This is the compact top-level architecture. Detailed branching belongs to the pipeline documents; the master view intentionally shows responsibility boundaries without becoming a spaghetti diagram.
+This document is the **full detailed end-to-end architecture** of the AI QE Lab. The root `README.md` shows the same architecture in a compact form. Dedicated pipeline documents are zoom-ins of the corresponding blocks below and contain the detailed state/decision transitions.
 
-## Master architecture
+No pipeline document defines a competing architecture: each one expands one part of this master flow.
+
+## Full architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph UP["Agentic QE / STLC"]
         J["Jira Requirement"] --> RR["Requirements Review"]
-        RR --> RG["Human readiness gate"]
-        RG --> RA["Risk Analysis"]
-        RA --> RAG["Human risk gate"]
-        RAG --> TD["Test Analysis & Design"]
+        RR --> HR["Human Readiness"]
+        HR --> RA["Risk Analysis"]
+        RA --> HRA["Human Risk Approval + Jira Write-back"]
+        HRA --> TD["Test Analysis & Design"]
         TD --> HD["Human Decision"]
-        HD --> DP["Decision Evidence"]
+        HD --> DE["Decision Evidence"]
     end
 
-    DP -. "NEXT: validated promotion" .-> GTA["Governed Test Assets"]
+    DE -. "NEXT: governed mutation / promotion" .-> GTA["Governed Test Assets"]
 
-    subgraph EXEC["Product Quality Execution"]
-        GTA --> DV["Dataset / Oracle Validation"]
-        DV --> SUT["SUT Execution"]
-        SUT --> OR["Oracle Resolution"]
-        OR --> MET["Metrics + Risk"]
-        MET --> QG["Quality Gate"]
-        QG --> E["Evidence / Decision"]
-    end
+    GG["Golden / Canonical Truth Governance"] -. "protects" .-> GTA
 
-    JG["Judge Calibration"] -. "validates evaluator" .-> OR
-    GG["Golden Governance"] -. "protects canonical truth" .-> GTA
+    GTA --> DV["Dataset / Oracle Validation Pipeline"]
+    DV --> SUT["Application / SUT Pipeline\nInput -> Constraints -> Filter -> Retrieval -> Context -> Generation / deterministic exits"]
+    SUT --> OUT["SUT Output + Telemetry"]
+    OUT --> EV["Evaluation Pipeline\nOracle Resolution -> Python Assertions / LLM Judge"]
+
+    JC["Judge Calibration / Evaluator Governance"] -. "validates semantic evaluator" .-> EV
+
+    EV --> MR["Metrics + Risk Aggregation"]
+    MR --> LOC["Failure Localization"]
+    LOC --> QG["Product Quality Gate"]
+    QG --> EVID["PASS / FAIL + Evidence"]
+    EVID --> CI["CI/CD / Suite Lifecycle Decision\nPR / Regression / Nightly / Adversarial / Release"]
 ```
 
-The upstream and downstream systems are deliberately separated. Agents propose quality assets; governed assets enter product execution only after human governance and technical validation.
+The architecture has explicit boundaries:
+
+```text
+Agentic QE
+-> Human Governance
+-> Governed Test Assets
+-> Dataset / Oracle Validation
+-> Application / SUT Pipeline
+-> SUT Output + Telemetry
+-> Evaluation Pipeline
+-> Metrics / Risk / Localization
+-> Product Quality Gate
+-> Evidence
+-> CI/CD Lifecycle Decision
+```
+
+Golden Governance protects canonical truth. Judge Calibration protects evaluator quality. Neither is part of the ordinary SUT execution path.
 
 ## Canonical pipeline map
 
-| Pipeline | Responsibility | Detailed document |
-|---|---|---|
-| Agentic QE orchestration | Requirement → risk → test proposal → human decision | `agentic_qe_orchestration.md` |
-| Reference SUT / RAG | Constraint → retrieval → context → generation, including deterministic exits | `architecture.md` |
-| Dataset / Oracle Validation | Technical contract before paid execution | `dataset_oracle_validation_pipeline.md` |
-| Product evaluation | Oracle routing → Python/Judge → metrics/gate | `automated_ai_evaluation.md` |
-| Judge governance | OLD vs NEW evaluator against human truth | `judge_calibration_workflow.md` |
-| Golden governance | Canonical expected-truth change control | `golden_dataset_governance.md` |
-| Specialized AI testing | Metamorphic, Back-to-Back, Adversarial | `future_ai_testing_workflows.md` |
+| Master block | Detailed state / decision document |
+|---|---|
+| Agentic QE / STLC | `agentic_qe_orchestration.md` |
+| Dataset / Oracle Validation | `dataset_oracle_validation_pipeline.md` |
+| Application / SUT | `sut_application_pipeline.md` |
+| Evaluation | `automated_ai_evaluation.md` |
+| CI/CD / Suite Execution | `cicd_suite_execution_pipeline.md` |
+| Judge governance | `judge_calibration_workflow.md` |
+| Golden governance | `golden_dataset_governance.md` |
+| Specialized AI testing | `future_ai_testing_workflows.md` |
+
+`architecture.md` remains the complete detailed architecture reference across these domains; the documents above provide deeper zoom-ins without redefining the master flow.
 
 ## Implemented upstream responsibilities
 
@@ -55,7 +79,7 @@ The upstream and downstream systems are deliberately separated. Agents propose q
 |---|---|---|---|
 | Requirements Review | input/eligibility, cache, contract, telemetry | requirement quality, gaps/questions | no automatic Jira approval write-back yet |
 | Risk Analysis | eligibility, cache, L×I scoring, priority, contract | risk identification, mitigation/test-focus proposals | explicit approval writes Risk Register to Jira |
-| Test Analysis & Design | dataset health, cache, contract normalization/retry, failure isolation | coverage/similarity reasoning, test proposals, Oracle/suite rationale | analysis never mutates datasets |
+| Test Analysis & Design | dataset health, cache, contract normalization/retry, failure isolation | risk-driven optimized coverage, similarity reasoning, concrete test proposals, priority/time/suite rationale | analysis never mutates datasets |
 | Human Decision | proposal lookup, decision validation, explicit confirmation | human judgment | decision evidence only; promotion is next slice |
 
 ## Governed asset model
