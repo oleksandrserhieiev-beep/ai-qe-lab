@@ -1,231 +1,140 @@
 # AI QE Lab — Master Architecture
 
+_Last synchronized with repository: 2026-09-01._
+
 ## Purpose
 
-This document is the expanded top-level map of the lab. It aligns the reusable AI QE framework with the workflows and governed assets currently implemented in the repository.
-
-The framework separates:
-
-- **target Agentic QE/STLC orchestration** that creates proposed quality assets;
-- **Human Governance / Approval** that promotes reviewed proposals into governed test assets;
-- **CI/CD Quality Execution** that validates selected assets, executes the SUT/evaluation path, aggregates evidence and applies gates;
-- **specialized AI testing workflows** for Metamorphic, Back-to-Back and Adversarial testing;
-- independent **Golden** and **Evaluator/Judge** governance control planes.
+This is the top-level map of the implemented AI QE framework. It separates upstream Agentic QE/STLC governance from downstream SUT/evaluation execution and from independent Golden/Judge governance.
 
 ## Master architecture
 
 ```mermaid
 flowchart TB
-    ORCH["Agentic QE / STLC Orchestration\nRequirements -> Risks -> Test Asset Proposals"]
-    HGA["Human Governance / Approval"]
-    GTA["Governed Test Assets"]
-
-    ORCH --> HGA --> GTA
+    JIRA["Jira Requirement"] --> RR["Requirements Review Agent"]
+    RR --> HR["Human readiness boundary / review-completed"]
+    HR --> RA["Risk Analysis Agent"]
+    RA --> RH["Human Risk Approval"]
+    RH --> JW["Jira Description: Reviewed Risk Register + risk-analysis-completed"]
+    JW --> TD["Test Analysis & Design Agent"]
+    TD --> DH["Dataset Health + Coverage / Similarity"]
+    DH --> PROP["Proposal + Traceability + Decision Package"]
+    PROP --> HD["Human Decision Workflow\nAPPROVE / REJECT / EDIT / EXTEND_EXISTING"]
+    HD --> DE["Confirmed Decision Evidence"]
+    DE -. next implementation .-> GTA["Governed Test Assets"]
 
     subgraph CORE["Core Product Quality Execution"]
-        DV["Dataset / Oracle Validation"]
-        APP["Application / SUT Execution"]
-        EV["Evaluation\nOracle Resolution -> Python / Semantic Judge"]
-        AGG["Metrics / Risk Aggregation"]
-        QG["Quality Gate"]
-        EVID["PASS / FAIL + Evidence"]
-
-        DV --> APP --> EV --> AGG --> QG --> EVID
+        DV["Dataset / Oracle Validation"] --> APP["Application / SUT Execution"]
+        APP --> EV["Oracle Resolution\nPython or Semantic Judge"]
+        EV --> AGG["Metrics / Risk Aggregation"]
+        AGG --> QG["Quality Gate"]
+        QG --> EVID["PASS / FAIL + Evidence"]
     end
 
     GTA --> DV
 
-    subgraph SPEC["Specialized AI Testing"]
-        PR["PR Quality\n10 Standard Critical"]
-        META["Metamorphic Critical\n2 META records -> relation gate"]
-        B2B["Manual Back-to-Back\n10 Standard Critical -> Model A + Model B"]
-        ADV["Scheduled / Manual Adversarial\n10 hostile-input cases"]
-    end
+    PR["PR Critical\n10 standard"] --> DV
+    META["Metamorphic Critical\n2 META"] --> EVID
+    B2B["Back-to-Back\nmanual; reuses 10 PR cases"] --> APP
+    ADV["Adversarial\n10; manual + nightly"] --> DV
+    REG["Regression\n15; manual"] --> DV
+    NIGHT["Broad Nightly\n80; manual"] --> DV
+    REL["Release Validation\nmanual"] --> DV
 
-    PR --> DV
-    META --> EVID
-    B2B --> APP
-    ADV --> DV
-
-    REG["Regression\n15 cases • manual-only"] --> DV
-    NIGHT["Broad Nightly\n80 cases • manual-only"] --> DV
-    REL["Release Validation\n35 Golden + broad Nightly evidence"] --> DV
-
-    JG["Evaluator Governance\n8-case Judge Calibration"] -. validates .-> EV
-    GG["Golden / Canonical Truth Governance"] -. protects .-> GTA
+    JG["Judge Calibration\n8 human-reviewed cases"] -. validates .-> EV
+    GG["Golden Governance\n35 canonical cases"] -. protects .-> GTA
 ```
 
-The master diagram shows responsibility boundaries and execution paths. Internal SUT details remain in `architecture.md`; Oracle/evaluator details remain in `automated_ai_evaluation.md`.
+## Implemented upstream responsibilities
+
+| Stage | Deterministic responsibilities | Semantic responsibilities | Mutation boundary |
+|---|---|---|---|
+| Requirements Review | input/eligibility, cache, contract, telemetry | requirement quality, gaps/questions | no automatic Jira approval write-back yet |
+| Risk Analysis | eligibility, cache, L×I scoring, priority, contract | risk identification, mitigation/test-focus proposals | separate explicit approval writes approved Risk Register to Jira |
+| Test Analysis & Design | dataset health, cache, contract normalization/retry, failure isolation | coverage/similarity reasoning, test proposals, Oracle/suite rationale | no dataset mutation during analysis |
+| Human Decision | proposal lookup, decision validation, explicit confirmation | human judgment | records decision evidence; dataset promotion is next slice |
+
+## Human governance semantics
+
+Risk Analysis and Test Analysis have different gates.
+
+```text
+Risk Analysis
+→ proposal
+→ explicit approval
+→ Jira write-back
+
+Test Analysis & Design
+→ proposal
+→ APPROVE / REJECT / EDIT / EXTEND_EXISTING
+→ explicit confirmation
+→ decision evidence
+→ future governed dataset promotion
+```
+
+For test assets:
+
+- APPROVE = add the proposed new case;
+- REJECT = no change;
+- EDIT = modify the proposal before adding;
+- EXTEND_EXISTING = review and apply an exact BEFORE → AFTER change to an existing case.
 
 ## Governed asset model
 
-The standard routine SUT inventory is intentionally distinct from specialized and governance assets.
-
-| Asset | Current role |
-|---|---|
-| **PR Critical standard** | 10 fast merge-blocking cases; 6 deterministic / 4 semantic |
-| **Metamorphic Critical** | 2 dedicated META records stored in `pr_critical_dataset.json`; relation-based PR gate |
-| **Regression** | 15 stable/fixed-defect cases; manual-only currently |
-| **Broad Nightly Evaluation** | 80 broad AI-risk/edge cases; manual-only currently |
-| **Golden** | 35 canonical release/reference cases |
-| **Adversarial** | 10 dedicated hostile-input cases with its own taxonomy/summary/gate |
-| **Judge Calibration** | 8 human-reviewed evaluator cases; tests the Judge, not the SUT |
-
-The 105 standard routine SUT cases are the 10 standard PR Critical + 15 Regression + 80 Broad Nightly cases. The 2 Metamorphic records and 10 Adversarial cases are separate technique-specific assets. Golden and Judge Calibration serve different governance purposes.
-
-Back-to-Back does **not** own another dataset. It reuses the 10 standard PR Critical cases against two selected generation models/configurations.
-
-## 1. Agentic QE / STLC Orchestration — target architecture
-
-```mermaid
-flowchart LR
-    A["Jira / Confluence"] --> RR["Requirements Review"]
-    RR -->|READY| RA["Risk Analysis"]
-    K["Relevant project knowledge"] --> RET["Targeted retrieval"]
-    RET --> RA
-    RA --> H1["Human Governance"]
-    H1 --> TD["Test Analysis & Design"]
-    TD --> PATCH["Proposed Test / Evaluation Assets"]
-    PATCH --> H2["Human Review / Approval"]
-    H2 --> DATA["Governed Test Assets"]
+```text
+PR Critical standard = 10
+Metamorphic Critical = 2
+Regression           = 15
+Broad Nightly        = 80
+Golden               = 35
+Adversarial          = 10
+Judge Calibration    = 8
+Back-to-Back         = no separate dataset
+Agent Evaluation     = planned
 ```
 
-Agent output remains a proposal/evidence artifact until Human Governance / Approval promotes it.
+Golden is canonical truth, not an ordinary execution tier. Judge Calibration tests evaluator quality, not product quality.
 
-## 2. Dataset / Oracle Validation
+## SUT architecture
 
-Dataset/Oracle Validation is the first technical execution-precondition for ordinary selected governed suites.
-
-```mermaid
-flowchart LR
-    DS["Selected Governed Test Asset"] --> ID["Case Identity / Contract Checks"]
-    ID --> OR["Oracle / Assertion Validation"]
-    OR --> RES{"Validation Result"}
-    RES -->|error| STOP["Stop before SUT / Judge calls"]
-    RES -->|pass / allowed warning| VALID["Validated Evaluation Case"]
-```
-
-The current validator enforces dataset root shape, case ID presence/uniqueness, allowed Oracle values and non-empty deterministic assertions for deterministic routes, with a warning/fallback path for missing Oracle metadata.
-
-## 3. Core SUT and evaluation path
-
-```mermaid
-flowchart LR
-    CASE["Validated Evaluation Case"] --> APP["Shopping RAG SUT"]
-    APP --> OUT["Answer + Retrieval / Context / Telemetry Evidence"]
-    OUT --> OR["Oracle Resolution"]
-    OR -->|deterministic| PY["Python Assertion Engine"]
-    OR -->|semantic_llm| J["Versioned Semantic Judge"]
-    PY --> CR["Evaluated Case Result"]
-    J --> CR
-```
-
-Semantic Judge verdicts must include a short non-empty rationale for both PASS and FAIL. Missing `reason` is an evaluator contract violation, not a valid semantic result. Judge model/prompt/rubric assets are version-controlled and changes are calibrated against the 8-case human-reviewed calibration set.
-
-## 4. Specialized AI testing workflows
-
-### PR quality
+The Shopping RAG Assistant remains:
 
 ```text
-Pull Request
-├─ Standard Critical Evaluation
-│  └─ 10 standard PR Critical cases
-└─ Metamorphic Critical
-   └─ 2 META records
-      -> base invocation + transformed invocation
-      -> deterministic relation Oracle
-      -> Metamorphic Gate
+Input
+→ Constraint Extraction / Validation
+→ Structured Filtering
+→ Embedding + FAISS Semantic Ranking
+→ Retrieval-K
+→ Adaptive Context Selection
+→ Context Builder
+→ Claude Generation
+→ Output + Telemetry
 ```
 
-The standard Critical path and the Metamorphic relation path are separate execution paths even though the META records are stored in the same `pr_critical_dataset.json` file.
+Deterministic clarification/no-match/abstention paths can skip Claude where applicable. A failed final answer is not automatically a generation defect; investigation starts at the first failing layer.
 
-### Back-to-Back
+## Core governance controls
 
-```text
-Manual workflow_dispatch
--> choose Model A + Model B
--> same 10 standard PR Critical cases
--> execute both models
--> evaluate both outputs
--> compare quality metrics
--> classify improved / regressed / unchanged cases
--> compare latency and token telemetry
--> retain comparison evidence
-```
+- deterministic Python for formal contracts and exact checks;
+- semantic LLM reasoning only where meaning-level analysis is required;
+- content-aware caching for agent calls;
+- prompt/model-sensitive invalidation;
+- explicit human gates before external/governed mutations;
+- version-controlled prompts and schemas;
+- per-ticket failure isolation for batch agents;
+- token/cost/latency evidence;
+- separate Golden and Judge governance;
+- no retry-until-green policy.
 
-Back-to-Back is a comparative technique and therefore reuses a controlled dataset instead of introducing another suite.
+## Remaining architecture work
 
-### Adversarial
+Only unimplemented items remain here:
 
-```text
-workflow_dispatch or nightly schedule
--> datasets/adversarial_dataset.json (10 cases)
--> SUT execution
--> semantic Judge evaluation
--> Adversarial Pass Rate
--> Attack Success Rate
--> category breakdown
--> critical adversarial failure count
--> Adversarial Gate
-```
+1. Human Decision → governed dataset mutation/promotion.
+2. Deterministic post-mutation validation and source-control PR generation.
+3. Optional Requirements Review approval → Jira `review-completed` write-back.
+4. Targeted cross-document retrieval for Risk Analysis where relevant.
+5. Agent Evaluation Dataset and agent-behavior evaluation.
+6. State-driven multi-agent orchestration after manual gates are stable.
+7. Optional Confluence/test-management/release integrations for target projects.
 
-The adversarial dataset follows `adversarial_testing_contract.md`. All current ADV cases explicitly use `semantic_llm` because attack success/failure is meaning-level behavior.
-
-### Drift
-
-Drift testing is intentionally not part of the current roadmap.
-
-## 5. Lifecycle execution
-
-```text
-Regression         = 15 cases, manual-only
-Broad Nightly      = 80 cases, manual-only
-Release Validation = manual: 35 Golden + broad Nightly evidence + Release Quality Gate
-```
-
-Release Validation is not another name for Golden. Golden provides canonical reference behavior; release readiness combines Golden with broader relevant evidence.
-
-## 6. Governance control planes
-
-### Human test-asset governance
-
-```mermaid
-flowchart LR
-    PROP["Proposed Test / Evaluation Assets"] --> REVIEW["Human Review / Approval"]
-    REVIEW -->|approved| GTA["Governed Test Assets"]
-    REVIEW -->|changes required| PROP
-```
-
-### Golden / canonical truth
-
-```mermaid
-flowchart LR
-    CHANGE["Golden Change"] --> META["Reason + Source of Truth"]
-    META --> CHECK["Golden Governance Check"]
-    CHECK --> TRUTH["Approved Canonical Truth"]
-```
-
-### Evaluator / Judge
-
-```mermaid
-flowchart LR
-    CHANGE["Judge Model / Prompt / Rubric Change"] --> OLD["OLD Judge"]
-    CHANGE --> NEW["NEW Judge"]
-    HUMAN["8-case Human Calibration Truth"] --> OLD
-    HUMAN --> NEW
-    OLD --> GATE["Calibration Gate"]
-    NEW --> GATE
-```
-
-## Cross-cutting rules
-
-```text
-Agent output -> proposal until human-approved promotion.
-Formal assertion -> deterministic Python.
-Meaning / behavior judgment -> semantic LLM Judge.
-Semantic Judge verdict -> non-empty rationale required.
-Validate dataset/oracle contracts before expensive model calls.
-Retrieve broadly -> select relevant evidence -> send narrowly to an agent.
-```
-
-Retain where applicable: requirement/case/trace ID, dataset identity, model and prompt version, Oracle route, rationale/evaluation evidence, token usage, latency, retrieval/context evidence, human approval history and quality-gate result.
+Drift testing remains outside the current roadmap.
