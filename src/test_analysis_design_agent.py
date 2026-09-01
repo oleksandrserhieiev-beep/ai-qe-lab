@@ -9,8 +9,7 @@ from cost_reporting import estimate_cost
 from test_analysis_design import TestAnalysisDesignResult
 
 PROMPT_PATH = Path(__file__).resolve().parents[1] / "config" / "test_analysis_design_prompt.txt"
-PRIMARY_MAX_TOKENS = 6000
-RETRY_MAX_TOKENS = 9000
+MAX_TOKENS = 6000
 
 
 def _configuration() -> tuple[str, str]:
@@ -84,14 +83,12 @@ def _normalise_contract(raw: dict, issue_key: str) -> dict:
         trace["acceptance_criteria"] = _as_list(trace.get("acceptance_criteria") or trace.get("ac"))
         trace["risk_ids"] = _as_list(trace.get("risk_ids") or trace.get("risks"))
         proposal["traceability"] = trace
-
         proposal["preconditions"] = _as_list(proposal.get("preconditions") or proposal.get("setup") or proposal.get("test_data"))
         proposal["priority"] = _normalise_enum(
             proposal.get("priority") or proposal.get("test_priority"),
             {"critical": "CRITICAL", "high": "HIGH", "medium": "MEDIUM", "low": "LOW"},
         )
         proposal["estimated_manual_minutes"] = proposal.get("estimated_manual_minutes") or proposal.get("manual_minutes") or proposal.get("estimated_minutes")
-
         proposal["expected"] = proposal.get("expected") or proposal.get("expected_output") or proposal.get("expected_behavior") or {}
         if not isinstance(proposal["expected"], dict):
             proposal["expected"] = {"behavior": proposal["expected"]}
@@ -112,14 +109,7 @@ def _normalise_contract(raw: dict, issue_key: str) -> dict:
         )
         proposal["target_suite"] = _normalise_enum(
             proposal.get("target_suite") or proposal.get("target") or "regression",
-            {
-                "pr_critical": "pr_critical",
-                "prcritical": "pr_critical",
-                "regression": "regression",
-                "nightly": "nightly",
-                "golden": "golden_candidate",
-                "golden_candidate": "golden_candidate",
-            },
+            {"pr_critical": "pr_critical", "prcritical": "pr_critical", "regression": "regression", "nightly": "nightly", "golden": "golden_candidate", "golden_candidate": "golden_candidate"},
         )
         proposal["action"] = str(proposal.get("action") or "ADD").strip().upper()
         rationale = proposal.get("target_rationale") or proposal.get("rationale") or proposal.get("reason")
@@ -149,46 +139,35 @@ def analyze_test_design(payload: dict) -> tuple[dict, dict]:
     prompt = PROMPT_PATH.read_text(encoding="utf-8")
     client = Anthropic(api_key=api_key)
     compact = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-    base_message = "Analyze this requirement, reviewed Risk Register, and governed dataset snapshot. Optimize for the smallest risk-driven test set with concrete preconditions, steps/input, expected behavior, explicit traceability, explainable similarity, priority, suite rationale, and manual-time estimate. Return one complete compact JSON object matching the TestAnalysisDesignResult contract only. Do not echo the dataset snapshot or Jira text.\n" + compact
-    messages = [{"role": "user", "content": base_message}]
-    responses = []
+    message = (
+        "Analyze this requirement, reviewed Risk Register, and governed dataset snapshot. Optimize for the smallest risk-driven test set with concrete preconditions, steps/input, expected behavior, explicit traceability, explainable similarity, priority, suite rationale, and manual-time estimate. Return one complete compact JSON object matching the TestAnalysisDesignResult contract only. Do not echo the dataset snapshot or Jira text.\n"
+        + compact
+    )
     started = time.perf_counter()
-    result = None
-    last_error = None
-    for attempt, max_tokens in enumerate((PRIMARY_MAX_TOKENS, RETRY_MAX_TOKENS), start=1):
-        response = client.messages.create(model=model, max_tokens=max_tokens, system=prompt, messages=messages)
-        responses.append(response)
-        text = _response_text(response)
-        try:
-            if response.stop_reason == "max_tokens":
-                raise ValueError(f"response was truncated at max_tokens={max_tokens}")
-            raw = _extract_json(text)
-            result = TestAnalysisDesignResult.model_validate(_normalise_contract(raw, payload["issue_key"])).model_dump(exclude_none=True)
-            if result["issue_key"] != payload["issue_key"]:
-                raise ValueError("output issue_key does not match input")
-            break
-        except Exception as exc:
-            last_error = exc
-            if attempt == 2:
-                raise ValueError(f"Test Analysis & Design contract failure after retry: {exc}") from exc
-            messages = [{
-                "role": "user",
-                "content": base_message + "\nPrevious attempt failed contract validation. Return a smaller complete JSON object using the exact conditional fields from the system instruction. Every proposal requires traceability, expected behavior, priority, and estimated_manual_minutes. Functional also requires steps. AI also requires input/oracle/target/action/target_rationale.",
-            }]
-    if result is None:
-        raise ValueError(f"Test Analysis & Design did not produce a result: {last_error}")
-    input_tokens = sum(int(getattr(r.usage, "input_tokens", 0) or 0) for r in responses)
-    output_tokens = sum(int(getattr(r.usage, "output_tokens", 0) or 0) for r in responses)
+    response = client.messages.create(model=model, max_tokens=MAX_TOKENS, system=prompt, messages=[{"role": "user", "content": message}])
+    text = _response_text(response)
+    if response.stop_reason == "max_tokens":
+        raise ValueError(f"Test Analysis & Design response was truncated at max_tokens={MAX_TOKENS}; no automatic LLM retry is performed")
+    try:
+        raw = _extract_json(text)
+        result = TestAnalysisDesignResult.model_validate(_normalise_contract(raw, payload["issue_key"])).model_dump(exclude_none=True)
+    except Exception as exc:
+        raise ValueError(f"Test Analysis & Design contract failure; no automatic LLM retry is performed: {exc}") from exc
+    if result["issue_key"] != payload["issue_key"]:
+        raise ValueError("output issue_key does not match input")
+
+    input_tokens = int(getattr(response.usage, "input_tokens", 0) or 0)
+    output_tokens = int(getattr(response.usage, "output_tokens", 0) or 0)
     telemetry = {
         "agent": "test_analysis_design",
-        "model": responses[-1].model,
+        "model": response.model,
         "input_tokens": input_tokens,
         "output_tokens": output_tokens,
         "total_tokens": input_tokens + output_tokens,
         "latency_ms": round((time.perf_counter() - started) * 1000, 2),
-        "attempts": len(responses),
-        "contract_retry_used": len(responses) > 1,
-        "stop_reason": responses[-1].stop_reason,
-        "estimated_cost_usd": estimate_cost(responses[-1].model, input_tokens, output_tokens),
+        "attempts": 1,
+        "contract_retry_used": False,
+        "stop_reason": response.stop_reason,
+        "estimated_cost_usd": estimate_cost(response.model, input_tokens, output_tokens),
     }
     return result, telemetry
