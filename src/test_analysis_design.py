@@ -7,6 +7,7 @@ OracleType = Literal["deterministic", "semantic"]
 ProposalAction = Literal["ADD", "EXTEND_EXISTING", "SKIP"]
 TargetSuite = Literal["pr_critical", "regression", "nightly", "golden_candidate"]
 HealthSeverity = Literal["ERROR", "WARNING"]
+TestPriority = Literal["CRITICAL", "HIGH", "MEDIUM", "LOW"]
 
 
 class DatasetHealthFinding(BaseModel):
@@ -34,9 +35,13 @@ class TestProposal(BaseModel):
     title: str = Field(min_length=1)
     test_kind: Literal["functional", "ai"]
     traceability: Traceability
+    preconditions: list[str] = []
     steps: list[str] = []
+    assertions: list[str] = Field(min_length=1)
     input: dict | None = None
     expected: dict
+    priority: TestPriority
+    estimated_manual_minutes: int = Field(ge=1, le=240)
     oracle_type: OracleType | None = None
     target_suite: TargetSuite | None = None
     target_rationale: str | None = None
@@ -61,6 +66,8 @@ class TestProposal(BaseModel):
             missing.append("target_suite")
         if not self.action:
             missing.append("action")
+        if not self.target_rationale:
+            missing.append("target_rationale")
         if missing:
             raise ValueError(f"ai proposal requires: {', '.join(missing)}")
         if self.action == "EXTEND_EXISTING" and (not self.existing_case_id or not self.proposed_extension):
