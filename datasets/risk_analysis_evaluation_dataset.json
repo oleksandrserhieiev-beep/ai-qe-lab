@@ -1,0 +1,59 @@
+[
+  {
+    "case_id": "RISK-EVAL-001",
+    "input": {
+      "issue_key": "EVAL-1",
+      "summary": "Filter products by color",
+      "description": "Customer can filter products by a selected color.",
+      "acceptance_criteria": "Only products matching the selected color are returned.",
+      "components": ["shopping"],
+      "requirements_review_decision": "READY",
+      "known_constraints": ["selected color must match returned products"],
+      "dependencies": ["product catalogue"],
+      "retrieved_evidence": []
+    },
+    "expected_categories": ["functional", "data"],
+    "required_focus_terms": ["color", "catalog"],
+    "forbidden_claim_terms": ["payment", "shipping"],
+    "min_risks": 1,
+    "max_risks": 6
+  },
+  {
+    "case_id": "RISK-EVAL-002",
+    "input": {
+      "issue_key": "EVAL-2",
+      "summary": "AI product recommendation from retrieved catalogue context",
+      "description": "The assistant recommends products using retrieved catalogue evidence and must not invent unsupported product facts.",
+      "acceptance_criteria": "Recommendations are grounded in retrieved evidence and respect explicit user constraints.",
+      "components": ["rag", "generation"],
+      "requirements_review_decision": "READY",
+      "known_constraints": ["no unsupported product claims", "explicit constraints must be respected"],
+      "dependencies": ["retrieval", "catalogue data", "LLM provider"],
+      "retrieved_evidence": []
+    },
+    "expected_categories": ["ai", "data"],
+    "required_focus_terms": ["ground", "constraint"],
+    "forbidden_claim_terms": ["credit card"],
+    "min_risks": 2,
+    "max_risks": 8
+  },
+  {
+    "case_id": "RISK-EVAL-003",
+    "input": {
+      "issue_key": "EVAL-3",
+      "summary": "Checkout service calls inventory API",
+      "description": "Checkout validates item availability through an inventory API before confirming an order.",
+      "acceptance_criteria": "Unavailable items cannot be confirmed; inventory API failures return a controlled error and do not create an order.",
+      "components": ["checkout", "inventory-api"],
+      "requirements_review_decision": "READY",
+      "known_constraints": ["no order on unavailable inventory", "no order on failed inventory validation"],
+      "dependencies": ["inventory API"],
+      "retrieved_evidence": []
+    },
+    "expected_categories": ["integration", "resilience", "functional"],
+    "required_focus_terms": ["inventory", "failure"],
+    "forbidden_claim_terms": ["machine learning"],
+    "min_risks": 2,
+    "max_risks": 8
+  }
+]
