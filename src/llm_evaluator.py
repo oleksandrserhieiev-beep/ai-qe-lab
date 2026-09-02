@@ -36,7 +36,8 @@ HIGH_RISK_LABELS = {
 RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504, 529}
 JUDGE_MAX_ATTEMPTS = int(os.getenv("JUDGE_MAX_ATTEMPTS", "4"))
 JUDGE_RETRY_BASE_SECONDS = float(os.getenv("JUDGE_RETRY_BASE_SECONDS", "2"))
-JUDGE_MAX_TOKENS = int(os.getenv("JUDGE_MAX_TOKENS", "180"))
+JUDGE_JSON_MAX_ATTEMPTS = int(os.getenv("JUDGE_JSON_MAX_ATTEMPTS", "2"))
+JUDGE_MAX_TOKENS = int(os.getenv("JUDGE_MAX_TOKENS", "320"))
 
 
 def _resolve_versioned_model(env_name, config_value):
@@ -97,6 +98,28 @@ def _create_judge_response(client, **kwargs):
     raise last_error
 
 
+def _extract_text(response):
+    text = "".join(
+        block.text for block in response.content if block.type == "text"
+    ).strip()
+
+    if not text:
+        raise ValueError(
+            f"Judge returned no text. model={response.model}, "
+            f"stop_reason={response.stop_reason}, "
+            f"content_types={[block.type for block in response.content]}"
+        )
+
+    if text.startswith("```json"):
+        text = text[7:]
+    if text.startswith("```"):
+        text = text[3:]
+    if text.endswith("```"):
+        text = text[:-3]
+
+    return text.strip()
+
+
 def evaluate_ai_response(
     query,
     expected_behavior,
@@ -117,40 +140,48 @@ def evaluate_ai_response(
         '"context_sufficient":true,"reason":"brief explanation of the verdict"}'
     )
 
-    response, attempts = _create_judge_response(
-        client,
-        model=judge_model,
-        max_tokens=JUDGE_MAX_TOKENS,
-        thinking={"type": "disabled"},
-        system=[
-            {
-                "type": "text",
-                "text": JUDGE_SYSTEM,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[{"role": "user", "content": prompt}],
-    )
+    last_json_error = None
+    total_api_attempts = 0
 
-    text = "".join(
-        block.text for block in response.content if block.type == "text"
-    ).strip()
-
-    if not text:
-        raise ValueError(
-            f"Judge returned no text. model={response.model}, "
-            f"stop_reason={response.stop_reason}, "
-            f"content_types={[block.type for block in response.content]}"
+    for json_attempt in range(1, JUDGE_JSON_MAX_ATTEMPTS + 1):
+        response, api_attempts = _create_judge_response(
+            client,
+            model=judge_model,
+            max_tokens=JUDGE_MAX_TOKENS,
+            thinking={"type": "disabled"},
+            system=[
+                {
+                    "type": "text",
+                    "text": JUDGE_SYSTEM,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ],
+            messages=[{"role": "user", "content": prompt}],
         )
+        total_api_attempts += api_attempts
+        text = _extract_text(response)
 
-    if text.startswith("```json"):
-        text = text[7:]
-    if text.startswith("```"):
-        text = text[3:]
-    if text.endswith("```"):
-        text = text[:-3]
+        try:
+            result = json.loads(text)
+            break
+        except json.JSONDecodeError as exc:
+            last_json_error = exc
+            retryable = response.stop_reason == "max_tokens" or json_attempt < JUDGE_JSON_MAX_ATTEMPTS
 
-    result = json.loads(text.strip())
+            if not retryable or json_attempt >= JUDGE_JSON_MAX_ATTEMPTS:
+                raise ValueError(
+                    "Judge returned malformed JSON after "
+                    f"{json_attempt} attempt(s). model={response.model}, "
+                    f"stop_reason={response.stop_reason}, error={exc}"
+                ) from exc
+
+            print(
+                "Judge returned truncated/malformed JSON; "
+                f"retry {json_attempt}/{JUDGE_JSON_MAX_ATTEMPTS}. "
+                f"stop_reason={response.stop_reason}"
+            )
+    else:
+        raise last_json_error
 
     try:
         coverage = int(round(float(result.get("context_coverage", 0))))
@@ -179,6 +210,7 @@ def evaluate_ai_response(
             response.usage, "cache_read_input_tokens"
         ),
         "stop_reason": response.stop_reason,
-        "api_attempts": attempts,
+        "api_attempts": total_api_attempts,
+        "json_attempts": json_attempt,
     }
     return result
